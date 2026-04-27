@@ -5,6 +5,7 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
 import { createRequire } from 'module';
 import { GoogleGenAI } from '@google/genai';
 // openastrology-library's .mjs build uses `import * as swisseph` which doesn't
@@ -33,7 +34,10 @@ function serverLog(level: ServerLogLevel, scope: string, message: string, detail
 // Swiss Ephemeris planet position calculator (singleton)
 // ---------------------------------------------------------------------------
 
-const EPHE_PATH = process.env.EPHE_PATH || path.resolve(__dirname, 'ephe');
+const localEphePath = path.resolve(__dirname, 'ephe');
+const bundledEphePath = path.resolve(__dirname, 'node_modules/swisseph/ephe');
+const EPHE_PATH = process.env.EPHE_PATH
+  || (existsSync(localEphePath) ? localEphePath : bundledEphePath);
 
 const vedicCalc = new VedicAstrologyCalculator({
   ayanamsa: 'lahiri',
