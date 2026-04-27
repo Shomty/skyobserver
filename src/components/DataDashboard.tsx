@@ -1456,7 +1456,12 @@ Respond ONLY with valid JSON (no markdown, no backticks):
         {activeTab === 'vargas' && (
           <div className="pb-6">
             {birthPositions && birthPositions.length > 0 ? (
-              <DivisionalCharts birthPositions={birthPositions} />
+              <DivisionalCharts
+                birthPositions={birthPositions}
+                user={user}
+                userProfile={userProfile}
+                birthFingerprint={birthFingerprint}
+              />
             ) : (
               <div className={cn("flex flex-col items-center justify-center py-24 gap-3", theme === 'dark' ? "text-white/30" : "text-slate-400")}>
                 <Layers className="w-10 h-10 opacity-40" />
@@ -1883,7 +1888,10 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                                 </span>
                               </td>
                               <td className={cn("py-2 pr-3", theme === 'dark' ? "text-white/70" : "text-slate-600")}>{p.rashi}</td>
-                              <td className={cn("py-2 pr-3 text-[10px]", theme === 'dark' ? "text-white/50" : "text-slate-500")}>{p.nakshatra}</td>
+                              <td className={cn("py-2 pr-3 text-[10px]", theme === 'dark' ? "text-white/50" : "text-slate-500")}>
+                                {p.nakshatra}
+                                <span className={cn("ml-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-orange-400")}>P{p.pada}</span>
+                              </td>
                               <td className={cn("py-2 pr-3 font-mono", theme === 'dark' ? "text-white/60" : "text-slate-500")}>{p.house}</td>
                               <td className={cn("py-2 pr-3 font-mono text-[10px]", theme === 'dark' ? "text-white/50" : "text-slate-400")}>{p.degree}°{p.minute}'</td>
                               <td className={cn("py-2 text-[10px] font-bold", statusColor)}>{status || '—'}</td>
@@ -1900,47 +1908,65 @@ Respond ONLY with valid JSON (no markdown, no backticks):
             {/* ── Nakshatra Section ─────────────────────────────────── */}
             {isBirthMode && birthPositions && (() => {
               const moonPos = birthPositions.find(p => p.name === 'Moon');
-              const sunPos = birthPositions.find(p => p.name === 'Sun');
-              const ascPos = birthPositions.find(p => p.name === 'Ascendant');
               if (!moonPos) return null;
               const moonNak = NAKSHATRA_DATA[moonPos.nakshatra as keyof typeof NAKSHATRA_DATA] as any;
+              const allPlanets = birthPositions.filter(p => p.name !== 'Ascendant');
               return (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
                   <div className={cn("p-5 rounded-3xl border", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-white border-slate-100 shadow-sm")}>
                     <div className={cn("text-[10px] uppercase tracking-widest font-mono mb-4 flex items-center gap-2", theme === 'dark' ? "text-jyotish-gold/60" : "text-slate-400")}>
                       <Star className="w-3 h-3" /> Nakshatra Blueprint
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                      {/* Moon Nakshatra — primary */}
-                      <div className={cn("p-4 rounded-2xl border col-span-1 lg:col-span-3", theme === 'dark' ? "bg-jyotish-gold/5 border-jyotish-gold/20" : "bg-orange-50 border-orange-200")}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-lg">☽</span>
-                          <span className={cn("text-[10px] font-bold uppercase tracking-widest", theme === 'dark' ? "text-jyotish-gold/60" : "text-orange-500")}>Birth Moon Nakshatra</span>
-                        </div>
-                        <p className={cn("text-lg font-bold mb-1", theme === 'dark' ? "text-white" : "text-slate-900")}>{moonPos.nakshatra}</p>
-                        {moonNak && <p className={cn("text-xs leading-relaxed", theme === 'dark' ? "text-white/60" : "text-slate-600")}>
-                          Lord: <span className="text-jyotish-gold font-medium">{moonNak.lord}</span> · Deity: {moonNak.deity} · Symbol: {moonNak.symbol}
-                        </p>}
-                        {moonNak?.characteristics && <p className={cn("text-[11px] leading-relaxed mt-2 italic", theme === 'dark' ? "text-white/50" : "text-slate-500")}>{moonNak.characteristics}</p>}
+
+                    {/* Moon Nakshatra — primary highlight */}
+                    <div className={cn("p-4 rounded-2xl border mb-3", theme === 'dark' ? "bg-jyotish-gold/5 border-jyotish-gold/20" : "bg-orange-50 border-orange-200")}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-lg">☽</span>
+                        <span className={cn("text-[10px] font-bold uppercase tracking-widest", theme === 'dark' ? "text-jyotish-gold/60" : "text-orange-500")}>Birth Moon Nakshatra</span>
                       </div>
-                      {sunPos && (
-                        <div className={cn("p-3 rounded-2xl border", theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-slate-50 border-slate-100")}>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <span className="text-sm">☉</span>
-                            <span className={cn("text-[9px] font-bold uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Sun Nakshatra</span>
+                      <p className={cn("text-lg font-bold mb-1", theme === 'dark' ? "text-white" : "text-slate-900")}>{moonPos.nakshatra}
+                        <span className={cn("ml-2 text-xs font-normal", theme === 'dark' ? "text-white/40" : "text-slate-500")}>Pada {moonPos.pada}</span>
+                      </p>
+                      {moonNak && <p className={cn("text-xs leading-relaxed", theme === 'dark' ? "text-white/60" : "text-slate-600")}>
+                        Lord: <span className="text-jyotish-gold font-medium">{moonNak.lord}</span> · Deity: {moonNak.deity} · Symbol: {moonNak.symbol}
+                      </p>}
+                      {moonNak?.characteristics && <p className={cn("text-[11px] leading-relaxed mt-2 italic", theme === 'dark' ? "text-white/50" : "text-slate-500")}>{moonNak.characteristics}</p>}
+                    </div>
+
+                    {/* All planets nakshatra grid */}
+                    <div className={cn("text-[9px] uppercase tracking-widest font-mono mb-3", theme === 'dark' ? "text-white/25" : "text-slate-400")}>
+                      All Planets
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {allPlanets.map(p => {
+                        const nak = NAKSHATRA_DATA[p.nakshatra as keyof typeof NAKSHATRA_DATA];
+                        return (
+                          <div key={p.name} className={cn("flex items-start gap-3 p-3 rounded-2xl border", theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-slate-50 border-slate-100")}>
+                            <span className="text-base mt-0.5 shrink-0" style={{ color: p.color }}>{PLANET_GLYPHS[p.name] || p.symbol}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={cn("text-xs font-bold", theme === 'dark' ? "text-white/80" : "text-slate-700")}>{p.name}</span>
+                                <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-mono", theme === 'dark' ? "bg-jyotish-gold/10 text-jyotish-gold/60" : "bg-orange-100 text-orange-500")}>
+                                  {p.nakshatra} P{p.pada}
+                                </span>
+                                <span className={cn("text-[9px]", theme === 'dark' ? "text-white/30" : "text-slate-400")}>{p.rashi}</span>
+                              </div>
+                              {nak && (
+                                <div className={cn("text-[10px] mt-1", theme === 'dark' ? "text-white/40" : "text-slate-500")}>
+                                  Lord: <span className={cn("font-medium", theme === 'dark' ? "text-white/60" : "text-slate-600")}>{nak.lord}</span>
+                                  {" · "}Deity: <span className={cn("font-medium", theme === 'dark' ? "text-white/60" : "text-slate-600")}>{nak.deity}</span>
+                                  {" · "}Symbol: <span className={cn("font-medium", theme === 'dark' ? "text-white/60" : "text-slate-600")}>{nak.symbol}</span>
+                                </div>
+                              )}
+                              {nak?.characteristics && (
+                                <p className={cn("text-[9px] italic mt-0.5 leading-relaxed", theme === 'dark' ? "text-white/25" : "text-slate-400")}>
+                                  {nak.characteristics}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <p className={cn("text-sm font-bold", theme === 'dark' ? "text-white/80" : "text-slate-800")}>{sunPos.nakshatra}</p>
-                        </div>
-                      )}
-                      {ascPos && (
-                        <div className={cn("p-3 rounded-2xl border", theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-slate-50 border-slate-100")}>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <span className="text-sm">⬆</span>
-                            <span className={cn("text-[9px] font-bold uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Ascendant Nakshatra</span>
-                          </div>
-                          <p className={cn("text-sm font-bold", theme === 'dark' ? "text-white/80" : "text-slate-800")}>{ascPos.nakshatra}</p>
-                        </div>
-                      )}
+                        );
+                      })}
                     </div>
                   </div>
                 </motion.div>

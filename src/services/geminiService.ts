@@ -1,6 +1,7 @@
 import { Type } from "@google/genai";
-import { PlanetPosition, PanchangData, TransitEvent } from "../vedic-utils";
+import { PlanetPosition, PanchangData, TransitEvent, NAKSHATRA_DATA } from "../vedic-utils";
 import { callGeminiProxy } from "../lib/api-utils";
+import { DivisionalChartInfo } from "../lib/divisionalChartUtils";
 
 export interface AICosmicInterpretations {
   summary: string;
@@ -132,5 +133,92 @@ ${transitEvents.length > 0 ? transitEvents.map(e => `- [${e.type.toUpperCase()}]
     return JSON.parse(text) as AICosmicInterpretations;
   } catch {
     throw new Error('Invalid AI response format — could not parse JSON from Gemini');
+  }
+}
+
+// ─── Divisional Chart Nakshatra Interpretations ──────────────────────────────
+
+export interface DivisionalNakshatraInterpretations {
+  overview: string;
+  planets: Record<string, string>;
+  houses: Record<string, string>;
+}
+
+/**
+ * Generates AI interpretations of how each planet's Nakshatra influences it
+ * within the context of a specific divisional chart (D1–D60).
+ *
+ * CACHING: Always call getPerAccountReport before invoking this function.
+ * Save the result with savePerAccountReport immediately after. Never call
+ * this function automatically — only on explicit user action.
+ */
+export async function generateDivisionalNakshatraInterpretations(
+  chartType: string,
+  chartInfo: DivisionalChartInfo,
+  positions: PlanetPosition[],
+  profile: { firstName?: string; gender?: string }
+): Promise<DivisionalNakshatraInterpretations> {
+  const relevantPositions = positions.filter(p => p.name !== 'Ascendant');
+
+  const planetLines = relevantPositions.map(p => {
+    const nak = NAKSHATRA_DATA[p.nakshatra];
+    return `${p.name}: ${p.rashi} (House ${p.house ?? '?'}), Nakshatra: ${p.nakshatra} Pada ${p.pada}` +
+      (nak ? ` — Lord: ${nak.lord}, Deity: ${nak.deity}, Symbol: ${nak.symbol}, Theme: ${nak.characteristics}` : '') +
+      (p.isRetrograde ? ' [Retrograde]' : '') +
+      (p.dignity ? `, Dignity: ${p.dignity}` : '');
+  });
+
+  // Collect occupied rashis (unique) for house-level interpretation
+  const occupiedRashis = [...new Set(relevantPositions.map(p => p.rashi))];
+
+  const prompt = `
+You are an expert Vedic Jyotishi specialising in Nakshatra-level chart interpretation.
+
+Individual: ${profile.firstName || 'the native'} (${profile.gender || 'unspecified gender'})
+
+Divisional Chart: ${chartType} — ${chartInfo.name} (${chartInfo.sanskritName})
+Domain governed: ${chartInfo.purpose}
+
+Planetary positions in this ${chartType} chart (with Nakshatra detail):
+${planetLines.join('\n')}
+
+Your task:
+1. Write a 2–3 sentence overview of this ${chartType} chart's Nakshatra signature — what collective themes emerge from the Nakshatras present.
+2. For each planet listed above, write one focused paragraph explaining how that specific Nakshatra colours the planet's expression within the domain of ${chartInfo.name}. Reference the deity, lord, and symbolic themes of the Nakshatra. Speak directly to the native.
+3. For each occupied Rasi (${occupiedRashis.join(', ')}), write one paragraph explaining how the Nakshatra(s) present in that sign shape the themes of that house/sign within the ${chartInfo.name} context. Be specific to the domain (${chartInfo.purpose}).
+
+Rules:
+- Avoid generic astrology. Every paragraph must reference the specific Nakshatra, its deity/lord, and the ${chartType} domain.
+- Speak directly to the native using "your" language.
+- No padding or introductory phrases.
+  `;
+
+  const text = await callGeminiProxy({
+    model: "gemini-3-flash-preview",
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          overview: { type: Type.STRING },
+          planets: {
+            type: Type.OBJECT,
+            additionalProperties: { type: Type.STRING }
+          },
+          houses: {
+            type: Type.OBJECT,
+            additionalProperties: { type: Type.STRING }
+          }
+        },
+        required: ["overview", "planets", "houses"]
+      }
+    }
+  });
+
+  try {
+    return JSON.parse(text) as DivisionalNakshatraInterpretations;
+  } catch {
+    throw new Error('Invalid AI response format — could not parse Nakshatra interpretation JSON');
   }
 }

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Flame, ZoomIn, ZoomOut, RotateCcw, Eye, Home, Shield } from 'lucide-react';
 import { cn, getOrdinal } from '../lib/utils';
 import NorthIndianChart from './NorthIndianChart';
-import { PlanetPosition, RASHIS, calculateDrishti, Drishti, getDignityInterpretation, getRashiLord, HOUSE_DATA, getPlanetInHouseInterpretation } from '../vedic-utils';
+import { PlanetPosition, RASHIS, calculateDrishti, Drishti, getDignityInterpretation, getRashiLord, HOUSE_DATA, getPlanetInHouseInterpretation, NAKSHATRA_DATA } from '../vedic-utils';
 import { Sparkles } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
@@ -580,6 +580,37 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                   </div>
 
                   <div className="space-y-4">
+                    {/* Nakshatra info */}
+                    {(() => {
+                      const planetObj = positions.find(p => p.name === selectedPlanet);
+                      if (!planetObj) return null;
+                      const nakData = NAKSHATRA_DATA[planetObj.nakshatra as keyof typeof NAKSHATRA_DATA];
+                      return (
+                        <div className={cn("p-2.5 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200")}>
+                          <div className={cn("text-[9px] uppercase tracking-widest font-bold mb-1.5", theme === 'dark' ? "text-jyotish-gold/50" : "text-orange-400")}>
+                            Nakshatra
+                          </div>
+                          <div className={cn("text-xs font-bold", theme === 'dark' ? "text-jyotish-gold" : "text-orange-600")}>
+                            {planetObj.nakshatra}
+                            <span className={cn("ml-1.5 text-[10px] font-normal", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                              Pada {planetObj.pada}
+                            </span>
+                          </div>
+                          {nakData && (
+                            <>
+                              <div className={cn("text-[10px] mt-1", theme === 'dark' ? "text-white/40" : "text-slate-500")}>
+                                Lord: <span className={cn("font-medium", theme === 'dark' ? "text-white/60" : "text-slate-600")}>{nakData.lord}</span>
+                                {" · "}Deity: <span className={cn("font-medium", theme === 'dark' ? "text-white/60" : "text-slate-600")}>{nakData.deity}</span>
+                              </div>
+                              <p className={cn("text-[9px] italic mt-1 leading-relaxed", theme === 'dark' ? "text-white/30" : "text-slate-400")}>
+                                {nakData.characteristics}
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {(() => {
                       const planetObj = positions.find(p => p.name === selectedPlanet);
                       if (!planetObj || !planetObj.dignity) return null;
