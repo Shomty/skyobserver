@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@theme {
+  --color-mystic-purple: #1a0b2e;
+  --color-cosmic-indigo: #0f051d;
+  --color-jyotish-gold: #d4af37;
+  --color-celestial-gold: #f9e29b;
+}
+
+@layer base {
+  .markdown-body {
+    @apply space-y-2;
+  }
+  .markdown-body p {
+    @apply mb-2;
+  }
+  .markdown-body ul, .markdown-body ol {
+    @apply ml-4 mb-2 list-disc;
+  }
+  .markdown-body li {
+    @apply mb-1;
+  }
+  .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+    @apply font-bold mt-4 mb-2;
+  }
+  .markdown-body strong {
+    @apply font-bold text-jyotish-gold;
+  }
+  .markdown-body em {
+    @apply italic opacity-60;
+  }
+  .markdown-body {
+    @apply transition-colors duration-500;
+  }
+
+  .markdown-body.dark {
+    @apply text-white/90;
+  }
+
+  .markdown-body.light {
+    @apply text-slate-800;
+  }
+
+  body {
+    @apply transition-colors duration-500 antialiased;
+  }
+}
+
+@layer components {
+  .universe-bg {
+    @apply transition-colors duration-500;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .universe-bg.dark {
+    background: radial-gradient(circle at center, #1a0b2e 0%, #0f051d 100%);
+  }
+
+  .universe-bg.light {
+    background: radial-gradient(circle at center, #f8f9fa 0%, #e9ecef 100%);
+  }
+
+  .universe-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: 
+      radial-gradient(1px 1px at 20px 30px, #fff, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 40px 70px, #fff, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 50px 160px, #fff, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 90px 40px, #fff, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 130px 80px, #fff, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 160px 120px, #fff, rgba(0,0,0,0));
+    background-repeat: repeat;
+    background-size: 200px 200px;
+    opacity: 0.15;
+    pointer-events: none;
+  }
+
+  .gold-border {
+    @apply border-jyotish-gold/30 hover:border-jyotish-gold/60 transition-colors;
+  }
+
+  .gold-text {
+    @apply text-jyotish-gold;
+  }
+
+  .gold-gradient-text {
+    @apply bg-gradient-to-r from-jyotish-gold to-celestial-gold bg-clip-text text-transparent font-serif italic;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

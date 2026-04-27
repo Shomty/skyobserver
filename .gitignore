@@ -1,0 +1,37 @@
+node_modules/
+dist/
+dist-ssr/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+
+# Logs
+npm-debug.log*
+*.log
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-applet-config.json
+
+# Claude local settings
+.claude/
+
+# Swiss Ephemeris binary files (303 MB — download separately, set EPHE_PATH)
+ephe/
+
+# Dev-internal task notes
+tasks/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Coverage
+coverage/

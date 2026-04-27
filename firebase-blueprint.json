@@ -1,0 +1,124 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user-specific settings and profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique Firebase Auth UID." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "photoURL": { "type": "string", "format": "url", "description": "The user's profile photo URL." },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "gender": { "type": "string" },
+        "onboardingCompleted": { "type": "boolean" },
+        "defaultLocation": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lon": { "type": "number" },
+            "city": { "type": "string" }
+          }
+        },
+        "notifications": {
+          "type": "object",
+          "properties": {
+            "majorTransits": { "type": "boolean" },
+            "significantYogas": { "type": "boolean" },
+            "planetaryConjunctions": { "type": "boolean" }
+          }
+        },
+        "birthDetails": {
+          "type": "object",
+          "properties": {
+            "time": { "type": "string", "format": "date-time" },
+            "lat": { "type": "number" },
+            "lon": { "type": "number" },
+            "city": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "SavedChart": {
+      "title": "Saved Chart",
+      "description": "A saved astrological chart (e.g., family members, friends).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The owner's UID." },
+        "name": { "type": "string", "description": "Name for the chart." },
+        "birthTime": { "type": "string", "format": "date-time" },
+        "lat": { "type": "number" },
+        "lon": { "type": "number" },
+        "city": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "birthTime", "lat", "lon"]
+    },
+    "SavedInterpretation": {
+      "title": "Saved Interpretation",
+      "description": "An AI-generated interpretation of a chart, transit, or yoga.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The owner's UID." },
+        "title": { "type": "string", "description": "A title for the interpretation (e.g., 'Gajakesari Yoga Analysis')." },
+        "content": { "type": "string", "description": "The AI-generated markdown content." },
+        "type": { "type": "string", "enum": ["general", "transit", "yoga", "natal"], "description": "The category of interpretation." },
+        "context": { "type": "string", "description": "Optional context (e.g., the date/time or specific planet involved)." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "title", "content", "type", "createdAt"]
+    },
+    "AIReport": {
+      "title": "AI Report",
+      "description": "Automatically preserved AI-generated report or insight.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "cacheKey": { "type": "string", "description": "Unique key based on inputs (e.g. hash of params)." },
+        "type": { "type": "string", "description": "Type of report (e.g. 'daily-insights', 'muhurta-analysis')." },
+        "data": { "type": "object", "description": "The actual report data/content." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time", "description": "Optional TTL for the cache." }
+      },
+      "required": ["uid", "cacheKey", "type", "data", "createdAt"]
+    },
+    "AIChatMessage": {
+      "title": "AI Chat Message",
+      "description": "A message in an AI conversation.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "role", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profile documents."
+    },
+    "/users/{uid}/savedCharts/{chartId}": {
+      "schema": "SavedChart",
+      "description": "User's saved charts."
+    },
+    "/users/{uid}/interpretations/{interpId}": {
+      "schema": "SavedInterpretation",
+      "description": "User's saved AI interpretations."
+    },
+    "/users/{uid}/ai_reports/{reportId}": {
+      "schema": "AIReport",
+      "description": "Automatically saved AI reports."
+    },
+    "/users/{uid}/ai_chats/{chatId}": {
+      "schema": "AIChatMessage",
+      "description": "Automatically saved AI chat history."
+    }
+  }
+}

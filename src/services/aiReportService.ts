@@ -1,0 +1,206 @@
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  setDoc,
+  serverTimestamp, 
+  Timestamp,
+  orderBy,
+  limit,
+  doc,
+  getDoc
+} from 'firebase/firestore';
+import { db } from '../firebase';
+
+export interface AIReport {
+  id?: string;
+  uid: string;
+  cacheKey: string;
+  type: string;
+  data: any;
+  createdAt: any;
+  expiresAt?: any;
+}
+
+/**
+ * Gets a cached AI report if it exists and hasn't expired.
+ */
+export async function getCachedReport(uid: string, type: string, cacheKey: string): Promise<any | null> {
+  try {
+    const q = query(
+      collection(db, `users/${uid}/ai_reports`),
+      where('cacheKey', '==', cacheKey),
+      where('type', '==', type),
+      orderBy('createdAt', 'desc'),
+      limit(1)
+    );
+
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      const doc = snapshot.docs[0];
+      const report = doc.data() as AIReport;
+      
+      // Check for expiration if applicable
+      if (report.expiresAt && report.expiresAt instanceof Timestamp) {
+        if (report.expiresAt.toDate() < new Date()) {
+          return null;
+        }
+      }
+      
+      return report.data;
+    }
+  } catch (error) {
+    console.error("Error fetching cached report:", error);
+  }
+  return null;
+}
+
+/**
+ * Saves a generated AI report to the cache.
+ */
+export async function saveAIReport(uid: string, type: string, cacheKey: string, data: any, ttlHours?: number) {
+  try {
+    const expiresAt = ttlHours 
+      ? Timestamp.fromDate(new Date(Date.now() + ttlHours * 60 * 60 * 1000))
+      : null;
+
+    await addDoc(collection(db, `users/${uid}/ai_reports`), {
+      uid,
+      type,
+      cacheKey,
+      data,
+      createdAt: serverTimestamp(),
+      ...(expiresAt && { expiresAt })
+    });
+  } catch (error) {
+    console.error("Error saving AI report to cache:", error);
+  }
+}
+
+/**
+ * Gets a permanent per-account report by a fixed document ID.
+ * Returns { data, fingerprint } or null.
+ * Use for reports that must survive indefinitely but invalidate when birth details change.
+ */
+export async function getPerAccountReport(uid: string, docId: string): Promise<{ data: any; fingerprint: string } | null> {
+  try {
+    const ref = doc(db, `users/${uid}/ai_reports`, docId);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const d = snap.data();
+      return { data: d.data, fingerprint: d.fingerprint ?? '' };
+    }
+  } catch (error) {
+    console.error("Error fetching per-account report:", error);
+  }
+  return null;
+}
+
+/**
+ * Upserts a permanent per-account report (overwrites previous version).
+ * Stores the birth fingerprint alongside the data so callers can detect staleness.
+ */
+export async function savePerAccountReport(uid: string, docId: string, data: any, fingerprint: string) {
+  try {
+    const ref = doc(db, `users/${uid}/ai_reports`, docId);
+    await setDoc(ref, {
+      uid,
+      docId,
+      data,
+      fingerprint,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Error saving per-account report:", error);
+  }
+}
+
+export async function getUserReports(uid: string): Promise<AIReport[]> {
+  try {
+    const q = query(
+      collection(db, `users/${uid}/ai_reports`),
+      orderBy('createdAt', 'desc')
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as AIReport[];
+  } catch (error) {
+    console.error("Error fetching user reports:", error);
+    return [];
+  }
+}
+
+/**
+ * Deletes an AI report.
+ */
+export async function deleteAIReport(uid: string, reportId: string) {
+  try {
+    const { deleteDoc, doc } = await import('firebase/firestore');
+    await deleteDoc(doc(db, `users/${uid}/ai_reports`, reportId));
+  } catch (error) {
+    console.error("Error deleting AI report:", error);
+  }
+}
+
+// ─── Backup & Restore ────────────────────────────────────────────────────────
+
+export interface AIReportBackup {
+  id?: string;
+  type: string;
+  data: any;
+  createdAt: any;
+}
+
+/**
+ * Creates a backup snapshot of AI data to users/{uid}/ai_report_backups.
+ */
+export async function backupAIReport(uid: string, type: string, data: any): Promise<string | null> {
+  try {
+    const ref = await addDoc(collection(db, `users/${uid}/ai_report_backups`), {
+      type,
+      data,
+      createdAt: serverTimestamp()
+    });
+    return ref.id;
+  } catch (error) {
+    console.error("Error creating AI report backup:", error);
+    return null;
+  }
+}
+
+/**
+ * Returns the most recent N backups for a given type (sorted newest first).
+ */
+export async function getAIReportBackups(uid: string, type: string, maxCount = 5): Promise<AIReportBackup[]> {
+  try {
+    const q = query(
+      collection(db, `users/${uid}/ai_report_backups`),
+      where('type', '==', type),
+      orderBy('createdAt', 'desc'),
+      limit(maxCount)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as AIReportBackup[];
+  } catch (error) {
+    console.error("Error fetching AI report backups:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetches the data from a specific backup doc.
+ */
+export async function restoreAIReport(uid: string, backupId: string): Promise<any | null> {
+  try {
+    const snap = await getDoc(doc(db, `users/${uid}/ai_report_backups`, backupId));
+    if (snap.exists()) return (snap.data() as AIReportBackup).data;
+  } catch (error) {
+    console.error("Error restoring AI report backup:", error);
+  }
+  return null;
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Vedic Sky Observer",
+  "description": "Real-time Sidereal Vedic astrology visualizer showing planetary positions, Nakshatras, interactive Drishti (Aspect) analysis, and astronomical states.",
+  "requestFramePermissions": ["geolocation"]
+}
