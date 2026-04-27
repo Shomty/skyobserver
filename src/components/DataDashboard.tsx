@@ -2516,27 +2516,43 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                     </div>
                   )}
                   
-                  {/* Involved Planets */}
+                  {/* Involved Planets with Nakshatra detail */}
                   {yoga.planets && yoga.planets.length > 0 && (
                     <div className={cn("pt-4 border-t", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
-                      <div className="flex -space-x-2 overflow-hidden items-center">
-                        <div className="flex -space-x-2 mr-4">
-                          {Array.from(new Set(yoga.planets || [])).map((planetName: string) => {
-                            const planetData = (isBirthMode ? birthPositions : positions)?.find(p => p.name === planetName);
-                            if (!planetData) return null;
-                            return (
-                              <div 
-                                key={planetName} 
-                                className="w-8 h-8 rounded-full border-2 border-mystic-purple flex items-center justify-center text-xs shadow-lg"
+                      <div className={cn("text-[9px] uppercase tracking-widest font-mono mb-2.5", theme === 'dark' ? "text-white/25" : "text-slate-400")}>Involved Planets & Nakshatras</div>
+                      <div className="flex flex-wrap gap-2">
+                        {Array.from(new Set(yoga.planets || [])).map((planetName: string) => {
+                          const planetData = (isBirthMode ? birthPositions : positions)?.find(p => p.name === planetName);
+                          if (!planetData) return null;
+                          const nak = NAKSHATRA_DATA[planetData.nakshatra as keyof typeof NAKSHATRA_DATA];
+                          return (
+                            <div
+                              key={planetName}
+                              className={cn(
+                                "flex items-center gap-2 px-2.5 py-1.5 rounded-xl border",
+                                theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-slate-50 border-slate-100"
+                              )}
+                            >
+                              <div
+                                className="w-6 h-6 rounded-lg flex items-center justify-center text-xs shrink-0"
                                 style={{ backgroundColor: planetData.color, color: '#000' }}
-                                title={planetName}
                               >
                                 {planetData.symbol}
                               </div>
-                            );
-                          })}
-                        </div>
-                        <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold opacity-40", theme === 'dark' ? "text-white" : "text-slate-900")}>Involved Energy</div>
+                              <div>
+                                <div className={cn("text-[10px] font-bold leading-none", theme === 'dark' ? "text-white/70" : "text-slate-700")}>{planetName}</div>
+                                <div className={cn("text-[9px] mt-0.5", theme === 'dark' ? "text-jyotish-gold/50" : "text-orange-500")}>
+                                  {planetData.nakshatra} P{planetData.pada}
+                                </div>
+                                {nak && (
+                                  <div className={cn("text-[8px] leading-tight mt-0.5", theme === 'dark' ? "text-white/25" : "text-slate-400")}>
+                                    {(nak as any).lord} · {(nak as any).deity}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
