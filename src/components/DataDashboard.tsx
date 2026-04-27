@@ -1341,7 +1341,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                               )}
                             </div>
                             <div className={cn("text-[10px] font-mono uppercase tracking-wider mt-0.5", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
-                              {p.rashi} • {p.nakshatra}
+                              {p.rashi} • {p.nakshatra} <span className={cn("normal-case", theme === 'dark' ? "text-jyotish-gold/50" : "text-orange-400")}>P{p.pada}</span>
                             </div>
                           </div>
                         </div>
@@ -1408,6 +1408,46 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                             </div>
                           </motion.div>
                         )}
+                      </AnimatePresence>
+
+                      {/* Nakshatra Detail Panel — shown for any selected planet in both views */}
+                      <AnimatePresence>
+                        {isSelected && (() => {
+                          const nak = NAKSHATRA_DATA[p.nakshatra as keyof typeof NAKSHATRA_DATA];
+                          if (!nak) return null;
+                          return (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <div className={cn(
+                                "mt-2 p-4 rounded-2xl border space-y-2",
+                                theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-slate-50 border-slate-100"
+                              )}>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Star className="w-3 h-3 text-jyotish-gold/70" />
+                                  <span className={cn("text-[10px] font-bold uppercase tracking-widest", theme === 'dark' ? "text-jyotish-gold/60" : "text-orange-500")}>
+                                    Nakshatra — {p.nakshatra} Pada {p.pada}
+                                  </span>
+                                </div>
+                                <div className={cn("text-[10px] leading-relaxed", theme === 'dark' ? "text-white/50" : "text-slate-500")}>
+                                  <span className={cn("font-semibold", theme === 'dark' ? "text-white/70" : "text-slate-700")}>Lord:</span> {(nak as any).lord}
+                                  {" · "}
+                                  <span className={cn("font-semibold", theme === 'dark' ? "text-white/70" : "text-slate-700")}>Deity:</span> {(nak as any).deity}
+                                  {" · "}
+                                  <span className={cn("font-semibold", theme === 'dark' ? "text-white/70" : "text-slate-700")}>Symbol:</span> {(nak as any).symbol}
+                                </div>
+                                {(nak as any).characteristics && (
+                                  <p className={cn("text-[10px] italic leading-relaxed", theme === 'dark' ? "text-white/40" : "text-slate-500")}>
+                                    {(nak as any).characteristics}
+                                  </p>
+                                )}
+                              </div>
+                            </motion.div>
+                          );
+                        })()}
                       </AnimatePresence>
                     </React.Fragment>
                   );
