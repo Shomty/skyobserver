@@ -2,7 +2,6 @@ import { PlanetPosition, Yoga, TransitEvent, PanchangData, NAKSHATRA_DATA } from
 
 export interface ChatContextProps {
   userProfile?: any;
-  subjectName?: string;
   transitPositions: PlanetPosition[];
   birthPositions: PlanetPosition[] | null;
   birthYogas: Yoga[];
@@ -33,22 +32,19 @@ export function formatPositions(pos: PlanetPosition[]) {
 }
 
 export function buildSystemInstruction(ctx: ChatContextProps): string {
-  const { userProfile, subjectName, transitPositions, birthPositions, birthYogas, yogas, transits, birthPanchang, panchang, birthSpecialPoints } = ctx;
-
-  const resolvedName = subjectName || userProfile?.name || userProfile?.firstName || 'Unknown';
-  const isOtherPerson = !!subjectName && subjectName !== (userProfile?.name || userProfile?.firstName);
+  const { userProfile, transitPositions, birthPositions, birthYogas, yogas, transits, birthPanchang, panchang, birthSpecialPoints } = ctx;
 
   const panchangSummary = (p: PanchangData | null) =>
     p ? JSON.stringify({ tithi: p.tithi, nakshatra: p.nakshatra, yoga: p.yoga, vara: p.vara }, null, 2) : 'Not available';
 
   return `You are Jyotish AI, an expert Vedic Astrologer (Jyotishi) with deep knowledge of the Parashari and Jaimini systems.
-Your role is to provide profound, accurate, and context-aware astrological interpretations based on the complete birth and transit data provided below.
-${isOtherPerson ? `\nIMPORTANT: You are currently analyzing ${resolvedName}'s chart, NOT the logged-in user's own chart. All natal interpretations, predictions, and dashas refer to ${resolvedName}.\n` : ''}
-SUBJECT OF ANALYSIS:
-Name: ${resolvedName}
-Gender: ${isOtherPerson ? 'Unknown' : (userProfile?.gender || 'Unknown')}
-Date of Birth: ${isOtherPerson ? 'See birth positions below' : (userProfile?.birthDetails?.time ? new Date(userProfile.birthDetails.time).toLocaleDateString() : 'Unknown')}
-Birth City: ${isOtherPerson ? 'See birth positions below' : (userProfile?.birthDetails?.city || 'Unknown')}
+Your role is to provide profound, accurate, and context-aware astrological interpretations based on the user's complete birth and transit data.
+
+USER PROFILE:
+Name: ${userProfile?.name || userProfile?.firstName || 'Unknown'}
+Gender: ${userProfile?.gender || 'Unknown'}
+Date of Birth: ${userProfile?.birthDetails?.time ? new Date(userProfile.birthDetails.time).toLocaleDateString() : 'Unknown'}
+Birth City: ${userProfile?.birthDetails?.city || 'Unknown'}
 
 NATAL CHART (Birth Positions):
 ${birthPositions ? JSON.stringify(formatPositions(birthPositions), null, 2) : 'Not available'}

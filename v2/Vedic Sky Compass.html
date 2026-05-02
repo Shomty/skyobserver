@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vedic Sky Compass</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Crimson+Pro:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
+
+<template id="__bundler_thumbnail" data-bg-color="#080616">
+  <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+    <!-- deep bg -->
+    <rect width="400" height="400" fill="#080616"/>
+    <!-- subtle star field -->
+    <circle cx="60" cy="50" r="1" fill="white" opacity=".4"/>
+    <circle cx="120" cy="90" r=".7" fill="white" opacity=".3"/>
+    <circle cx="200" cy="30" r="1.2" fill="white" opacity=".35"/>
+    <circle cx="310" cy="70" r=".8" fill="white" opacity=".25"/>
+    <circle cx="340" cy="140" r="1" fill="white" opacity=".3"/>
+    <circle cx="80" cy="200" r=".7" fill="white" opacity=".2"/>
+    <circle cx="360" cy="250" r="1.1" fill="white" opacity=".3"/>
+    <!-- outer ring -->
+    <circle cx="200" cy="200" r="150" fill="none" stroke="#E8B84B" stroke-width="1" opacity=".25"/>
+    <circle cx="200" cy="200" r="115" fill="none" stroke="rgba(0,205,176,0.3)" stroke-width="1.5"/>
+    <circle cx="200" cy="200" r="75" fill="none" stroke="rgba(168,159,200,0.12)" stroke-width=".8" stroke-dasharray="4 6"/>
+    <!-- spoke lines -->
+    <line x1="200" y1="85" x2="200" y2="50" stroke="rgba(168,159,200,0.15)" stroke-width=".6"/>
+    <line x1="330" y1="200" x2="350" y2="200" stroke="rgba(168,159,200,0.15)" stroke-width=".6"/>
+    <line x1="70" y1="200" x2="50" y2="200" stroke="rgba(168,159,200,0.15)" stroke-width=".6"/>
+    <line x1="200" y1="315" x2="200" y2="350" stroke="rgba(168,159,200,0.15)" stroke-width=".6"/>
+    <!-- planet dots -->
+    <circle cx="200" cy="85" r="7" fill="#F4A924" opacity=".9"/>
+    <circle cx="278" cy="137" r="6" fill="#C8C0F0" opacity=".85"/>
+    <circle cx="278" cy="263" r="6" fill="#E85050" opacity=".85"/>
+    <circle cx="200" cy="315" r="5" fill="#F0C040" opacity=".8"/>
+    <circle cx="122" cy="263" r="6" fill="#F878C0" opacity=".8"/>
+    <circle cx="122" cy="137" r="5" fill="#7090C8" opacity=".8"/>
+    <circle cx="310" cy="200" r="5" fill="#A060E0" opacity=".75"/>
+    <!-- center glow -->
+    <circle cx="200" cy="200" r="22" fill="rgba(0,205,176,0.1)"/>
+    <circle cx="200" cy="200" r="10" fill="#00CDB0" opacity=".85"/>
+    <circle cx="200" cy="200" r="5" fill="#00E5CC"/>
+    <!-- OM symbol area -->
+    <text x="200" y="208" text-anchor="middle" font-size="14" fill="#E8B84B" font-family="serif" opacity=".9">ॐ</text>
+    <!-- title text -->
+    <text x="200" y="378" text-anchor="middle" font-size="11" fill="#E8B84B" font-family="monospace" letter-spacing="3" opacity=".7">VEDIC SKY COMPASS</text>
+  </svg>
+</template>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;width:100%;background:#02010e;overflow:hidden;font-family:'Space Grotesk',sans-serif;}
+#root{height:100%;width:100%;display:flex;flex-direction:column;}
+:root{
+  --bg:#080616;--bg1:#0D0A1E;--bg2:#131028;--bg3:#1B1733;--bg4:#221E3E;
+  --gold:#E8B84B;--teal:#00CDB0;
+  --text0:#F5F2FF;--text1:#C8C0E8;--text2:#8880A8;--text3:#4A4568;
+  --sep:rgba(255,255,255,0.07);--sep2:rgba(255,255,255,0.11);
+}
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pulse-ring{0%{transform:scale(1);opacity:.6;}100%{transform:scale(2.2);opacity:0;}}
+@keyframes orbit{from{transform:rotate(0deg) translateX(var(--r)) rotate(0deg);}to{transform:rotate(360deg) translateX(var(--r)) rotate(-360deg);}}
+@keyframes fadeSlideUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+@keyframes shimmer{0%{left:-100%;}100%{left:200%;}}
+@keyframes dashaPulse{0%,100%{opacity:.5;}50%{opacity:1;}}
+textarea::placeholder{color:var(--text3);}
+/* vp chrome */
+.vp-bar{flex-shrink:0;height:38px;background:#010109;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;gap:4px;z-index:200;}
+.vp-btn{display:flex;align-items:center;gap:5px;padding:4px 12px;border-radius:6px;border:1px solid transparent;background:none;cursor:pointer;color:#4A4568;font-size:11px;font-weight:600;font-family:'Space Grotesk',sans-serif;letter-spacing:.05em;transition:all .15s;}
+.vp-btn.active{background:rgba(232,184,75,.1);border-color:rgba(232,184,75,.3);color:#E8B84B;}
+.vp-btn:hover:not(.active){color:#8880A8;}
+.vp-divider{width:1px;height:16px;background:rgba(255,255,255,.06);margin:0 4px;}
+/* stage */
+.vp-stage{flex:1;overflow:hidden;display:flex;align-items:flex-start;justify-content:center;background:
+  repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0px,rgba(255,255,255,.012) 1px,transparent 1px,transparent 28px),
+  repeating-linear-gradient(90deg,rgba(255,255,255,.012) 0px,rgba(255,255,255,.012) 1px,transparent 1px,transparent 28px);}
+.vp-frame{background:var(--bg);overflow:hidden;display:flex;flex-direction:column;transition:width .4s cubic-bezier(.32,.72,0,1),border-radius .4s cubic-bezier(.32,.72,0,1);box-shadow:0 32px 100px rgba(0,0,0,.8);}
+.vp-frame.mobile{width:390px;height:844px;border-radius:40px;border:6px solid #15122a;margin-top:10px;}
+.vp-frame.tablet{width:768px;height:100%;border-radius:16px;border:3px solid #15122a;}
+.vp-frame.desktop{width:100%;height:100%;border-radius:0;border:none;box-shadow:none;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+/* ═══════════════ DATA ═══════════════ */
+const CHART={name:'Aleksandar M.',dob:'18 Mar 1985',tob:'16:11 LT',pob:'Zemun Polje, Serbia',lat:"44°51'N",lng:"20°25'E",tz:'UTC+1',ayanamsa:"Lahiri 23°33'14\""};
+const SIGNS=[
+  {id:1,name:'Aries',sa:'Mesha',lord:'Ma',el:'Fire'},{id:2,name:'Taurus',sa:'Vrishabha',lord:'Ve',el:'Earth'},
+  {id:3,name:'Gemini',sa:'Mithuna',lord:'Me',el:'Air'},{id:4,name:'Cancer',sa:'Karka',lord:'Mo',el:'Water'},
+  {id:5,name:'Leo',sa:'Simha',lord:'Su',el:'Fire'},{id:6,name:'Virgo',sa:'Kanya',lord:'Me',el:'Earth'},
+  {id:7,name:'Libra',sa:'Tula',lord:'Ve',el:'Air'},{id:8,name:'Scorpio',sa:'Vrischika',lord:'Ma',el:'Water'},
+  {id:9,name:'Sagittarius',sa:'Dhanu',lord:'Ju',el:'Fire'},{id:10,name:'Capricorn',sa:'Makara',lord:'Sa',el:'Earth'},
+  {id:11,name:'Aquarius',sa:'Kumbha',lord:'Sa',el:'Air'},{id:12,name:'Pisces',sa:'Meena',lord:'Ju',el:'Water'},
+];
+const GRAHAS=[
+  {id:'La',name:'Lagna',  sa:'Lagna',  sign:8, deg:"14°20'",nak:'Anuradha',     pada:3,state:'—',           color:'#E8B84B',isLagna:true},
+  {id:'Su',name:'Sun',    sa:'Surya',  sign:12,deg:"4°12'", nak:'Uttara Bhadra',pada:1,state:'Friendly',     color:'#F4A924'},
+  {id:'Mo',name:'Moon',   sa:'Chandra',sign:5, deg:"21°33'",nak:'Purva Phalguni',pada:4,state:'Friendly',    color:'#C8C0F0'},
+  {id:'Ma',name:'Mars',   sa:'Mangala',sign:10,deg:"7°48'", nak:'Uttarashada',  pada:2,state:'Exalted ↑',    color:'#E85050',exalted:true},
+  {id:'Me',name:'Mercury',sa:'Budha',  sign:11,deg:"25°14'",nak:'Purva Bhadra', pada:4,state:'Friendly',     color:'#40C888'},
+  {id:'Ju',name:'Jupiter',sa:'Guru',   sign:10,deg:"14°22'",nak:'Shravana',     pada:2,state:'Debilitated ↓',color:'#F0C040',debilitated:true},
+  {id:'Ve',name:'Venus',  sa:'Shukra', sign:1, deg:"12°5'", nak:'Ashwini',      pada:3,state:'Neutral',      color:'#F878C0'},
+  {id:'Sa',name:'Saturn', sa:'Shani',  sign:8, deg:"24°18'",nak:'Jyeshtha',     pada:2,state:'Friendly',     color:'#7090C8'},
+  {id:'Ra',name:'Rahu',   sa:'Rahu',   sign:2, deg:"27°45'",nak:'Mrigashira',   pada:4,state:'Exalted ↑',    color:'#A060E0',exalted:true},
+  {id:'Ke',name:'Ketu',   sa:'Ketu',   sign:8, deg:"27°45'",nak:'Jyeshtha',     pada:4,state:'Friendly',     color:'#40C0B0'},
+];
+const BY_SIGN={};
+GRAHAS.forEach(g=>{if(!BY_SIGN[g.sign])BY_SIGN[g.sign]=[];BY_SIGN[g.sign].push(g);});
+
+// Transit positions that animate across the chart (current transiting planets)
+const TRANSIT_GRAHAS=[
+  {id:'Su',sign:1, deg:10, color:'#F4A924',speed:1.0},
+  {id:'Mo',sign:3, deg:14, color:'#C8C0F0',speed:13.2},
+  {id:'Ma',sign:6, deg:22, color:'#E85050',speed:0.52},
+  {id:'Ju',sign:2, deg:18, color:'#F0C040',speed:0.08},
+  {id:'Sa',sign:2, deg:22, color:'#7090C8',speed:0.03},
+  {id:'Ra',sign:10,deg:8,  color:'#A060E0',speed:-0.05},
+];
+
+const DASHAS=[
+  {graha:'Sa',color:'#7090C8',start:'Oct 1988',end:'Oct 2007',years:19,startY:1988,endY:2007,antars:[
+    {g:'Sa',s:'Oct 1988',e:'Jun 1992',pct:20,done:true},{g:'Me',s:'Jun 1992',e:'Mar 1995',pct:15,done:true},
+    {g:'Ke',s:'Mar 1995',e:'Apr 1996',pct:6,done:true},{g:'Ve',s:'Apr 1996',e:'Apr 1999',pct:17,done:true},
+    {g:'Su',s:'Apr 1999',e:'Mar 2000',pct:5,done:true},{g:'Mo',s:'Mar 2000',e:'Oct 2001',pct:9,done:true},
+    {g:'Ma',s:'Oct 2001',e:'Nov 2002',pct:6,done:true},{g:'Ra',s:'Nov 2002',e:'Sep 2005',pct:15,done:true},
+    {g:'Ju',s:'Sep 2005',e:'Oct 2007',pct:11,done:true},
+  ]},
+  {graha:'Me',color:'#40C888',start:'Oct 2007',end:'Oct 2024',years:17,startY:2007,endY:2024,antars:[
+    {g:'Me',s:'Oct 2007',e:'Feb 2010',pct:15,done:true},{g:'Ke',s:'Feb 2010',e:'Jan 2011',pct:6,done:true},
+    {g:'Ve',s:'Jan 2011',e:'Nov 2013',pct:17,done:true},{g:'Su',s:'Nov 2013',e:'Sep 2014',pct:5,done:true},
+    {g:'Mo',s:'Sep 2014',e:'Feb 2016',pct:9,done:true},{g:'Ma',s:'Feb 2016',e:'Jan 2017',pct:6,done:true},
+    {g:'Ra',s:'Jan 2017',e:'Jul 2019',pct:15,done:true},{g:'Ju',s:'Jul 2019',e:'Jun 2021',pct:11,done:true},
+    {g:'Sa',s:'Jun 2021',e:'Oct 2024',pct:17,done:true},
+  ]},
+  {graha:'Ke',color:'#40C0B0',start:'Oct 2024',end:'Oct 2031',years:7,startY:2024,endY:2031,current:true,antars:[
+    {g:'Ke',s:'Oct 2024',e:'Mar 2025',pct:7,done:true},
+    {g:'Ve',s:'Mar 2025',e:'May 2026',pct:14,current:true},
+    {g:'Su',s:'May 2026',e:'Oct 2026',pct:7},{g:'Mo',s:'Oct 2026',e:'May 2027',pct:10},
+    {g:'Ma',s:'May 2027',e:'Oct 2027',pct:7},{g:'Ra',s:'Oct 2027',e:'Oct 2028',pct:14},
+    {g:'Ju',s:'Oct 2028',e:'Jul 2029',pct:12},{g:'Sa',s:'Jul 2029',e:'Aug 2030',pct:14},
+    {g:'Me',s:'Aug 2030',e:'Oct 2031',pct:14},
+  ]},
+  {graha:'Ve',color:'#F878C0',start:'Oct 2031',end:'Oct 2051',years:20,startY:2031,endY:2051},
+  {graha:'Su',color:'#F4A924',start:'Oct 2051',end:'Oct 2057',years:6,startY:2051,endY:2057},
+  {graha:'Mo',color:'#C8C0F0',start:'Oct 2057',end:'Oct 2067',years:10,startY:2057,endY:2067},
+  {graha:'Ma',color:'#E85050',start:'Oct 2067',end:'Oct 2074',years:7,startY:2067,endY:2074},
+];
+
+const YOGAS=[
+  {name:'Neecha Bhanga Raja Yoga',quality:'positive',desc:'Jupiter debilitated in Capricorn but Mars (lord of exaltation sign) is itself exalted, cancelling debility and creating powerful Raja Yoga.'},
+  {name:'Graha Yuddha (Planetary War)',quality:'attention',desc:'Mars conjunct Jupiter in Capricorn — Mars wins due to lower degree, amplifying material ambition at the cost of wisdom.'},
+  {name:'Ketu–Saturn Conjunction',quality:'karmic',desc:'Saturn and Ketu in Scorpio (Lagna) indicates a life of deep transformation, renunciation, and karmic resolution with ancestral patterns.'},
+  {name:'Rahu in 7th House (Taurus)',quality:'attention',desc:'Strong desire for partnership with foreign or unconventional relationships. Bhoga intensified by Taurus.'},
+];
+
+const PROMPT_PRESETS=[
+  {icon:'♃',label:'Career & Purpose',q:'Analyze the 10th house, Karma karaka, and current dasha for career and life purpose insights.'},
+  {icon:'♀',label:'Relationships',q:'Examine the 7th house, Venus, and relationship karma. Is marriage indicated soon?'},
+  {icon:'☽',label:'Current Period',q:'Interpret the Ketu–Venus antardasha. What themes dominate through May 2026?'},
+  {icon:'◉',label:'Spiritual Path',q:"Analyze spiritual indicators: 12th house, Ketu, moksha karaka, and Atmakaraka for this soul's path."},
+  {icon:'♄',label:'Saturn–Ketu Lagna',q:'Give a deep reading of Saturn–Ketu conjunction in Scorpio Lagna. Karmic implications and life themes.'},
+  {icon:'✦',label:'Bhrigu Bindu',q:"Interpret the Bhrigu Bindu at 14°34' Virgo. Destiny themes and upcoming planetary triggers."},
+];
+
+const CHART_CTX=`JYOTISH CHART: Aleksandar M., 18 Mar 1985, 16:11 LT, Zemun Polje Serbia, Lahiri Ayanamsa
+LAGNA: Scorpio 14°20' Anuradha Pada 3
+Surya: Pisces 4°12' Uttara Bhadra — Friendly | Chandra: Leo 21°33' Purva Phalguni — Friendly
+Mangala: Capricorn 7°48' EXALTED Atmakaraka | Guru: Capricorn 14°22' DEBILITATED (Neecha Bhanga)
+Budha: Aquarius 25°14' Friendly | Shukra: Aries 12°5' Neutral
+Shani: Scorpio 24°18' (Lagna) | Rahu: Taurus 27°45' Exalted (7H) | Ketu: Scorpio 27°45' (Lagna)
+BB: Virgo 14°34' | ACTIVE DASHA: Ketu Mahadasha, Venus Antardasha Mar2025–May2026
+YOGAS: Neecha Bhanga Raja, Graha Yuddha Mars-Jupiter, Ketu-Saturn in Lagna`;
+
+/* ═══════════════ SOUTH INDIAN CHART ═══════════════ */
+const SI_GRID=[[12,1,2,3],[11,null,null,4],[10,null,null,5],[9,8,7,6]];
+
+function GrahaChip({g,small,transit}){
+  return(
+    <span style={{
+      display:'inline-flex',alignItems:'center',
+      background:g.isLagna?'transparent':transit?g.color+'18':g.color+'22',
+      color:g.isLagna?'var(--gold)':g.color,
+      border:g.isLagna?'1px solid var(--gold)':transit?`1px dashed ${g.color}88`:'none',
+      borderRadius:4,padding:small?'0 3px':'1px 4px',
+      fontSize:small?9:10,fontFamily:'Space Mono',fontWeight:700,lineHeight:1.5,
+      marginRight:2,marginBottom:1,opacity:transit?.8:1,
+    }}>
+      {g.id}{g.exalted?'*':g.debilitated?'°':''}
+    </span>
+  );
+}
+
+function SouthIndianChart({showTransits,transitOffset,highlightSign}){
+  const S=s=>({
+    border:'1px solid rgba(255,255,255,0.09)',padding:'5px 6px',
+    display:'flex',flexDirection:'column',gap:2,
+    background:s===8?'rgba(232,184,75,0.05)':s===highlightSign?'rgba(0,205,176,0.06)':'transparent',
+    minHeight:64,position:'relative',
+    transition:'background .3s',
+  });
+
+  // compute transit positions for current offset (degrees animate over time)
+  const transitBySign={};
+  if(showTransits){
+    TRANSIT_GRAHAS.forEach(tg=>{
+      const animDeg=(tg.deg+transitOffset*tg.speed*0.1)%360;
+      const signNum=((Math.floor(animDeg/30))%12)+1;
+      if(!transitBySign[signNum])transitBySign[signNum]=[];
+      transitBySign[signNum].push({...tg,animDeg});
+    });
+  }
+
+  return(
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gridTemplateRows:'repeat(4,1fr)',width:'100%',aspectRatio:'1',border:'1px solid rgba(232,184,75,0.2)',borderRadius:2,overflow:'hidden'}}>
+      {SI_GRID.map((row,ri)=>row.map((signId,ci)=>{
+        if(signId===null)return null;
+        if(ri===1&&ci===1)return(
+          <div key="center" style={{gridColumn:'2/4',gridRow:'2/4',border:'1px solid rgba(255,255,255,0.08)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'8px',gap:5,background:'rgba(13,10,30,0.9)'}}>
+            <div style={{color:'var(--gold)',fontSize:10,fontFamily:'Space Mono',fontWeight:700}}>ॐ</div>
+            <div style={{color:'var(--text1)',fontSize:11,fontWeight:700,textAlign:'center'}}>{CHART.name}</div>
+            <div style={{color:'var(--text2)',fontSize:9,textAlign:'center',lineHeight:1.6}}>{CHART.dob}<br/>{CHART.tob}</div>
+            <div style={{width:20,height:1,background:'rgba(232,184,75,0.3)'}}/>
+            <div style={{color:'var(--teal)',fontSize:8,textAlign:'center'}}>Vrischika 14°20'</div>
+          </div>
+        );
+        const sign=SIGNS.find(s=>s.id===signId);
+        const planets=BY_SIGN[signId]||[];
+        const transits=transitBySign[signId]||[];
+        return(
+          <div key={`${ri}-${ci}`} style={S(signId)}>
+            <div style={{color:signId===8?'var(--gold)':'var(--text3)',fontSize:9,fontWeight:600,letterSpacing:'0.04em',lineHeight:1}}>{sign.sa.toUpperCase()}</div>
+            <div style={{fontSize:8,color:'var(--text3)',marginBottom:1,fontFamily:'Space Mono'}}>{signId}</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:0}}>
+              {planets.map(p=><GrahaChip key={p.id} g={p} small/>)}
+              {transits.map(p=><GrahaChip key={'t'+p.id} g={p} small transit/>)}
+            </div>
+            {transits.length>0&&showTransits&&(
+              <div style={{position:'absolute',inset:0,border:`1px solid ${transits[0].color}33`,borderRadius:1,pointerEvents:'none',
+                background:`radial-gradient(circle at 50% 50%, ${transits[0].color}08, transparent 70%)`}}/>
+            )}
+          </div>
+        );
+      }))}
+    </div>
+  );
+}
+
+/* ═══════════════ ANIMATED TRANSIT OVERLAY ═══════════════ */
+function TransitOverlaySVG({offset,playing}){
+  const cx=200,cy=200,r=155;
+  const signs=SIGNS;
+  const planets=TRANSIT_GRAHAS.map(tg=>{
+    const deg=(tg.deg+offset*tg.speed*0.08)%360;
+    const rad=(deg-90)*Math.PI/180;
+    const d=0.55+((TRANSIT_GRAHAS.indexOf(tg)%3)*0.1);
+    return{...tg,x:cx+Math.cos(rad)*r*d,y:cy+Math.sin(rad)*r*d,deg};
+  });
+  return(
+    <svg viewBox="0 0 400 400" style={{width:'100%',height:'100%',position:'absolute',top:0,left:0,pointerEvents:'none'}}>
+      <defs>
+        <radialGradient id="tGlow"><stop offset="0%" stopColor="#00CDB0" stopOpacity=".15"/><stop offset="100%" stopColor="#00CDB0" stopOpacity="0"/></radialGradient>
+      </defs>
+      {/* zodiac ring */}
+      {[.98,.82,.65].map((f,i)=>(
+        <circle key={i} cx={cx} cy={cy} r={r*f} fill="none" stroke={i===0?"rgba(0,205,176,0.25)":"rgba(168,159,200,0.1)"} strokeWidth={i===0?1.2:.6} strokeDasharray={i>0?"4 6":undefined}/>
+      ))}
+      {signs.map((_,i)=>{
+        const a=(i*30-90)*Math.PI/180;
+        return <line key={i} x1={cx+Math.cos(a)*r*.65} y1={cy+Math.sin(a)*r*.65} x2={cx+Math.cos(a)*r*.98} y2={cy+Math.sin(a)*r*.98} stroke="rgba(100,90,160,0.12)" strokeWidth=".6"/>;
+      })}
+      {/* sign labels */}
+      {signs.map((s,i)=>{
+        const a=((i*30)+15-90)*Math.PI/180;
+        const lx=cx+Math.cos(a)*r*.9,ly=cy+Math.sin(a)*r*.9;
+        return <text key={s.id} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize="7" fill="rgba(168,159,200,0.4)" fontFamily="Space Grotesk">{s.sa.slice(0,3).toUpperCase()}</text>;
+      })}
+      {/* orbit trails */}
+      {planets.map(p=>{
+        const trail=Array.from({length:8},(_,i)=>{
+          const d2=(p.deg-i*p.speed*0.5)%360;
+          const r2=(d2-90)*Math.PI/180;
+          const dist=0.55+((TRANSIT_GRAHAS.findIndex(t=>t.id===p.id)%3)*0.1);
+          return `${cx+Math.cos(r2)*r*dist},${cy+Math.sin(r2)*r*dist}`;
+        }).join(' ');
+        return <polyline key={p.id+'t'} points={trail} fill="none" stroke={p.color} strokeWidth=".8" strokeOpacity=".3" strokeLinecap="round"/>;
+      })}
+      {/* planet dots */}
+      {planets.map(p=>(
+        <g key={p.id}>
+          <circle cx={p.x} cy={p.y} r="10" fill={p.color} opacity=".15"/>
+          <circle cx={p.x} cy={p.y} r="7" fill={p.color} opacity=".9"/>
+          <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle" fontSize="6.5" fill="#08061a" fontWeight="700" fontFamily="Space Mono">{p.id}</text>
+        </g>
+      ))}
+      {/* center */}
+      <circle cx={cx} cy={cy} r="6" fill="#00CDB0" opacity=".9"/>
+      <circle cx={cx} cy={cy} r="3" fill="#00E5CC"/>
+    </svg>
+  );
+}
+
+/* ═══════════════ DASHA TIMELINE SCRUBBER ═══════════════ */
+const TIMELINE_START=1985,TIMELINE_END=2075;
+const TOTAL_YEARS=TIMELINE_END-TIMELINE_START;
+
+function DashaTimeline({scrubYear,setScrubYear,playing,setPlaying}){
+  const trackRef=useRef(null);
+  const activeDasha=DASHAS.find(d=>scrubYear>=d.startY&&scrubYear<d.endY);
+  const activeAntar=activeDasha?.antars?.find(a=>a.current||(a.done&&!a.current));
+
+  const pct=((scrubYear-TIMELINE_START)/TOTAL_YEARS)*100;
+
+  const seek=useCallback(e=>{
+    const rect=trackRef.current?.getBoundingClientRect();
+    if(!rect)return;
+    const x=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+    setScrubYear(Math.round(TIMELINE_START+x*TOTAL_YEARS));
+  },[setScrubYear]);
+
+  const onMouseDown=e=>{
+    seek(e);
+    const up=()=>document.removeEventListener('mousemove',seek);
+    document.addEventListener('mousemove',seek);
+    document.addEventListener('mouseup',up,{once:true});
+  };
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+      {/* controls */}
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <button onClick={()=>setPlaying(p=>!p)} style={{width:30,height:30,borderRadius:'50%',background:playing?'var(--gold)':'var(--bg3)',border:`1px solid ${playing?'var(--gold)':'var(--sep2)'}`,color:playing?'#08061a':'var(--text1)',fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          {playing?'⏸':'▶'}
+        </button>
+        <div style={{flex:1,position:'relative',height:36,display:'flex',alignItems:'center',cursor:'ew-resize'}} ref={trackRef} onMouseDown={onMouseDown}>
+          {/* dasha bands */}
+          <div style={{position:'absolute',inset:'8px 0',borderRadius:4,overflow:'hidden',background:'var(--bg3)'}}>
+            {DASHAS.map(d=>{
+              const left=((d.startY-TIMELINE_START)/TOTAL_YEARS)*100;
+              const width=((d.endY-d.startY)/TOTAL_YEARS)*100;
+              return(
+                <div key={d.graha} title={d.graha} style={{position:'absolute',top:0,bottom:0,left:`${left}%`,width:`${width}%`,background:d.color+(d.current?'50':'28'),borderRight:'1px solid rgba(255,255,255,0.05)',transition:'background .2s'}}>
+                  {width>4&&<span style={{position:'absolute',left:3,top:'50%',transform:'translateY(-50%)',color:d.color,fontSize:8,fontFamily:'Space Mono',fontWeight:700,opacity:.9}}>{d.graha}</span>}
+                </div>
+              );
+            })}
+            {/* shimmer for current */}
+            {playing&&<div style={{position:'absolute',inset:0,background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent)',animation:'shimmer 1.5s infinite',left:'-100%',width:'50%'}}/>}
+          </div>
+          {/* playhead */}
+          <div style={{position:'absolute',left:`${pct}%`,top:0,bottom:0,width:2,background:'white',opacity:.9,borderRadius:1,transform:'translateX(-50%)',zIndex:2,pointerEvents:'none'}}/>
+          <div style={{position:'absolute',left:`${pct}%`,top:'50%',transform:'translate(-50%,-50%)',width:14,height:14,borderRadius:'50%',background:'white',border:'2px solid var(--bg)',zIndex:3,pointerEvents:'none',boxShadow:'0 0 8px rgba(255,255,255,0.4)'}}/>
+        </div>
+        <div style={{color:'var(--gold)',fontSize:13,fontFamily:'Space Mono',fontWeight:700,minWidth:36,textAlign:'right'}}>{scrubYear}</div>
+      </div>
+
+      {/* active period display */}
+      {activeDasha&&(
+        <div style={{display:'flex',gap:8,animation:'fadeSlideUp .2s ease'}}>
+          <div style={{flex:1,background:'var(--bg3)',borderRadius:8,padding:'8px 10px',border:`1px solid ${activeDasha.color}44`}}>
+            <div style={{color:'var(--text3)',fontSize:9,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:3}}>Mahadasha</div>
+            <div style={{color:activeDasha.color,fontSize:13,fontWeight:700,fontFamily:'Space Mono'}}>{GRAHAS.find(g=>g.id===activeDasha.graha)?.sa||activeDasha.graha}</div>
+            <div style={{color:'var(--text2)',fontSize:10,marginTop:2}}>{activeDasha.start} – {activeDasha.end}</div>
+          </div>
+          {/* antardasha mini-bars */}
+          {activeDasha.antars&&(
+            <div style={{flex:2,background:'var(--bg3)',borderRadius:8,padding:'8px 10px',border:'1px solid var(--sep)'}}>
+              <div style={{color:'var(--text3)',fontSize:9,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:5}}>Antardasha Sequence</div>
+              <div style={{display:'flex',gap:2,height:14}}>
+                {activeDasha.antars.map((a,i)=>{
+                  const ag=GRAHAS.find(g=>g.id===a.g);
+                  const activePct=((scrubYear-activeDasha.startY)/(activeDasha.endY-activeDasha.startY))*100;
+                  // rough cumulative pct
+                  const cumPct=activeDasha.antars.slice(0,i).reduce((s,x)=>s+x.pct,0);
+                  const isActive=activePct>=cumPct&&activePct<cumPct+a.pct;
+                  return(
+                    <div key={a.g} title={a.g} style={{flex:a.pct,background:isActive?ag?.color||'var(--teal)':a.done?ag?.color+'33':'rgba(255,255,255,0.04)',borderRadius:3,position:'relative',transition:'background .3s'}}>
+                      {a.pct>9&&<span style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',color:isActive?'#080616':ag?.color||'var(--text3)',fontSize:7,fontFamily:'Space Mono',fontWeight:700,opacity:isActive?1:.7}}>{a.g}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════ SCREENS ═══════════════ */
+function SectionHead({label,badge}){
+  return(
+    <div style={{display:'flex',alignItems:'center',gap:8}}>
+      <span style={{color:'var(--text3)',fontSize:10,textTransform:'uppercase',letterSpacing:'.1em',fontWeight:700,flexShrink:0}}>{label}</span>
+      {badge!==undefined&&<span style={{background:'var(--bg3)',color:'var(--text2)',fontSize:9,padding:'1px 6px',borderRadius:10}}>{badge}</span>}
+      <div style={{flex:1,height:1,background:'var(--sep)'}}/>
+    </div>
+  );
+}
+
+function StatCard({l,v,sub,c}){
+  return(
+    <div style={{background:'var(--bg2)',borderRadius:10,padding:'10px',border:'1px solid var(--sep)'}}>
+      <div style={{color:'var(--text2)',fontSize:9,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:4}}>{l}</div>
+      <div style={{color:c,fontSize:13,fontWeight:700,lineHeight:1.2}}>{v}</div>
+      <div style={{color:'var(--text2)',fontSize:9,marginTop:3}}>{sub}</div>
+    </div>
+  );
+}
+
+function ChartScreen({vp}){
+  const [showTransits,setShowTransits]=useState(false);
+  const [transitOffset,setTransitOffset]=useState(0);
+  const [transitPlaying,setTransitPlaying]=useState(false);
+  const [highlightSign,setHighlightSign]=useState(null);
+  const [activeYoga,setActiveYoga]=useState(null);
+  const rafRef=useRef(null);
+  const lastRef=useRef(null);
+
+  useEffect(()=>{
+    if(transitPlaying){
+      const step=ts=>{
+        if(lastRef.current!=null){const dt=ts-lastRef.current;setTransitOffset(o=>o+dt*0.05);}
+        lastRef.current=ts;
+        rafRef.current=requestAnimationFrame(step);
+      };
+      rafRef.current=requestAnimationFrame(step);
+    }else{lastRef.current=null;cancelAnimationFrame(rafRef.current);}
+    return()=>cancelAnimationFrame(rafRef.current);
+  },[transitPlaying]);
+
+  const isDesktop=vp==='desktop';
+  const isTablet=vp==='tablet';
+
+  return(
+    <div style={{padding:'0 12px 20px',overflowY:'auto',flex:1}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:12}}>
+        <StatCard l="Lagna" v="Vrischika" sub="Scorpio · 8th Sign" c="var(--gold)"/>
+        <StatCard l="Atmakaraka" v="Mars ↑" sub="7°48' Capricorn" c="#E85050"/>
+        <StatCard l="Vimshottari" v="Ketu–Venus" sub="Mar 2025 – May 2026" c="var(--teal)"/>
+      </div>
+
+      {/* transit controls */}
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,background:'var(--bg2)',borderRadius:10,padding:'8px 12px',border:'1px solid var(--sep)'}}>
+        <div style={{width:8,height:8,borderRadius:'50%',background:showTransits?'var(--teal)':'var(--text3)',boxShadow:showTransits?'0 0 8px var(--teal)':undefined,transition:'all .3s'}}/>
+        <span style={{color:'var(--text1)',fontSize:12,fontWeight:600,flex:1}}>Transit Overlay</span>
+        <button onClick={()=>setShowTransits(s=>!s)} style={{padding:'4px 12px',borderRadius:20,border:`1px solid ${showTransits?'var(--teal)':'var(--sep2)'}`,background:showTransits?'rgba(0,205,176,0.1)':'transparent',color:showTransits?'var(--teal)':'var(--text2)',fontSize:11,fontWeight:600,cursor:'pointer',transition:'all .2s'}}>
+          {showTransits?'ON':'OFF'}
+        </button>
+        {showTransits&&<>
+          <div style={{width:1,height:16,background:'var(--sep)'}}/>
+          <button onClick={()=>setTransitPlaying(p=>!p)} style={{width:26,height:26,borderRadius:'50%',background:transitPlaying?'var(--teal)':'var(--bg3)',border:'none',color:transitPlaying?'#080616':'var(--text2)',fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            {transitPlaying?'⏸':'▶'}
+          </button>
+          <span style={{color:'var(--text2)',fontSize:10,fontFamily:'Space Mono'}}>+{Math.round(transitOffset)}°</span>
+        </>}
+      </div>
+
+      {/* chart layout – desktop gets side-by-side */}
+      <div style={{display:'grid',gridTemplateColumns:isDesktop||isTablet?'1fr 1fr':'1fr',gap:12,alignItems:'start'}}>
+        <div style={{position:'relative'}}>
+          <SouthIndianChart showTransits={showTransits} transitOffset={transitOffset} highlightSign={highlightSign}/>
+          {showTransits&&(
+            <div style={{position:'absolute',inset:0,pointerEvents:'none'}}>
+              <TransitOverlaySVG offset={transitOffset} playing={transitPlaying}/>
+            </div>
+          )}
+        </div>
+
+        {/* right panel on wider viewports */}
+        {(isDesktop||isTablet)&&(
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {/* legend */}
+            <div style={{background:'var(--bg2)',borderRadius:10,padding:'12px 14px',border:'1px solid var(--sep)'}}>
+              <SectionHead label="Natal Planets"/>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:8}}>
+                {GRAHAS.filter(g=>!g.isLagna).map(g=>(
+                  <div key={g.id} style={{display:'flex',alignItems:'center',gap:5,background:'var(--bg3)',borderRadius:6,padding:'4px 8px'}}>
+                    <div style={{width:6,height:6,borderRadius:'50%',background:g.color}}/>
+                    <span style={{color:'var(--text1)',fontSize:10,fontFamily:'Space Mono'}}>{g.id}</span>
+                    <span style={{color:'var(--text2)',fontSize:9}}>{g.deg} {SIGNS.find(s=>s.id===g.sign)?.sa}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {showTransits&&(
+              <div style={{background:'var(--bg2)',borderRadius:10,padding:'12px 14px',border:'1px solid rgba(0,205,176,0.2)'}}>
+                <SectionHead label="Current Transits"/>
+                <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:8}}>
+                  {TRANSIT_GRAHAS.map(tg=>{
+                    const deg=(tg.deg+transitOffset*tg.speed*0.08)%360;
+                    const signNum=((Math.floor(deg/30))%12)+1;
+                    const sign=SIGNS.find(s=>s.id===signNum);
+                    return(
+                      <div key={tg.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',background:'var(--bg3)',borderRadius:7}}>
+                        <div style={{width:6,height:6,borderRadius:'50%',background:tg.color,boxShadow:`0 0 5px ${tg.color}`}}/>
+                        <span style={{color:tg.color,fontFamily:'Space Mono',fontSize:10,fontWeight:700,width:16}}>{tg.id}</span>
+                        <span style={{color:'var(--text1)',fontSize:11}}>{sign?.sa}</span>
+                        <span style={{color:'var(--text2)',fontSize:10,fontFamily:'Space Mono',marginLeft:'auto'}}>{Math.round(deg%30)}°{sign?.id}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {/* yogas */}
+            <div style={{background:'var(--bg2)',borderRadius:10,padding:'12px 14px',border:'1px solid var(--sep)'}}>
+              <SectionHead label="Yogas Detected" badge={YOGAS.length}/>
+              <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:8}}>
+                {YOGAS.map((y,i)=>(
+                  <div key={i} onClick={()=>setActiveYoga(activeYoga===i?null:i)} style={{background:'var(--bg3)',border:'1px solid var(--sep)',borderRadius:10,padding:'10px 12px',cursor:'pointer'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,justifyContent:'space-between'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:7}}>
+                        <div style={{width:6,height:6,borderRadius:'50%',flexShrink:0,background:y.quality==='positive'?'#40C888':y.quality==='karmic'?'var(--teal)':'var(--gold)'}}/>
+                        <span style={{color:'var(--text1)',fontSize:12,fontWeight:600}}>{y.name}</span>
+                      </div>
+                      <span style={{color:'var(--text3)',fontSize:10}}>{activeYoga===i?'▲':'▼'}</span>
+                    </div>
+                    {activeYoga===i&&<p style={{color:'var(--text1)',fontSize:12,lineHeight:1.7,marginTop:8,fontFamily:'Crimson Pro',fontStyle:'italic',borderTop:'1px solid var(--sep)',paddingTop:8}}>{y.desc}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* on mobile: yogas below chart */}
+      {!isDesktop&&!isTablet&&(
+        <div style={{marginTop:14}}>
+          <SectionHead label="Yogas Detected" badge={YOGAS.length}/>
+          <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
+            {YOGAS.map((y,i)=>(
+              <div key={i} onClick={()=>setActiveYoga(activeYoga===i?null:i)} style={{background:'var(--bg2)',border:'1px solid var(--sep)',borderRadius:12,padding:'12px 14px',cursor:'pointer'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,justifyContent:'space-between'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{width:6,height:6,borderRadius:'50%',flexShrink:0,background:y.quality==='positive'?'#40C888':y.quality==='karmic'?'var(--teal)':'var(--gold)'}}/>
+                    <span style={{color:'var(--text1)',fontSize:13,fontWeight:600}}>{y.name}</span>
+                  </div>
+                  <span style={{color:'var(--text3)',fontSize:11}}>{activeYoga===i?'▲':'▼'}</span>
+                </div>
+                {activeYoga===i&&<p style={{color:'var(--text1)',fontSize:13,lineHeight:1.7,marginTop:10,fontFamily:'Crimson Pro',fontStyle:'italic',borderTop:'1px solid var(--sep)',paddingTop:10}}>{y.desc}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GrahasScreen(){
+  const [selected,setSelected]=useState(null);
+  const sel=selected?GRAHAS.find(x=>x.id===selected):null;
+  const sign=sel?SIGNS.find(s=>s.id===sel.sign):null;
+  return(
+    <div style={{overflowY:'auto',flex:1}}>
+      <div style={{display:'grid',gridTemplateColumns:'40px 1fr 80px 80px',padding:'8px 16px',background:'var(--bg1)',borderBottom:'1px solid var(--sep)',position:'sticky',top:0,zIndex:5}}>
+        {['','Graha / Sign','Nakshatra','State'].map((h,i)=><span key={i} style={{color:'var(--text3)',fontSize:9,textTransform:'uppercase',letterSpacing:'.07em',fontWeight:600}}>{h}</span>)}
+      </div>
+      {GRAHAS.map(g=>{
+        const s=SIGNS.find(x=>x.id===g.sign);
+        const isSel=selected===g.id;
+        return(
+          <React.Fragment key={g.id}>
+            <div onClick={()=>!g.isLagna&&setSelected(isSel?null:g.id)} style={{display:'grid',gridTemplateColumns:'40px 1fr 80px 80px',padding:'12px 16px',borderBottom:'1px solid var(--sep)',background:isSel?'var(--bg2)':'transparent',cursor:g.isLagna?'default':'pointer',transition:'background .15s'}}>
+              <div style={{width:28,height:28,borderRadius:8,background:g.color+'22',border:`1px solid ${g.color}44`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <span style={{color:g.color,fontSize:11,fontFamily:'Space Mono',fontWeight:700}}>{g.id}</span>
+              </div>
+              <div style={{paddingLeft:8}}>
+                <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+                  <span style={{color:'var(--text0)',fontSize:14,fontWeight:600}}>{g.sa}</span>
+                  <span style={{color:'var(--text2)',fontSize:10}}>{g.name}</span>
+                </div>
+                <div style={{color:'var(--text2)',fontSize:11,marginTop:2}}>
+                  <span style={{fontFamily:'Space Mono'}}>{g.deg}</span>
+                  <span style={{color:'var(--text3)',marginLeft:4}}>{s?.sa}</span>
+                </div>
+              </div>
+              <div><div style={{color:'var(--text1)',fontSize:11}}>{g.nak}</div><div style={{color:'var(--text3)',fontSize:9,marginTop:2}}>Pada {g.pada}</div></div>
+              <div style={{display:'flex',alignItems:'center'}}>
+                <span style={{fontSize:10,fontWeight:600,padding:'2px 7px',borderRadius:20,background:g.exalted?'rgba(64,200,136,0.12)':g.debilitated?'rgba(232,80,80,0.12)':'transparent',color:g.exalted?'#40C888':g.debilitated?'#E85050':'var(--text2)',border:g.exalted?'1px solid rgba(64,200,136,0.3)':g.debilitated?'1px solid rgba(232,80,80,0.3)':'none'}}>{g.state}</span>
+              </div>
+            </div>
+            {isSel&&sign&&(
+              <div style={{background:'var(--bg2)',padding:'12px 16px 16px',borderBottom:'1px solid var(--sep)',animation:'fadeSlideUp .2s ease'}}>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:10}}>
+                  {[{l:'Element',v:sign.el},{l:'Sign Lord',v:sign.lord},{l:'House',v:`${g.sign}th from Lagna`}].map(({l,v})=>(
+                    <div key={l} style={{background:'var(--bg3)',borderRadius:8,padding:'8px 10px'}}>
+                      <div style={{color:'var(--text3)',fontSize:9,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:3}}>{l}</div>
+                      <div style={{color:'var(--text0)',fontSize:12,fontWeight:600,fontFamily:'Space Mono'}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{background:'var(--bg3)',borderRadius:8,padding:'10px 12px',border:`1px solid ${g.color}22`}}>
+                  <div style={{color:g.color,fontSize:10,fontWeight:600,letterSpacing:'.06em',marginBottom:5,textTransform:'uppercase'}}>Interpretation</div>
+                  <div style={{color:'var(--text1)',fontSize:12,lineHeight:1.6,fontFamily:'Crimson Pro'}}>{g.sa} occupies {sign.sa} ({sign.name}), the <strong style={{color:'var(--text0)'}}>{g.sign}th house</strong> from Lagna. {sign.lord} is the dispositor.{g.exalted?' Planet is exalted here — operating at peak strength.':g.debilitated?' Planet is debilitated — check for cancellation yogas.':''}</div>
+                </div>
+              </div>
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+function DashaScreen(){
+  const [scrubYear,setScrubYear]=useState(2025);
+  const [playing,setPlaying]=useState(false);
+  const rafRef=useRef(null);
+
+  useEffect(()=>{
+    if(playing){
+      const step=()=>{
+        setScrubYear(y=>{const n=y+.05;return n>=TIMELINE_END?TIMELINE_START:n;});
+        rafRef.current=requestAnimationFrame(step);
+      };
+      rafRef.current=requestAnimationFrame(step);
+    }else cancelAnimationFrame(rafRef.current);
+    return()=>cancelAnimationFrame(rafRef.current);
+  },[playing]);
+
+  const activeDasha=DASHAS.find(d=>scrubYear>=d.startY&&scrubYear<d.endY);
+
+  return(
+    <div style={{overflowY:'auto',flex:1,padding:'0 14px 24px'}}>
+      {/* current banner */}
+      <div style={{margin:'12px 0',background:'linear-gradient(135deg,rgba(64,192,176,0.1),rgba(168,96,224,0.06))',border:'1px solid rgba(64,192,176,0.2)',borderRadius:14,padding:'14px 16px'}}>
+        <div style={{color:'var(--teal)',fontSize:9,textTransform:'uppercase',letterSpacing:'.1em',fontWeight:700,marginBottom:6}}>◉ Active Dasha Period</div>
+        <div style={{color:'var(--text0)',fontSize:22,fontWeight:700,fontFamily:'Crimson Pro',marginBottom:3}}>Ketu · Venus</div>
+        <div style={{color:'var(--text2)',fontSize:12}}>Mar 2025 – May 2026 · Antardasha</div>
+      </div>
+
+      {/* animated scrubber */}
+      <div style={{background:'var(--bg2)',borderRadius:14,padding:'14px 14px',border:'1px solid var(--sep)',marginBottom:14}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+          <span style={{color:'var(--gold)',fontSize:11,textTransform:'uppercase',letterSpacing:'.1em',fontWeight:700}}>◌ Dasha Timeline</span>
+          <span style={{color:'var(--text3)',fontSize:9,marginLeft:'auto'}}>1985 – 2074</span>
+        </div>
+        <DashaTimeline scrubYear={Math.round(scrubYear)} setScrubYear={setScrubYear} playing={playing} setPlaying={setPlaying}/>
+      </div>
+
+      {/* full sequence */}
+      <SectionHead label="Vimshottari Sequence"/>
+      <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:6}}>
+        {DASHAS.map(d=>{
+          const p=GRAHAS.find(g=>g.id===d.graha);
+          const isActive=scrubYear>=d.startY&&scrubYear<d.endY;
+          return(
+            <div key={d.graha} style={{background:'var(--bg2)',borderRadius:12,overflow:'hidden',border:`1px solid ${isActive?d.color+'55':'var(--sep)'}`,transition:'border-color .3s'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,padding:'11px 14px'}}>
+                <div style={{width:32,height:32,borderRadius:8,background:d.color+'22',border:`1px solid ${d.color}44`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <span style={{color:d.color,fontSize:11,fontFamily:'Space Mono',fontWeight:700}}>{d.graha}</span>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+                    <span style={{color:'var(--text0)',fontSize:14,fontWeight:600}}>{p?.sa} Mahadasha</span>
+                    {isActive&&<span style={{color:d.color,fontSize:9,fontWeight:700,background:d.color+'22',padding:'1px 6px',borderRadius:10,animation:'dashaPulse 2s infinite'}}>ACTIVE</span>}
+                  </div>
+                  <div style={{color:'var(--text2)',fontSize:11}}>{d.start} – {d.end} · {d.years}y</div>
+                  {/* mini progress bar */}
+                  {isActive&&(
+                    <div style={{marginTop:5,height:3,background:'var(--bg3)',borderRadius:2,overflow:'hidden'}}>
+                      <div style={{height:'100%',width:`${((scrubYear-d.startY)/(d.endY-d.startY))*100}%`,background:d.color,borderRadius:2,transition:'width .1s'}}/>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {isActive&&d.antars&&(
+                <div style={{borderTop:'1px solid var(--sep)',padding:'8px 14px 10px'}}>
+                  <div style={{display:'flex',gap:3,height:20,marginBottom:6}}>
+                    {d.antars.map((a,i)=>{
+                      const ag=GRAHAS.find(g=>g.id===a.g);
+                      const cumPct=d.antars.slice(0,i).reduce((s,x)=>s+x.pct,0);
+                      const localPct=((scrubYear-d.startY)/(d.endY-d.startY))*100;
+                      const isAct=localPct>=cumPct&&localPct<cumPct+a.pct;
+                      return(
+                        <div key={a.g} title={`${a.g}: ${a.s}–${a.e}`} style={{flex:a.pct,background:isAct?ag?.color:a.done?ag?.color+'33':'rgba(255,255,255,0.04)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',transition:'background .3s'}}>
+                          {a.pct>6&&<span style={{fontSize:8,fontFamily:'Space Mono',fontWeight:700,color:isAct?'#080616':ag?.color+'99'}}>{a.g}</span>}
+                          {isAct&&<div style={{position:'absolute',inset:0,borderRadius:4,border:`1px solid ${ag?.color}`,animation:'dashaPulse 1.5s infinite'}}/>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ReportScreen({activeClient}){
+  const [query,setQuery]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [report,setReport]=useState(null);
+  const [error,setError]=useState(null);
+  const reportRef=useRef(null);
+
+  const clientCtx=activeClient?`CLIENT CHART:\nName: ${activeClient.name}\nDOB: ${activeClient.dob}, ${activeClient.tob}\nCity: ${activeClient.city} (${activeClient.lat}, ${activeClient.lon})\nLagna: ${activeClient.lagna} | Active Dasha: ${activeClient.dasha}\nNotes: ${activeClient.notes||'None'}\n\n(Full planetary positions would be calculated from the Swiss Ephemeris engine at runtime.)`:CHART_CTX;
+
+  const generate=async(q)=>{
+    const fq=q||query;if(!fq.trim())return;
+    setLoading(true);setReport(null);setError(null);
+    try{
+      const res=await window.claude.complete({messages:[{role:'user',content:`You are an expert Jyotish astrologer with deep knowledge of Brihat Parashara Hora Shastra, Jaimini Sutras, and Bhrigu Nadi. Speak with authority, warmth, and precision. Use Sanskrit terminology alongside English. Format with **bold headers**.\n\n${clientCtx}\n\nQUERY: ${fq}\n\nProvide a thorough scholarly Jyotish reading. Reference specific degrees, nakshatras, and yogas from the chart.`}]});
+      setReport(res);
+      setTimeout(()=>reportRef.current?.scrollIntoView({behavior:'smooth',block:'start'}),100);
+    }catch(e){setError('Reading could not be generated. Please try again.');}
+    setLoading(false);
+  };
+
+  return(
+    <div style={{overflowY:'auto',flex:1,padding:'12px 14px 24px'}}>
+      {/* active client banner */}
+      {activeClient?(
+        <div style={{marginBottom:14,background:'rgba(232,184,75,0.07)',border:'1px solid rgba(232,184,75,0.25)',borderRadius:12,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:32,height:32,borderRadius:10,background:'rgba(232,184,75,0.15)',border:'1px solid rgba(232,184,75,0.3)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <span style={{color:'var(--gold)',fontSize:14,fontWeight:700}}>{activeClient.name[0]}</span>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{color:'var(--gold)',fontSize:12,fontWeight:700}}>{activeClient.name}</div>
+            <div style={{color:'var(--text2)',fontSize:10,fontFamily:'Space Mono'}}>{activeClient.dob} · {activeClient.tob} · {activeClient.city}</div>
+          </div>
+          <span style={{color:'var(--gold)',fontSize:9,fontWeight:700,background:'rgba(232,184,75,0.12)',padding:'2px 8px',borderRadius:10,letterSpacing:'.07em'}}>CLIENT</span>
+        </div>
+      ):(
+        <div style={{marginBottom:14}}>
+          <div style={{color:'var(--gold)',fontSize:11,textTransform:'uppercase',letterSpacing:'.1em',fontWeight:700,marginBottom:4}}>✦ AI Jyotish Reading Engine</div>
+          <div style={{color:'var(--text2)',fontSize:12,lineHeight:1.5}}>Full chart context is loaded. Tap a preset or type a custom question.</div>
+        </div>
+      )}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
+        {PROMPT_PRESETS.map(p=>(
+          <button key={p.label} onClick={()=>generate(p.q)} style={{background:'var(--bg2)',border:'1px solid var(--sep2)',borderRadius:10,padding:'10px 12px',cursor:'pointer',textAlign:'left',transition:'border-color .15s'}}>
+            <div style={{color:'var(--gold)',fontSize:14,marginBottom:4}}>{p.icon}</div>
+            <div style={{color:'var(--text1)',fontSize:12,fontWeight:600,lineHeight:1.3}}>{p.label}</div>
+          </button>
+        ))}
+      </div>
+      <div style={{background:'var(--bg2)',border:'1px solid var(--sep2)',borderRadius:12,overflow:'hidden',marginBottom:14}}>
+        <textarea value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ask a custom question about this chart…" rows={3} style={{width:'100%',background:'transparent',border:'none',outline:'none',color:'var(--text0)',fontSize:13,lineHeight:1.6,padding:'12px 14px',fontFamily:'Space Grotesk',resize:'none'}}/>
+        <div style={{padding:'8px 12px',borderTop:'1px solid var(--sep)',display:'flex',justifyContent:'flex-end'}}>
+          <button onClick={()=>generate()} disabled={!query.trim()||loading} style={{background:query.trim()&&!loading?'var(--gold)':'var(--bg3)',border:'none',borderRadius:8,padding:'8px 16px',cursor:query.trim()&&!loading?'pointer':'default',color:query.trim()&&!loading?'#0D0A1E':'var(--text3)',fontSize:12,fontWeight:700,fontFamily:'Space Grotesk',transition:'all .2s'}}>Generate Reading →</button>
+        </div>
+      </div>
+      {loading&&(
+        <div style={{display:'flex',alignItems:'center',gap:12,background:'var(--bg2)',borderRadius:12,padding:'20px 16px',border:'1px solid var(--sep)'}}>
+          <div style={{width:24,height:24,borderRadius:'50%',border:'2px solid var(--gold)',borderTopColor:'transparent',animation:'spin .8s linear infinite'}}/>
+          <div>
+            <div style={{color:'var(--text1)',fontSize:13,fontWeight:600}}>Consulting the Grahas…</div>
+            <div style={{color:'var(--text2)',fontSize:11,marginTop:2}}>Synthesizing planetary positions and dashas</div>
+          </div>
+        </div>
+      )}
+      {report&&(
+        <div ref={reportRef} style={{background:'var(--bg2)',border:'1px solid rgba(232,184,75,0.2)',borderRadius:14,padding:'16px 16px 20px',animation:'fadeSlideUp .3s ease'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,paddingBottom:10,borderBottom:'1px solid var(--sep)'}}>
+            <span style={{color:'var(--gold)',fontSize:14}}>✦</span>
+            <span style={{color:'var(--gold)',fontSize:11,textTransform:'uppercase',letterSpacing:'.1em',fontWeight:700}}>Jyotish Reading</span>
+          </div>
+          <div style={{color:'var(--text1)',fontSize:14,lineHeight:1.8,fontFamily:'Crimson Pro'}}
+            dangerouslySetInnerHTML={{__html:report.replace(/\*\*(.+?)\*\*/g,'<strong style="color:#F5F2FF;font-weight:600">$1</strong>').replace(/\n\n/g,'</p><p style="margin-bottom:10px">').replace(/\n/g,'<br/>').replace(/^/,'<p style="margin-bottom:10px">').replace(/$/,'</p>')}}
+          />
+        </div>
+      )}
+      {error&&<div style={{background:'rgba(232,80,80,0.08)',border:'1px solid rgba(232,80,80,0.2)',borderRadius:12,padding:'14px 16px'}}><div style={{color:'#E85050',fontSize:13}}>{error}</div></div>}
+    </div>
+  );
+}
+
+/* ═══════════════ CLIENTS SCREEN ═══════════════ */
+const CITIES=[
+  {name:'New Delhi',lat:28.6139,lon:77.2090,tz:'Asia/Kolkata'},
+  {name:'Mumbai',lat:19.0760,lon:72.8777,tz:'Asia/Kolkata'},
+  {name:'London',lat:51.5074,lon:-0.1278,tz:'Europe/London'},
+  {name:'New York',lat:40.7128,lon:-74.0060,tz:'America/New_York'},
+  {name:'Los Angeles',lat:34.0522,lon:-118.2437,tz:'America/Los_Angeles'},
+  {name:'Belgrade',lat:44.8176,lon:20.4569,tz:'Europe/Belgrade'},
+  {name:'Berlin',lat:52.5200,lon:13.4050,tz:'Europe/Berlin'},
+  {name:'Sydney',lat:-33.8688,lon:151.2093,tz:'Australia/Sydney'},
+  {name:'Dubai',lat:25.2048,lon:55.2708,tz:'Asia/Dubai'},
+  {name:'Singapore',lat:1.3521,lon:103.8198,tz:'Asia/Singapore'},
+];
+
+const SAMPLE_CLIENTS=[
+  {id:'1',name:'Priya Sharma',dob:'1990-06-15',tob:'08:30',city:'New Delhi',lat:28.6139,lon:77.2090,lagna:'Cancer',dasha:'Ra–Ju',notes:'Focus: marriage timing, career',avatar:'P'},
+  {id:'2',name:'Marco Ricci',dob:'1978-11-03',tob:'22:15',city:'Berlin',lat:52.5200,lon:13.4050,lagna:'Leo',dasha:'Sa–Me',notes:'Focus: health, 6th house',avatar:'M'},
+  {id:'3',name:'Ananya Das',dob:'2001-03-22',tob:'14:44',city:'Mumbai',lat:19.0760,lon:72.8777,lagna:'Scorpio',dasha:'Ke–Ve',notes:'Focus: education abroad',avatar:'A'},
+];
+
+const AVATAR_COLORS=['#E85050','#F4A924','#40C888','#F878C0','#A060E0','#7090C8','#00CDB0'];
+
+function ClientsScreen({activeClientId,setActiveClientId,onOpenChart}){
+  const [clients,setClients]=useState(SAMPLE_CLIENTS);
+  const [view,setView]=useState('list'); // list | form | detail
+  const [editClient,setEditClient]=useState(null);
+  const [form,setForm]=useState({name:'',dob:'',tob:'',city:'',lat:'',lon:'',notes:''});
+  const [citySearch,setCitySearch]=useState('');
+  const [showCityDD,setShowCityDD]=useState(false);
+  const [saving,setSaving]=useState(false);
+
+  const filteredCities=CITIES.filter(c=>c.name.toLowerCase().includes(citySearch.toLowerCase()));
+
+  const openNew=()=>{
+    setEditClient(null);
+    setForm({name:'',dob:'',tob:'',city:'',lat:'',lon:'',notes:''});
+    setCitySearch('');
+    setView('form');
+  };
+
+  const openEdit=(c)=>{
+    setEditClient(c);
+    setForm({name:c.name,dob:c.dob,tob:c.tob,city:c.city,lat:c.lat,lon:c.lon,notes:c.notes||''});
+    setCitySearch(c.city);
+    setView('form');
+  };
+
+  const saveClient=()=>{
+    if(!form.name||!form.dob||!form.tob||!form.city)return;
+    setSaving(true);
+    setTimeout(()=>{
+      if(editClient){
+        setClients(cs=>cs.map(c=>c.id===editClient.id?{...c,...form}:c));
+      }else{
+        const newC={...form,id:Date.now().toString(),lagna:'Calculating…',dasha:'…',avatar:form.name[0].toUpperCase()};
+        setClients(cs=>[...cs,newC]);
+      }
+      setSaving(false);
+      setView('list');
+    },600);
+  };
+
+  const deleteClient=(id)=>{
+    setClients(cs=>cs.filter(c=>c.id!==id));
+    if(activeClientId===id){setActiveClientId(null);}
+  };
+
+  const selectCity=c=>{
+    setForm(f=>({...f,city:c.name,lat:c.lat,lon:c.lon}));
+    setCitySearch(c.name);
+    setShowCityDD(false);
+  };
+
+  const F=({label,children,required})=>(
+    <div style={{marginBottom:12}}>
+      <label style={{display:'block',color:'var(--text3)',fontSize:9,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:5}}>
+        {label}{required&&<span style={{color:'var(--gold)',marginLeft:3}}>*</span>}
+      </label>
+      {children}
+    </div>
+  );
+
+  const inputStyle={width:'100%',background:'var(--bg3)',border:'1px solid var(--sep2)',borderRadius:8,padding:'9px 12px',color:'var(--text0)',fontSize:13,fontFamily:'Space Grotesk',outline:'none'};
+
+  if(view==='form') return(
+    <div style={{overflowY:'auto',flex:1,padding:'12px 14px 24px'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+        <button onClick={()=>setView('list')} style={{width:28,height:28,borderRadius:8,background:'var(--bg3)',border:'1px solid var(--sep)',color:'var(--text2)',fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>←</button>
+        <div>
+          <div style={{color:'var(--text0)',fontSize:14,fontWeight:700}}>{editClient?'Edit Client':'New Client'}</div>
+          <div style={{color:'var(--text2)',fontSize:10}}>Enter birth details for chart calculation</div>
+        </div>
+      </div>
+
+      <div style={{background:'var(--bg2)',borderRadius:14,padding:'16px',border:'1px solid var(--sep)',marginBottom:12}}>
+        <SectionHead label="Personal Details"/>
+        <div style={{marginTop:12}}>
+          <F label="Full Name" required>
+            <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Priya Sharma" style={inputStyle}/>
+          </F>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <F label="Date of Birth" required>
+              <input type="date" value={form.dob} onChange={e=>setForm(f=>({...f,dob:e.target.value}))} style={{...inputStyle,colorScheme:'dark'}}/>
+            </F>
+            <F label="Time of Birth" required>
+              <input type="time" value={form.tob} onChange={e=>setForm(f=>({...f,tob:e.target.value}))} style={{...inputStyle,colorScheme:'dark'}}/>
+            </F>
+          </div>
+        </div>
+      </div>
+
+      <div style={{background:'var(--bg2)',borderRadius:14,padding:'16px',border:'1px solid var(--sep)',marginBottom:12}}>
+        <SectionHead label="Birth Location"/>
+        <div style={{marginTop:12,position:'relative'}}>
+          <F label="City / Place of Birth" required>
+            <input value={citySearch} onChange={e=>{setCitySearch(e.target.value);setForm(f=>({...f,city:e.target.value}));setShowCityDD(true);}} onFocus={()=>setShowCityDD(true)} placeholder="Search city or type name…" style={inputStyle}/>
+            {showCityDD&&filteredCities.length>0&&(
+              <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--bg3)',border:'1px solid var(--sep2)',borderRadius:8,zIndex:20,overflow:'hidden',boxShadow:'0 8px 24px rgba(0,0,0,.5)',marginTop:4}}>
+                {filteredCities.map(c=>(
+                  <div key={c.name} onClick={()=>selectCity(c)} style={{padding:'10px 12px',cursor:'pointer',borderBottom:'1px solid var(--sep)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{color:'var(--text1)',fontSize:13}}>{c.name}</span>
+                    <span style={{color:'var(--text3)',fontSize:10,fontFamily:'Space Mono'}}>{c.tz.split('/')[1]||c.tz}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </F>
+          {form.lat&&(
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:-4}}>
+              <F label="Latitude"><input value={form.lat} onChange={e=>setForm(f=>({...f,lat:e.target.value}))} style={{...inputStyle,fontSize:12,fontFamily:'Space Mono'}}/></F>
+              <F label="Longitude"><input value={form.lon} onChange={e=>setForm(f=>({...f,lon:e.target.value}))} style={{...inputStyle,fontSize:12,fontFamily:'Space Mono'}}/></F>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{background:'var(--bg2)',borderRadius:14,padding:'16px',border:'1px solid var(--sep)',marginBottom:16}}>
+        <SectionHead label="Astrologer Notes"/>
+        <textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Focus areas, previous readings, client intentions…" rows={3} style={{...inputStyle,marginTop:10,resize:'none'}}/>
+      </div>
+
+      <button onClick={saveClient} disabled={!form.name||!form.dob||!form.tob||!form.city||saving} style={{width:'100%',padding:'14px',background:(!form.name||!form.dob||!form.tob||!form.city)?'var(--bg3)':'var(--gold)',border:'none',borderRadius:12,color:(!form.name||!form.dob||!form.tob||!form.city)?'var(--text3)':'#08061a',fontSize:14,fontWeight:700,cursor:(!form.name||!form.dob||!form.tob||!form.city)?'default':'pointer',fontFamily:'Space Grotesk',display:'flex',alignItems:'center',justifyContent:'center',gap:8,transition:'all .2s'}}>
+        {saving?<><div style={{width:16,height:16,borderRadius:'50%',border:'2px solid #08061a',borderTopColor:'transparent',animation:'spin .7s linear infinite'}}/> Calculating Chart…</>:<>✦ {editClient?'Update':'Save'} Client Chart</>}
+      </button>
+    </div>
+  );
+
+  return(
+    <div style={{overflowY:'auto',flex:1,padding:'12px 14px 24px'}}>
+      {/* header row */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <div>
+          <div style={{color:'var(--gold)',fontSize:11,textTransform:'uppercase',letterSpacing:'.1em',fontWeight:700}}>⊞ Client Charts</div>
+          <div style={{color:'var(--text2)',fontSize:11,marginTop:2}}>{clients.length} chart{clients.length!==1?'s':''} saved</div>
+        </div>
+        <button onClick={openNew} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',background:'var(--gold)',border:'none',borderRadius:10,color:'#08061a',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'Space Grotesk'}}>
+          <span style={{fontSize:16,lineHeight:1}}>+</span> New Client
+        </button>
+      </div>
+
+      {/* search hint */}
+      <div style={{background:'rgba(232,184,75,0.06)',border:'1px solid rgba(232,184,75,0.15)',borderRadius:10,padding:'10px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:8}}>
+        <span style={{color:'var(--gold)',fontSize:13}}>◉</span>
+        <span style={{color:'var(--text2)',fontSize:12,lineHeight:1.5}}>Tap a client to load their chart. Tap <strong style={{color:'var(--text1)'}}>Open Chart</strong> to switch all panels to their data.</span>
+      </div>
+
+      {/* client cards */}
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {clients.map((c,i)=>{
+          const isActive=activeClientId===c.id;
+          const avatarColor=AVATAR_COLORS[i%AVATAR_COLORS.length];
+          return(
+            <div key={c.id} style={{background:'var(--bg2)',borderRadius:14,border:`1px solid ${isActive?'var(--gold)':'var(--sep)'}`,overflow:'hidden',transition:'border-color .2s',animation:'fadeSlideUp .2s ease'}}>
+              <div style={{padding:'14px 14px 10px'}}>
+                <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                  {/* avatar */}
+                  <div style={{width:40,height:40,borderRadius:12,background:avatarColor+'22',border:`1.5px solid ${avatarColor}55`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    <span style={{color:avatarColor,fontSize:16,fontWeight:700}}>{c.avatar||c.name[0]}</span>
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
+                      <span style={{color:'var(--text0)',fontSize:14,fontWeight:700}}>{c.name}</span>
+                      {isActive&&<span style={{color:'var(--gold)',fontSize:9,fontWeight:700,background:'rgba(232,184,75,0.12)',padding:'1px 7px',borderRadius:10,letterSpacing:'.06em'}}>ACTIVE</span>}
+                    </div>
+                    <div style={{color:'var(--text2)',fontSize:11,fontFamily:'Space Mono'}}>{c.dob} · {c.tob} · {c.city}</div>
+                    <div style={{display:'flex',gap:8,marginTop:6}}>
+                      <div style={{background:'var(--bg3)',borderRadius:6,padding:'3px 8px',display:'flex',gap:4,alignItems:'center'}}>
+                        <span style={{color:'var(--text3)',fontSize:9,textTransform:'uppercase',letterSpacing:'.06em'}}>Lagna</span>
+                        <span style={{color:'var(--gold)',fontSize:10,fontWeight:600,fontFamily:'Space Mono'}}>{c.lagna}</span>
+                      </div>
+                      <div style={{background:'var(--bg3)',borderRadius:6,padding:'3px 8px',display:'flex',gap:4,alignItems:'center'}}>
+                        <span style={{color:'var(--text3)',fontSize:9,textTransform:'uppercase',letterSpacing:'.06em'}}>Dasha</span>
+                        <span style={{color:'var(--teal)',fontSize:10,fontWeight:600,fontFamily:'Space Mono'}}>{c.dasha}</span>
+                      </div>
+                    </div>
+                    {c.notes&&<div style={{color:'var(--text2)',fontSize:11,marginTop:6,lineHeight:1.5,fontStyle:'italic',borderTop:'1px solid var(--sep)',paddingTop:6}}>{c.notes}</div>}
+                  </div>
+                </div>
+              </div>
+              <div style={{padding:'8px 14px 12px',borderTop:'1px solid var(--sep)',display:'flex',gap:8}}>
+                <button onClick={()=>{setActiveClientId(c.id);onOpenChart&&onOpenChart();}} style={{flex:2,padding:'8px',background:isActive?'rgba(232,184,75,0.1)':'var(--bg3)',border:`1px solid ${isActive?'rgba(232,184,75,0.3)':'var(--sep)'}`,borderRadius:8,color:isActive?'var(--gold)':'var(--text1)',fontSize:12,fontWeight:600,cursor:'pointer',transition:'all .2s'}}>
+                  {isActive?'✦ Chart Loaded':'⊞ Open Chart'}
+                </button>
+                <button onClick={()=>openEdit(c)} style={{flex:1,padding:'8px',background:'var(--bg3)',border:'1px solid var(--sep)',borderRadius:8,color:'var(--text2)',fontSize:12,cursor:'pointer'}}>Edit</button>
+                <button onClick={()=>deleteClient(c.id)} style={{width:34,padding:'8px',background:'rgba(232,80,80,0.08)',border:'1px solid rgba(232,80,80,0.15)',borderRadius:8,color:'#E85050',fontSize:12,cursor:'pointer'}}>✕</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {clients.length===0&&(
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',paddingTop:60,gap:12}}>
+          <div style={{width:52,height:52,borderRadius:'50%',background:'var(--bg2)',border:'1px solid var(--sep)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <span style={{color:'var(--text3)',fontSize:22}}>⊞</span>
+          </div>
+          <div style={{color:'var(--text2)',fontSize:14,fontWeight:600}}>No clients yet</div>
+          <div style={{color:'var(--text3)',fontSize:12,textAlign:'center',maxWidth:220}}>Add your first client to begin generating Jyotish readings for them.</div>
+          <button onClick={openNew} style={{marginTop:8,padding:'10px 20px',background:'var(--gold)',border:'none',borderRadius:10,color:'#08061a',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'Space Grotesk'}}>+ Add First Client</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════ APP SHELL ═══════════════ */
+const TABS=[{id:'chart',label:'Kundali',icon:'⊞'},{id:'grahas',label:'Grahas',icon:'◉'},{id:'dashas',label:'Dashas',icon:'◌'},{id:'report',label:'Reading',icon:'✦'},{id:'clients',label:'Clients',icon:'◈'}];
+
+function AppShell({vp}){
+  const [tab,setTab]=useState('chart');
+  const [activeClientId,setActiveClientId]=useState(null);
+  const activeClient=activeClientId?SAMPLE_CLIENTS.find(c=>c.id===activeClientId)||null:null;
+  return(
+    <div style={{width:'100%',height:'100%',display:'flex',flexDirection:'column',background:'var(--bg)',position:'relative',overflow:'hidden'}}>
+      {/* header */}
+      <header style={{flexShrink:0,background:'var(--bg1)',borderBottom:'1px solid var(--sep)',padding:'10px 14px 8px',display:'flex',alignItems:'center',gap:10,justifyContent:'space-between'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:32,height:32,borderRadius:'50%',background:'rgba(232,184,75,0.1)',border:'1.5px solid rgba(232,184,75,0.35)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <span style={{color:'var(--gold)',fontSize:14}}>ॐ</span>
+          </div>
+          <div>
+            <div style={{color:'var(--text0)',fontSize:14,fontWeight:700,lineHeight:1.2}}>{activeClient?activeClient.name:CHART.name}</div>
+            <div style={{color:'var(--text2)',fontSize:10,fontFamily:'Space Mono'}}>{activeClient?`${activeClient.dob} · ${activeClient.tob} · ${activeClient.city}`:CHART.dob+' · '+CHART.tob+' · '+CHART.pob.split(',')[0]}</div>
+            {activeClient&&<div style={{color:'var(--gold)',fontSize:9,fontWeight:700,letterSpacing:'.07em',marginTop:2}}>CLIENT MODE</div>}
+          </div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          {/* desktop inline nav */}
+          {vp==='desktop'&&(
+            <div style={{display:'flex',gap:2,background:'var(--bg3)',borderRadius:10,padding:3}}>
+              {TABS.map(t=>(
+                <button key={t.id} onClick={()=>setTab(t.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.id?'rgba(232,184,75,0.12)':'transparent',color:tab===t.id?'var(--gold)':'var(--text3)',fontSize:11,fontWeight:600,letterSpacing:'.05em',transition:'all .15s'}}>
+                  <span style={{fontSize:13}}>{t.icon}</span>{t.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{background:'rgba(64,192,176,0.1)',border:'1px solid rgba(64,192,176,0.25)',borderRadius:20,padding:'3px 10px',display:'flex',alignItems:'center',gap:5}}>
+            <div style={{width:5,height:5,borderRadius:'50%',background:'var(--teal)',boxShadow:'0 0 6px var(--teal)'}}/>
+            <span style={{color:'var(--teal)',fontSize:10,fontWeight:600,fontFamily:'Space Mono'}}>LIVE</span>
+          </div>
+        </div>
+      </header>
+
+      {/* meta strip */}
+      <div style={{flexShrink:0,background:'rgba(13,10,30,0.8)',borderBottom:'1px solid var(--sep)',padding:'5px 14px',display:'flex',gap:16,overflowX:'auto'}}>
+        {[{l:'Ayanamsa',v:CHART.ayanamsa},{l:'Lat/Lng',v:`${CHART.lat} / ${CHART.lng}`},{l:'TZ',v:CHART.tz},{l:'Active Dasha',v:'Ke · Ve'}].map(({l,v})=>(
+          <div key={l} style={{flexShrink:0,display:'flex',gap:5,alignItems:'baseline'}}>
+            <span style={{color:'var(--text3)',fontSize:9,textTransform:'uppercase',letterSpacing:'.07em'}}>{l}</span>
+            <span style={{color:'var(--teal)',fontSize:10,fontFamily:'Space Mono'}}>{v}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* content */}
+      <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column',paddingTop:4}}>
+        {tab==='chart'  &&<ChartScreen vp={vp}/>}
+        {tab==='grahas' &&<GrahasScreen/>}
+        {tab==='dashas' &&<DashaScreen/>}
+        {tab==='report' &&<ReportScreen activeClient={activeClient}/>}
+        {tab==='clients'&&<ClientsScreen activeClientId={activeClientId} setActiveClientId={setActiveClientId} onOpenChart={()=>setTab('chart')}/>}
+      </div>
+
+      {/* bottom nav – mobile/tablet only */}
+      {vp!=='desktop'&&(
+        <nav style={{flexShrink:0,height:56,background:'rgba(13,10,30,0.98)',backdropFilter:'blur(12px)',borderTop:'1px solid var(--sep)',display:'flex',zIndex:50}}>
+          {TABS.map(t=>{
+            const active=tab===t.id;
+            return(
+              <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:3,background:'none',border:'none',cursor:'pointer',position:'relative'}}>
+                {active&&<div style={{position:'absolute',top:0,left:'25%',right:'25%',height:2,background:'var(--gold)',borderRadius:'0 0 2px 2px'}}/>}
+                <span style={{fontSize:15,color:active?'var(--gold)':'var(--text3)',transition:'color .15s'}}>{t.icon}</span>
+                <span style={{fontSize:9,fontWeight:active?700:400,letterSpacing:'.06em',color:active?'var(--gold)':'var(--text3)',textTransform:'uppercase',transition:'color .15s'}}>{t.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════ ROOT ═══════════════ */
+const VP_SIZES={mobile:{w:390,h:844},tablet:{w:768,h:'100%'},desktop:{w:'100%',h:'100%'}};
+const VP_ICONS={
+  mobile:<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/></svg>,
+  tablet:<svg width="14" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>,
+  desktop:<svg width="16" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>,
+};
+
+function Root(){
+  const { TweaksPanel, useTweaks } = window;
+  const [tweaks,setTweak]=useTweaks(/*EDITMODE-BEGIN*/{
+    "viewport": "desktop",
+    "accentColor": "#E8B84B"
+  }/*EDITMODE-END*/);
+  const [vp,setVp]=useState(tweaks.viewport);
+  const stageRef=useRef(null);
+  const [stageH,setStageH]=useState(900);
+
+  useEffect(()=>{
+    const obs=new ResizeObserver(([e])=>setStageH(e.contentRect.height));
+    if(stageRef.current)obs.observe(stageRef.current);
+    return()=>obs.disconnect();
+  },[]);
+
+  useEffect(()=>{document.documentElement.style.setProperty('--gold',tweaks.accentColor);},[tweaks.accentColor]);
+
+  const frameStyle=useMemo(()=>{
+    if(vp==='mobile') return {width:390,height:Math.min(844,stageH-20),borderRadius:40,border:'6px solid #15122a',marginTop:10,flexShrink:0};
+    if(vp==='tablet') return {width:768,height:'100%',borderRadius:16,border:'3px solid #15122a',flexShrink:0};
+    return {width:'100%',height:'100%',borderRadius:0,border:'none',flexShrink:0};
+  },[vp,stageH]);
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',width:'100%',height:'100%'}}>
+      {/* viewport chrome bar */}
+      <div className="vp-bar">
+        <span style={{color:'var(--text3)',fontSize:10,fontFamily:'Space Grotesk',fontWeight:600,marginRight:6,letterSpacing:'.05em'}}>VIEWPORT</span>
+        <div className="vp-divider"/>
+        {['mobile','tablet','desktop'].map(v=>(
+          <button key={v} className={`vp-btn${vp===v?' active':''}`} onClick={()=>{setVp(v);setTweak('viewport',v);}}>
+            {VP_ICONS[v]}{v.charAt(0).toUpperCase()+v.slice(1)}
+            {v==='mobile'&&<span style={{fontSize:9,opacity:.6,marginLeft:2}}>390px</span>}
+            {v==='tablet'&&<span style={{fontSize:9,opacity:.6,marginLeft:2}}>768px</span>}
+          </button>
+        ))}
+        <div className="vp-divider"/>
+        <span style={{color:'var(--text3)',fontSize:10,fontFamily:'Space Mono'}}>
+          {vp==='mobile'?'390×844':vp==='tablet'?'768px':'Full'}
+        </span>
+      </div>
+
+      {/* stage */}
+      <div className="vp-stage" ref={stageRef} style={{alignItems:vp==='mobile'?'flex-start':'stretch'}}>
+        <div style={{...frameStyle,background:'var(--bg)',overflow:'hidden',boxShadow:vp!=='desktop'?'0 32px 100px rgba(0,0,0,.8)':'none',display:'flex',flexDirection:'column',transition:'width .4s cubic-bezier(.32,.72,0,1),border-radius .4s cubic-bezier(.32,.72,0,1)'}}>
+          <AppShell vp={vp}/>
+        </div>
+      </div>
+
+      {TweaksPanel&&(
+        <TweaksPanel>
+          <window.TweakSection label="Viewport">
+            <window.TweakRadio id="viewport" label="Default Viewport" value={tweaks.viewport} options={['mobile','tablet','desktop']} onChange={v=>{setTweak('viewport',v);setVp(v);}}/>
+          </window.TweakSection>
+          <window.TweakSection label="Appearance">
+            <window.TweakColor id="accentColor" label="Accent Color" value={tweaks.accentColor} onChange={v=>setTweak('accentColor',v)}/>
+          </window.TweakSection>
+        </TweaksPanel>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Root/>);
+</script>
+</body>
+</html>

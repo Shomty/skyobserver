@@ -143,7 +143,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
       ref={containerRef}
       className={cn(
         "relative w-full h-full aspect-square p-4 rounded-3xl border shadow-2xl overflow-hidden transition-colors duration-500",
-        theme === 'dark' ? "bg-black/20 border-white/5" : "bg-white border-slate-200",
+        theme === 'dark' ? "bg-[var(--bg2)] border-[var(--sep)]" : "bg-white border-slate-200",
         className
       )}
     >
@@ -168,7 +168,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
         <svg viewBox="-50 -50 500 500" className="w-full h-full">
         {/* Markers for Drishti Lines */}
         <defs>
-          <marker id="arrow-orange" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+          <marker id="arrow-gold" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#f97316" />
           </marker>
           <marker id="arrow-blue" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
@@ -205,9 +205,9 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
                   "fill-transparent transition-all duration-500 cursor-pointer",
                   theme === 'dark' ? "stroke-white/5" : "stroke-slate-200",
                   isHouseHighlighted 
-                    ? theme === 'dark' ? "fill-white/10 stroke-orange-500/40 stroke-[1.5]" : "fill-orange-500/5 stroke-orange-500/40 stroke-[1.5]" 
+                    ? theme === 'dark' ? "fill-white/10 stroke-[#E8B84B]/40 stroke-[1.5]" : "fill-[rgba(232,184,75,0.05)] stroke-[#E8B84B]/40 stroke-[1.5]" 
                     : theme === 'dark' ? "hover:fill-white/5" : "hover:fill-slate-50",
-                  isSelected && "fill-orange-500/10 stroke-orange-500 stroke-[2]"
+                  isSelected && "fill-[rgba(232,184,75,0.10)] stroke-[#E8B84B] stroke-[2]"
                 )}
               />
               
@@ -219,8 +219,8 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
                 className={cn(
                   "transition-all font-mono font-bold tracking-tighter",
                   isHouseHighlighted 
-                    ? "fill-orange-500 text-[14px]" 
-                    : theme === 'dark' ? "fill-orange-500/40 text-[12px]" : "fill-orange-500/60 text-[12px]"
+                    ? "fill-[#E8B84B] text-[14px]" 
+                    : theme === 'dark' ? "fill-[#E8B84B]/40 text-[12px]" : "fill-[#E8B84B]/60 text-[12px]"
                 )}
               >
                 {rashiNum}
@@ -251,7 +251,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
                           (selectedPlanet === p.name || isPlanetHighlighted) 
                             ? theme === 'dark' ? "scale-110 ring-1 ring-white z-10 shadow-[0_0_10px_rgba(255,255,255,0.3)]" : "scale-110 ring-1 ring-slate-900 z-10 shadow-[0_0_10px_rgba(0,0,0,0.1)]"
                             : selectedPlanetDrishti?.aspects.includes(p.name)
-                              ? "scale-110 ring-1 ring-orange-500 z-10 shadow-[0_0_10px_rgba(249,115,22,0.4)]"
+                              ? "scale-110 ring-1 ring-[#E8B84B] z-10 shadow-[0_0_10px_rgba(232,184,75,0.4)]"
                               : selectedPlanetDrishti?.aspectedBy.includes(p.name)
                                 ? "scale-110 ring-1 ring-blue-500 z-10 shadow-[0_0_10px_rgba(59,130,246,0.4)]"
                                 : "hover:scale-105 opacity-90 hover:opacity-100",
@@ -262,7 +262,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
                       >
                         {isAsc ? 'As' : p.symbol}
                         {p.isRetrograde && (
-                          <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-black rounded-full flex items-center justify-center text-[6px] text-orange-500 border border-orange-500/20 font-bold">
+                          <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-black rounded-full flex items-center justify-center text-[6px] text-[#E8B84B] border border-[#E8B84B]/20 font-bold">
                             R
                           </span>
                         )}
@@ -297,7 +297,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
                           (selectedPlanet === p.name || isPlanetHighlighted) 
                             ? theme === 'dark' ? "scale-110 ring-1 ring-white z-10 shadow-[0_0_10px_rgba(255,255,255,0.3)]" : "scale-110 ring-1 ring-slate-900 z-10 shadow-[0_0_10px_rgba(0,0,0,0.1)]"
                             : selectedPlanetDrishti?.aspects.includes(p.name)
-                              ? "scale-110 ring-1 ring-orange-500 z-10 shadow-[0_0_10px_rgba(249,115,22,0.4)]"
+                              ? "scale-110 ring-1 ring-[#E8B84B] z-10 shadow-[0_0_10px_rgba(232,184,75,0.4)]"
                               : selectedPlanetDrishti?.aspectedBy.includes(p.name)
                                 ? "scale-110 ring-1 ring-blue-500 z-10 shadow-[0_0_10_rgba(59,130,246,0.4)]"
                                 : "hover:scale-105 opacity-80 hover:opacity-100",
@@ -312,7 +312,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
                       >
                         {isAsc ? 'As' : p.symbol}
                         {p.isRetrograde && (
-                          <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-black rounded-full flex items-center justify-center text-[6px] text-orange-500 border border-orange-500/20 font-bold">
+                          <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-black rounded-full flex items-center justify-center text-[6px] text-[#E8B84B] border border-[#E8B84B]/20 font-bold">
                             R
                           </span>
                         )}
@@ -468,7 +468,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
                         stroke={type === 'nodes' ? planetData.color : "#f97316"}
                         strokeWidth={(isFull ? 1.2 : 0.8) * strokeScale}
                         strokeDasharray={isFull ? "none" : "4 4"}
-                        markerEnd="url(#arrow-orange)"
+                        markerEnd="url(#arrow-gold)"
                         className="pointer-events-auto cursor-help"
                       >
                         <title>{`${pName} casts ${getOrdinal(detail.house)} aspect on ${detail.targetName}`}</title>
@@ -521,11 +521,11 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
       {/* Legend */}
       <div className="absolute bottom-2 left-4 flex gap-4">
         <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
-          <div className="w-2 h-2 rounded bg-orange-500/20 border border-orange-500/40" /> Transit
+          <div className="w-2 h-2 rounded bg-[rgba(232,184,75,0.15)] border border-[rgba(232,184,75,0.35)]" /> Transit
         </div>
         {isBirthMode && (
           <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
-            <div className="w-2 h-2 rounded-full border border-orange-500/40" /> Natal
+            <div className="w-2 h-2 rounded-full border border-[rgba(232,184,75,0.35)]" /> Natal
           </div>
         )}
       </div>

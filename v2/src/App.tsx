@@ -1565,7 +1565,6 @@ INTERPRETATION GUIDELINES:
       <AIChatPage
         user={user}
         userProfile={userProfile}
-        childProfiles={childProfiles}
         transitPositions={transitPositions}
         birthPositions={birthPositions}
         birthYogas={birthYogas}
@@ -1604,7 +1603,7 @@ INTERPRETATION GUIDELINES:
   return (
     <div className={cn(
       "h-[100dvh] font-sans selection:bg-jyotish-gold/30 overflow-hidden flex flex-col transition-colors duration-500 universe-bg",
-      theme === 'dark' ? "dark text-white" : "light bg-[#f8f9fa] text-slate-900"
+      theme === 'dark' ? "dark text-[var(--text0)]" : "light bg-[#f8f9fa] text-slate-900"
     )}>
       {/* Atmospheric Background */}
       <CelestialBackground />
@@ -1645,7 +1644,7 @@ INTERPRETATION GUIDELINES:
         )}
       </AnimatePresence>
 
-      <main className="relative z-10 flex-1 flex flex-col overflow-hidden custom-scrollbar pb-24 lg:pb-0">
+      <main className="relative z-10 flex-1 flex flex-col overflow-hidden custom-scrollbar">
         {/* Primary Views Grid */}
         {activeTab !== 'archives' && activeTab !== 'profile' && (
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden">

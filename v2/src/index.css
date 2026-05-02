@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+/* ─── v2 Design System ──────────────────────────────────────────── */
+:root {
+  --bg:    #080616;
+  --bg1:   #0D0A1E;
+  --bg2:   #131028;
+  --bg3:   #1B1733;
+  --bg4:   #221E3E;
+  --gold:  #E8B84B;
+  --teal:  #00CDB0;
+  --text0: #F5F2FF;
+  --text1: #C8C0E8;
+  --text2: #8880A8;
+  --text3: #4A4568;
+  --sep:   rgba(255,255,255,0.07);
+  --sep2:  rgba(255,255,255,0.11);
+}
+
+@theme {
+  --color-mystic-purple: #1a0b2e;
+  --color-cosmic-indigo: #0f051d;
+  --color-jyotish-gold: #E8B84B;
+  --color-celestial-gold: #f9e29b;
+}
+
+@layer base {
+  body {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    background-color: var(--bg);
+    color: var(--text0);
+    @apply transition-colors duration-500 antialiased;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+  * { scrollbar-width: thin; scrollbar-color: var(--bg4) transparent; }
+
+  .font-space-mono { font-family: 'Space Mono', monospace; }
+  .font-crimson { font-family: 'Crimson Pro', Georgia, serif; }
+
+  .markdown-body {
+    @apply space-y-2;
+    font-family: 'Crimson Pro', Georgia, serif;
+  }
+  .markdown-body p { @apply mb-2; }
+  .markdown-body ul, .markdown-body ol { @apply ml-4 mb-2 list-disc; }
+  .markdown-body li { @apply mb-1; }
+  .markdown-body h1, .markdown-body h2, .markdown-body h3 { @apply font-bold mt-4 mb-2; }
+  .markdown-body strong { color: var(--gold); @apply font-bold; }
+  .markdown-body em { @apply italic opacity-60; }
+  .markdown-body { @apply transition-colors duration-500; }
+  .markdown-body.dark { @apply text-white/90; }
+  .markdown-body.light { @apply text-slate-800; }
+}
+
+@layer components {
+  .universe-bg {
+    @apply transition-colors duration-500;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .universe-bg.dark {
+    background: radial-gradient(ellipse at 50% 0%, #0d0a1e 0%, var(--bg) 70%);
+  }
+
+  .universe-bg.light {
+    background: radial-gradient(circle at center, #f8f9fa 0%, #e9ecef 100%);
+  }
+
+  .universe-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: 
+      radial-gradient(1px 1px at 20px 30px, #fff, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 40px 70px, #fff, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 50px 160px, #fff, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 90px 40px, #fff, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 130px 80px, #fff, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 160px 120px, #fff, rgba(0,0,0,0));
+    background-repeat: repeat;
+    background-size: 200px 200px;
+    opacity: 0.08;
+    pointer-events: none;
+  }
+
+  .gold-border {
+    border-color: rgba(232,184,75,0.30);
+    transition: border-color 0.2s;
+  }
+  .gold-border:hover { border-color: rgba(232,184,75,0.60); }
+
+  .gold-text { color: var(--gold); }
+
+  .gold-gradient-text {
+    @apply bg-gradient-to-r from-jyotish-gold to-celestial-gold bg-clip-text text-transparent font-serif italic;
+  }
+
+  /* v2 card surface */
+  .v2-card {
+    background: var(--bg2);
+    border: 1px solid var(--sep);
+    border-radius: 12px;
+  }
+
+  /* v2 section header: ALL-CAPS label + separator line */
+  .v2-section-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .v2-section-head span {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+  .v2-section-head::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--sep);
+  }
+
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+

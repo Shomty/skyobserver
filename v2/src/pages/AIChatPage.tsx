@@ -1,13 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, MessageSquare, Plus, Trash2, Sparkles, Menu, ChevronDown, Check, Users, Loader2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Plus, Trash2, Sparkles, Menu } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
 import { db, doc, collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc } from '../firebase';
 import { serverTimestamp, arrayUnion, getDoc } from 'firebase/firestore';
 import { callGeminiProxy, getErrorMessage } from '../lib/api-utils';
-import { PlanetPosition, Yoga, TransitEvent, PanchangData, calculatePositions, detectYogas, calculatePanchang, calculateSpecialPointsV2, getBirthInfo, RASHIS } from '../vedic-utils';
-import { fetchPlanetPositions } from '../services/positionsService';
+import { PlanetPosition, Yoga, TransitEvent, PanchangData } from '../vedic-utils';
 import type { User } from 'firebase/auth';
 import { format } from 'date-fns';
 import MessageBubble, { ChatMessageData } from '../components/chat/MessageBubble';
@@ -15,12 +14,10 @@ import TypingIndicator from '../components/chat/TypingIndicator';
 import EmptyState from '../components/chat/EmptyState';
 import ChatInput from '../components/chat/ChatInput';
 import { buildSystemInstruction, ChatContextProps } from '../lib/chatUtils';
-import type { ChildProfile } from './ProfilesPage';
 
 interface ChatSession {
   id: string;
   title: string;
-  subjectName?: string;
   createdAt: any;
   updatedAt: any;
 }
@@ -28,7 +25,6 @@ interface ChatSession {
 export interface AIChatPageProps {
   user: User;
   userProfile: any;
-  childProfiles: ChildProfile[];
   transitPositions: PlanetPosition[];
   birthPositions: PlanetPosition[] | null;
   birthYogas: Yoga[];
@@ -43,7 +39,6 @@ export interface AIChatPageProps {
 const AIChatPage: React.FC<AIChatPageProps> = ({
   user,
   userProfile,
-  childProfiles,
   transitPositions,
   birthPositions,
   birthYogas,
@@ -64,91 +59,6 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
   const [chatError, setChatError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Profile selector state — null = user's own chart
-  const [chatSubjectProfileId, setChatSubjectProfileId] = useState<string | null>(null);
-  const [profileSelectorOpen, setProfileSelectorOpen] = useState(false);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
-  const [chatBirthPositions, setChatBirthPositions] = useState<PlanetPosition[] | null>(null);
-  const [chatBirthYogas, setChatBirthYogas] = useState<Yoga[]>([]);
-  const [chatBirthPanchang, setChatBirthPanchang] = useState<PanchangData | null>(null);
-  const [chatBirthSpecialPoints, setChatBirthSpecialPoints] = useState<any>(null);
-  const profileSelectorRef = useRef<HTMLDivElement>(null);
-
-  // Close profile selector on outside click
-  useEffect(() => {
-    if (!profileSelectorOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (profileSelectorRef.current && !profileSelectorRef.current.contains(e.target as Node)) {
-        setProfileSelectorOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [profileSelectorOpen]);
-
-  // Compute birth data for selected child profile
-  useEffect(() => {
-    if (!chatSubjectProfileId) {
-      setChatBirthPositions(null);
-      setChatBirthYogas([]);
-      setChatBirthPanchang(null);
-      setChatBirthSpecialPoints(null);
-      return;
-    }
-    const profile = childProfiles.find(p => p.id === chatSubjectProfileId);
-    if (!profile) return;
-
-    let cancelled = false;
-    setIsLoadingProfile(true);
-
-    const birthTime = new Date(profile.birthTime);
-    const { lat, lon } = profile;
-
-    fetchPlanetPositions(birthTime, lat, lon)
-      .catch(() => calculatePositions(birthTime, lat, lon))
-      .then(pos => {
-        if (cancelled) return;
-        const yogas = detectYogas(pos);
-        const panchang = calculatePanchang(birthTime, pos);
-
-        let specialPoints: any = null;
-        try {
-          const info = getBirthInfo(birthTime, lat, lon);
-          const asc = pos.find(p => p.name === 'Ascendant');
-          if (asc) {
-            specialPoints = calculateSpecialPointsV2(
-              (RASHIS.indexOf(asc.rashi) + 1) as any,
-              asc.siderealLongitude,
-              pos,
-              info.sunAbsoluteLongitudeAtSunrise,
-              info.minutesSinceSunrise,
-              info.isDayBirth,
-              info.daytimeDurationMinutes,
-              info.dayOfWeek,
-              birthTime,
-              lat,
-              lon,
-              info.sunrise,
-              info.sunset
-            );
-          }
-        } catch {
-          // special points are optional
-        }
-
-        setChatBirthPositions(pos);
-        setChatBirthYogas(yogas);
-        setChatBirthPanchang(panchang);
-        setChatBirthSpecialPoints(specialPoints);
-        setIsLoadingProfile(false);
-      })
-      .catch(() => {
-        if (!cancelled) setIsLoadingProfile(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [chatSubjectProfileId, childProfiles]);
 
   // Subscribe to sessions list — uses ai_chats (has deployed rules), filters by type
   useEffect(() => {
@@ -209,37 +119,28 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
   }, [messages, isLoading]);
 
 
-  // Resolve which profile is the active subject for the chat
-  const activeChildProfile = chatSubjectProfileId
-    ? childProfiles.find(p => p.id === chatSubjectProfileId) ?? null
-    : null;
-
-  const resolvedSubjectName = activeChildProfile?.name ?? undefined;
-
   const chatCtx: ChatContextProps = {
     userProfile,
-    subjectName: resolvedSubjectName,
     transitPositions,
-    birthPositions: activeChildProfile ? chatBirthPositions : birthPositions,
-    birthYogas: activeChildProfile ? chatBirthYogas : birthYogas,
+    birthPositions,
+    birthYogas,
     yogas,
     transits,
-    birthPanchang: activeChildProfile ? chatBirthPanchang : birthPanchang,
+    birthPanchang,
     panchang,
-    birthSpecialPoints: activeChildProfile ? chatBirthSpecialPoints : birthSpecialPoints,
+    birthSpecialPoints,
   };
 
   const getSystemInstruction = useCallback(
     () => buildSystemInstruction(chatCtx),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [userProfile, resolvedSubjectName, chatBirthPositions, chatBirthYogas, chatBirthPanchang, chatBirthSpecialPoints, birthPositions, birthYogas, birthPanchang, transitPositions, yogas, transits, panchang, birthSpecialPoints, chatSubjectProfileId]
+    [userProfile, birthPositions, birthYogas, birthPanchang, transitPositions, yogas, transits, panchang, birthSpecialPoints]
   );
 
   const createNewSession = async () => {
     const newDoc = await addDoc(collection(db, `users/${user.uid}/ai_chats`), {
       type: 'chat_session',
       title: 'New Chat',
-      subjectName: resolvedSubjectName ?? null,
       messages: [],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -270,7 +171,6 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
         const newDoc = await addDoc(collection(db, `users/${user.uid}/ai_chats`), {
           type: 'chat_session',
           title: userMessage.slice(0, 60),
-          subjectName: resolvedSubjectName ?? null,
           messages: [],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -368,7 +268,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
 
   return (
     <div className={cn(
-      "h-screen overflow-hidden font-sans flex flex-col transition-colors duration-500",
+      "min-h-screen font-sans flex flex-col transition-colors duration-500",
       isDark ? "bg-[#050505] text-white" : "bg-white text-slate-900"
     )}>
       {/* Page Header */}
@@ -396,85 +296,10 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
           <h1 className="text-sm font-bold uppercase tracking-widest gold-gradient-text">Jyotish AI</h1>
         </div>
 
-        {/* Profile selector — only shown when child profiles exist */}
-        {childProfiles.length > 0 && (
-          <div className="relative ml-auto mr-0 lg:ml-3 lg:mr-auto" ref={profileSelectorRef}>
-            <button
-              onClick={() => setProfileSelectorOpen(s => !s)}
-              className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] uppercase tracking-widest font-bold transition-all',
-                isDark
-                  ? 'bg-white/5 border-white/10 text-jyotish-gold hover:bg-white/10'
-                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
-              )}
-              aria-label="Switch analysis subject"
-            >
-              {isLoadingProfile ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Users className="w-3 h-3" />
-              )}
-              <span className="hidden sm:inline max-w-[100px] truncate">
-                {activeChildProfile ? activeChildProfile.name : (userProfile?.displayName || userProfile?.name || 'Your Chart')}
-              </span>
-              <ChevronDown className={cn('w-3 h-3 transition-transform', profileSelectorOpen && 'rotate-180')} />
-            </button>
-
-            <AnimatePresence>
-              {profileSelectorOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                  transition={{ duration: 0.12 }}
-                  className={cn(
-                    'absolute top-full mt-2 right-0 z-50 min-w-[180px] rounded-2xl border shadow-xl overflow-hidden',
-                    isDark ? 'bg-[#0f0f1a] border-jyotish-gold/20' : 'bg-white border-slate-200'
-                  )}
-                >
-                  <div className={cn('px-3 py-2 text-[9px] uppercase tracking-widest font-mono border-b', isDark ? 'text-white/30 border-white/5' : 'text-slate-400 border-slate-100')}>
-                    Analyze whose chart?
-                  </div>
-                  {/* Own chart option */}
-                  <button
-                    onClick={() => { setChatSubjectProfileId(null); setProfileSelectorOpen(false); }}
-                    className={cn(
-                      'w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors text-left',
-                      isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50',
-                      !chatSubjectProfileId ? (isDark ? 'text-jyotish-gold' : 'text-amber-600') : (isDark ? 'text-white/70' : 'text-slate-700')
-                    )}
-                  >
-                    {!chatSubjectProfileId ? <Check className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 shrink-0" />}
-                    <span className="truncate font-semibold">{userProfile?.displayName || userProfile?.name || 'Your Chart'}</span>
-                    <span className={cn('text-[9px] ml-auto shrink-0', isDark ? 'text-white/30' : 'text-slate-400')}>You</span>
-                  </button>
-                  {/* Child profile options */}
-                  {childProfiles.map(profile => (
-                    <button
-                      key={profile.id}
-                      onClick={() => { setChatSubjectProfileId(profile.id); setProfileSelectorOpen(false); }}
-                      className={cn(
-                        'w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors text-left',
-                        isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50',
-                        chatSubjectProfileId === profile.id ? (isDark ? 'text-jyotish-gold' : 'text-amber-600') : (isDark ? 'text-white/70' : 'text-slate-700')
-                      )}
-                    >
-                      {chatSubjectProfileId === profile.id ? <Check className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 shrink-0" />}
-                      <span className="truncate font-semibold">{profile.name}</span>
-                      <span className={cn('text-[9px] ml-auto shrink-0 truncate max-w-[60px]', isDark ? 'text-white/30' : 'text-slate-400')}>{profile.city}</span>
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-
         <button
           onClick={() => setSidebarOpen(s => !s)}
           className={cn(
-            "lg:hidden p-2 rounded-lg transition-colors",
-            childProfiles.length > 0 ? '' : 'ml-auto',
+            "ml-auto lg:hidden p-2 rounded-lg transition-colors",
             isDark ? "text-white/40 hover:text-white hover:bg-white/5" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
           )}
           aria-label="Toggle session list"
@@ -497,7 +322,6 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
             sessions={sessions}
             activeSessionId={activeSessionId}
             theme={theme}
-            userProfile={userProfile}
             onNewChat={createNewSession}
             onSelectSession={(id) => setActiveSessionId(id)}
             onDeleteSession={deleteSession}
@@ -531,7 +355,6 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
                   sessions={sessions}
                   activeSessionId={activeSessionId}
                   theme={theme}
-                  userProfile={userProfile}
                   onNewChat={() => { createNewSession(); setSidebarOpen(false); }}
                   onSelectSession={(id) => { setActiveSessionId(id); setSidebarOpen(false); }}
                   onDeleteSession={deleteSession}
@@ -601,14 +424,13 @@ interface SidebarContentProps {
   sessions: ChatSession[];
   activeSessionId: string | null;
   theme: 'dark' | 'light';
-  userProfile: any;
   onNewChat: () => void;
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string, e: React.MouseEvent) => void;
 }
 
 const SidebarContent: React.FC<SidebarContentProps> = ({
-  sessions, activeSessionId, theme, userProfile, onNewChat, onSelectSession, onDeleteSession
+  sessions, activeSessionId, theme, onNewChat, onSelectSession, onDeleteSession
 }) => {
   const isDark = theme === 'dark';
   return (
@@ -652,24 +474,11 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
               )}>
                 {session.title}
               </p>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <span className={cn(
-                  "inline-flex items-center gap-1 text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded-full border",
-                  activeSessionId === session.id
-                    ? "text-jyotish-gold/80 bg-jyotish-gold/10 border-jyotish-gold/20"
-                    : isDark
-                      ? "text-white/40 bg-white/5 border-white/10"
-                      : "text-slate-500 bg-slate-100 border-slate-200"
-                )}>
-                  <Users className="w-2.5 h-2.5" />
-                  {session.subjectName ?? (userProfile?.displayName || userProfile?.name || 'You')}
-                </span>
-                {session.updatedAt?.toDate && (
-                  <p className={cn("text-[10px]", isDark ? "text-white/30" : "text-slate-400")}>
-                    {format(session.updatedAt.toDate(), 'MMM d')}
-                  </p>
-                )}
-              </div>
+              {session.updatedAt?.toDate && (
+                <p className={cn("text-[10px] mt-0.5", isDark ? "text-white/30" : "text-slate-400")}>
+                  {format(session.updatedAt.toDate(), 'MMM d')}
+                </p>
+              )}
             </div>
             <button
               onClick={(e) => onDeleteSession(session.id, e)}

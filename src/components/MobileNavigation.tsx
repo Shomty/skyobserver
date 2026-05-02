@@ -1,11 +1,11 @@
 import React from 'react';
-import { Compass, Grid, LayoutGrid, User as UserIcon, Settings, BookOpen, MessageSquare } from 'lucide-react';
+import { Compass, Grid, LayoutGrid, User as UserIcon, Settings, BookOpen, MessageSquare, CircleDot } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
 
 interface MobileNavigationProps {
-  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles';
-  setActiveTab: (tab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles') => void;
+  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana';
+  setActiveTab: (tab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana') => void;
   setChartType: (type: 'circle' | 'north-indian') => void;
 }
 
@@ -81,6 +81,18 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
       >
         <MessageSquare className={cn("w-5 h-5", activeTab === 'chat' && "fill-jyotish-gold/20")} />
         <span className="text-[7px] uppercase tracking-[0.2em] font-bold font-mono">AI Chat</span>
+      </button>
+      <button
+        onClick={() => setActiveTab('sudarshana')}
+        className={cn(
+          "flex flex-col items-center gap-1.5 transition-all active:scale-90",
+          activeTab === 'sudarshana'
+            ? "text-jyotish-gold scale-110"
+            : theme === 'dark' ? "text-white/30" : "text-slate-400"
+        )}
+      >
+        <CircleDot className={cn("w-5 h-5", activeTab === 'sudarshana' && "fill-jyotish-gold/20")} />
+        <span className="text-[7px] uppercase tracking-[0.2em] font-bold font-mono">Chakra</span>
       </button>
       <button 
         onClick={() => setActiveTab('profile')}

@@ -25,7 +25,7 @@ function useContinuousAngle(targetAngle: number) {
 }
 
 const getPlanetRingStyles = (theme: 'light' | 'dark') => ({
-  "Ascendant": { radius: 80, color: theme === 'dark' ? "#10B981" : "#059669", borderStyle: "solid", opacity: 0.3 },
+  "Ascendant": { radius: 80, color: theme === 'dark' ? "#00CDB0" : "#059669", borderStyle: "solid", opacity: 0.3 },
   "Ketu": { radius: 74, color: theme === 'dark' ? "#A9A9A9" : "#64748b", borderStyle: "dashed", opacity: 0.2 },
   "Rahu": { radius: 68, color: theme === 'dark' ? "#8A2BE2" : "#7c3aed", borderStyle: "dashed", opacity: 0.2 },
   "Saturn": { radius: 62, color: theme === 'dark' ? "#708090" : "#475569", borderStyle: "dotted", opacity: 0.3 },
@@ -33,7 +33,7 @@ const getPlanetRingStyles = (theme: 'light' | 'dark') => ({
   "Mars": { radius: 50, color: theme === 'dark' ? "#FF4500" : "#dc2626", borderStyle: "solid", opacity: 0.2 },
   "Sun": { radius: 44, color: theme === 'dark' ? "#FFD700" : "#d97706", borderStyle: "solid", opacity: 0.3 },
   "Venus": { radius: 38, color: theme === 'dark' ? "#FF69B4" : "#db2777", borderStyle: "solid", opacity: 0.2 },
-  "Mercury": { radius: 32, color: theme === 'dark' ? "#00CED1" : "#0891b2", borderStyle: "dotted", opacity: 0.3 },
+  "Mercury": { radius: 32, color: theme === 'dark' ? "#00CDB0" : "#0891b2", borderStyle: "dotted", opacity: 0.3 },
   "Moon": { radius: 26, color: theme === 'dark' ? "#F0F8FF" : "#2563eb", borderStyle: "dashed", opacity: 0.2 },
   "Bhrigu Bindu": { radius: 20, color: "#FF6B6B", borderStyle: "dotted", opacity: 0.4 },
 });
@@ -64,9 +64,9 @@ const ZodiacLabel: React.FC<ZodiacLabelProps> = ({ index, mapOffset, selectedZod
         className={cn(
           "absolute top-0 left-1/2 -translate-x-1/2 w-full h-full pointer-events-auto cursor-pointer transition-all duration-500",
           isSelected 
-            ? "bg-orange-500/10 shadow-[inset_0_0_40px_rgba(249,115,22,0.1)]" 
+            ? "bg-[rgba(232,184,75,0.10)] shadow-[inset_0_0_40px_rgba(232,184,75,0.08)]" 
             : isAspected 
-              ? "bg-orange-500/[0.03] shadow-[inset_0_0_20px_rgba(249,115,22,0.02)]"
+              ? "bg-[rgba(232,184,75,0.03)] shadow-[inset_0_0_20px_rgba(232,184,75,0.02)]"
               : theme === 'dark' ? "hover:bg-white/[0.03]" : "hover:bg-slate-900/[0.03]"
         )}
         style={{ 
@@ -84,9 +84,9 @@ const ZodiacLabel: React.FC<ZodiacLabelProps> = ({ index, mapOffset, selectedZod
         className={cn(
           "absolute top-4 lg:top-6 left-1/2 -translate-x-1/2 text-[8px] lg:text-[10px] font-mono uppercase tracking-widest transition-all duration-300",
           isSelected 
-            ? "text-orange-500 font-extrabold scale-110 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]" 
+            ? "text-[#E8B84B] font-extrabold scale-110 drop-shadow-[0_0_8px_rgba(232,184,75,0.5)]" 
             : isAspected
-              ? "text-orange-500/80 font-bold scale-105"
+              ? "text-[#E8B84B]/80 font-bold scale-105"
               : theme === 'dark' ? "text-white/20" : "text-slate-400"
         )}
         style={{ color: isAspected ? `${aspectColor}CC` : undefined }}
@@ -186,7 +186,7 @@ const PlanetMarker: React.FC<PlanetMarkerProps> = ({ p, mapOffset, selectedPlane
         >
           {isConjunct && !isComparison && (
             <motion.div 
-              className="absolute inset-0 rounded-full bg-orange-500/30 blur-md"
+              className="absolute inset-0 rounded-full bg-[rgba(232,184,75,0.25)] blur-md"
               animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.6, 0.3] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
@@ -204,11 +204,11 @@ const PlanetMarker: React.FC<PlanetMarkerProps> = ({ p, mapOffset, selectedPlane
                 : isHovered 
                   ? theme === 'dark' ? "scale-125 ring-2 ring-white z-50 shadow-[0_0_20px_rgba(255,255,255,0.3)]" : "scale-125 ring-2 ring-slate-900 z-50 shadow-[0_0_20px_rgba(0,0,0,0.15)]"
                   : isAspectedBySelected
-                    ? "scale-110 ring-1 ring-orange-500/60 z-40 shadow-[0_0_15px_rgba(249,115,22,0.2)]"
+                    ? "scale-110 ring-1 ring-[#E8B84B]/60 z-40 shadow-[0_0_15px_rgba(249,115,22,0.2)]"
                     : isAspectingSelected
                       ? "scale-110 ring-1 ring-blue-500/60 z-40 shadow-[0_0_15px_rgba(59,130,246,0.2)]"
-                      : isInSelectedZodiac ? "scale-110 ring-1 ring-orange-500/40 z-40 shadow-[0_0_15px_rgba(249,115,22,0.3)]" : 
-                      isConjunct ? "ring-1 ring-orange-500 z-40" : "group-hover:scale-110 hover:z-40"
+                      : isInSelectedZodiac ? "scale-110 ring-1 ring-[#E8B84B]/40 z-40 shadow-[0_0_15px_rgba(249,115,22,0.3)]" : 
+                      isConjunct ? "ring-1 ring-[#E8B84B] z-40" : "group-hover:scale-110 hover:z-40"
             )}
             style={{ 
               backgroundColor: isComparison ? 'transparent' : p.color, 
@@ -224,7 +224,7 @@ const PlanetMarker: React.FC<PlanetMarkerProps> = ({ p, mapOffset, selectedPlane
           >
             {p.symbol}
             {p.isRetrograde && (
-              <div className={cn("absolute -bottom-1 -left-1 w-3 h-3 rounded-full flex items-center justify-center text-[7px] text-orange-500 border border-orange-500/30 font-bold", theme === 'dark' ? "bg-black" : "bg-white")}>
+              <div className={cn("absolute -bottom-1 -left-1 w-3 h-3 rounded-full flex items-center justify-center text-[7px] text-[#E8B84B] border border-[#E8B84B]/30 font-bold", theme === 'dark' ? "bg-black" : "bg-white")}>
                 R
               </div>
             )}
@@ -459,7 +459,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                 className={cn(
                   "px-4 py-1.5 rounded-lg text-xs font-bold transition-all uppercase tracking-widest",
                   viewMode === 'transit' 
-                    ? "bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.3)]" 
+                    ? "bg-[#E8B84B] text-[#080616] shadow-[0_0_15px_rgba(232,184,75,0.3)]" 
                     : theme === 'dark' ? "text-white/40 hover:text-white/60" : "text-slate-400 hover:text-slate-600"
                 )}
               >
@@ -470,7 +470,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                 className={cn(
                   "px-4 py-1.5 rounded-lg text-xs font-bold transition-all uppercase tracking-widest",
                   viewMode === 'natal' 
-                    ? "bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.3)]" 
+                    ? "bg-[#E8B84B] text-[#080616] shadow-[0_0_15px_rgba(232,184,75,0.3)]" 
                     : theme === 'dark' ? "text-white/40 hover:text-white/60" : "text-slate-400 hover:text-slate-600"
                 )}
               >
@@ -487,7 +487,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                 exit={{ opacity: 0, x: -20 }}
                 className={cn(
                   "mt-2 p-4 rounded-2xl border backdrop-blur-xl w-64 shadow-2xl",
-                  theme === 'dark' ? "bg-black/60 border-orange-500/20" : "bg-white/90 border-orange-500/20 shadow-orange-500/5"
+                  theme === 'dark' ? "bg-black/60 border-[#E8B84B]/20" : "bg-white/90 border-[#E8B84B]/20 shadow-orange-500/5"
                 )}
               >
                 <div className="flex items-center gap-2 mb-3">
@@ -501,7 +501,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                       type="datetime-local" 
                       className={cn(
                         "w-full bg-transparent border rounded-lg p-2 text-xs transition-colors",
-                        theme === 'dark' ? "border-white/10 text-white focus:border-orange-500/50 [color-scheme:dark]" : "border-slate-200 text-slate-800 focus:border-orange-500/50"
+                        theme === 'dark' ? "border-white/10 text-white focus:border-[#E8B84B]/50 [color-scheme:dark]" : "border-slate-200 text-slate-800 focus:border-[#E8B84B]/50"
                       )}
                       value={birthTime ? new Date(birthTime.getTime() - birthTime.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""}
                       onChange={(e) => setBirthTime(e.target.value ? new Date(e.target.value) : null)}
@@ -514,7 +514,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                       placeholder="City, Country"
                       className={cn(
                         "w-full bg-transparent border rounded-lg p-2 text-xs transition-colors",
-                        theme === 'dark' ? "border-white/10 text-white focus:border-orange-500/50" : "border-slate-200 text-slate-800 focus:border-orange-500/50"
+                        theme === 'dark' ? "border-white/10 text-white focus:border-[#E8B84B]/50" : "border-slate-200 text-slate-800 focus:border-[#E8B84B]/50"
                       )}
                       value={birthCity}
                       onChange={(e) => setBirthCity(e.target.value)}

@@ -1,0 +1,56 @@
+import type { PlanetPosition } from '../vedic-utils';
+
+/**
+ * Fetch high-precision sidereal planet positions from the server-side
+ * Swiss Ephemeris calculator (openastrology-library / swisseph).
+ *
+ * Falls back gracefully: on network failure the caller retains its last
+ * known positions so the UI never goes blank.
+ *
+ * In-flight deduplication: if two callers request identical parameters at
+ * nearly the same time (e.g. React StrictMode double-firing effects), they
+ * share a single outgoing request instead of hammering the server twice.
+ */
+
+// Key → in-flight Promise. Keyed by minute-precision timestamp + lat/lon so
+// simultaneous transit and birth position fetches don't conflict.
+const inflight = new Map<string, Promise<PlanetPosition[]>>();
+
+export async function fetchPlanetPositions(
+  date: Date,
+  lat?: number,
+  lon?: number,
+): Promise<PlanetPosition[]> {
+  // Round to the nearest minute for the deduplication key — two calls within
+  // the same minute with the same coordinates are treated as identical.
+  const minuteTs = Math.floor(date.getTime() / 60_000) * 60_000;
+  const dedupKey = `${minuteTs}_${lat ?? ''}_${lon ?? ''}`;
+
+  const existing = inflight.get(dedupKey);
+  if (existing) return existing;
+
+  const body: Record<string, unknown> = { isoDate: date.toISOString() };
+  if (lat !== undefined && lon !== undefined) {
+    body.lat = lat;
+    body.lon = lon;
+  }
+
+  const promise = fetch('/api/planet-positions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Planet positions request failed (${response.status})`);
+      }
+      return response.json() as Promise<PlanetPosition[]>;
+    })
+    .finally(() => {
+      inflight.delete(dedupKey);
+    });
+
+  inflight.set(dedupKey, promise);
+  return promise;
+}

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Compass, MapPin, Loader2, Moon, Sun, User as UserIcon, LogIn, Sparkles, BookOpen, LayoutGrid, Grid, LogOut, Settings, ChevronDown, MessageSquare, Users } from 'lucide-react';
+import { Compass, MapPin, Loader2, Moon, Sun, User as UserIcon, LogIn, Sparkles, BookOpen, LayoutGrid, Grid, LogOut, Settings, ChevronDown, MessageSquare, Users, CircleDot } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 import type { User } from 'firebase/auth';
@@ -15,8 +15,8 @@ interface HeaderProps {
   isBirthMode: boolean;
   setIsBirthMode: (mode: boolean) => void;
   setDashboardTab: (tab: 'overview' | 'yogas' | 'transits' | 'natal' | 'upcoming' | 'panchang' | 'ashtakavarga' | 'muhurta' | 'dashas' | 'impacts' | 'blueprint' | 'rectify') => void;
-  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles';
-  setActiveTab: (tab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles') => void;
+  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana';
+  setActiveTab: (tab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana') => void;
   birthTime: Date | null;
   currentTime: Date;
   user: User | null;
@@ -73,6 +73,19 @@ export const Header: React.FC<HeaderProps> = ({
           <h1 className="text-sm lg:text-xl font-bold tracking-tighter uppercase italic font-serif leading-none gold-gradient-text">Vedic Sky</h1>
           <p className={cn("text-[6px] lg:text-[10px] uppercase tracking-[0.2em] font-mono mt-0.5 lg:mt-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-slate-400")}>Sidereal Engine</p>
         </div>
+        {/* V2 Preview link */}
+        <a
+          href="/v2"
+          className={cn(
+            "hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] uppercase tracking-widest font-bold transition-all",
+            theme === 'dark'
+              ? "border-jyotish-gold/30 text-jyotish-gold/70 hover:text-jyotish-gold hover:border-jyotish-gold/60 hover:bg-jyotish-gold/5"
+              : "border-orange-300 text-orange-500 hover:border-orange-400 hover:bg-orange-50"
+          )}
+          title="Try the new v2 design"
+        >
+          V2 ✦
+        </a>
       </div>
       
       <div className="flex items-center gap-2 lg:gap-6">
@@ -194,6 +207,18 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <MessageSquare className="w-3.5 h-3.5" />
             AI Chat
+          </button>
+          <button
+            onClick={() => setActiveTab('sudarshana')}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-2",
+              activeTab === 'sudarshana'
+                ? "bg-jyotish-gold/10 text-jyotish-gold shadow-[inset_0_0_10px_rgba(212,175,55,0.1)]"
+                : "text-white/40 hover:text-white/60"
+            )}
+          >
+            <CircleDot className="w-3.5 h-3.5" />
+            Sudarshana
           </button>
         </div>
 
