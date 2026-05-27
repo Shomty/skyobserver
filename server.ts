@@ -355,7 +355,9 @@ async function startServer() {
     }
 
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // acceptRanges: false prevents browsers from caching partial 206 responses
+    // which can cause blank pages on first load of large JS bundles.
+    app.use(express.static(distPath, { acceptRanges: false }));
     app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
