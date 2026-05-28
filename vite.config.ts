@@ -19,9 +19,11 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
+        // Keep all React-related libs in one chunk to avoid circular chunk
+        // dependencies (vendor ↔ ui) caused by motion/react needing react-dom.
         manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['recharts', 'motion', 'lucide-react'],
+          vendor: ['react', 'react-dom', 'react-router-dom', 'motion'],
+          ui: ['recharts', 'lucide-react'],
           astro: ['astronomy-engine', 'suncalc'],
         },
       },
