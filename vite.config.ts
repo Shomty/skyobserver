@@ -17,16 +17,8 @@ export default defineConfig({
   build: {
     target: 'es2020',
     sourcemap: false,
-    rollupOptions: {
-      output: {
-        // Keep all React-related libs in one chunk to avoid circular chunk
-        // dependencies (vendor ↔ ui) caused by motion/react needing react-dom.
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom', 'motion'],
-          ui: ['recharts', 'lucide-react'],
-          astro: ['astronomy-engine', 'suncalc'],
-        },
-      },
-    },
+    // Manual chunks caused a circular vendor ↔ ui dependency that silently
+    // broke React initialization. Let Vite split automatically instead.
+    chunkSizeWarningLimit: 2200,
   },
 });
