@@ -339,7 +339,7 @@ const NatalDignityAnalysis: React.FC<{
   );
 };
 
-export const DataDashboard: React.FC<DataDashboardProps> = (props) => {
+const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
   const { theme } = useTheme();
   const {
     activeTab, setActiveTab, isLive, setIsLive, currentTime, handleDateChange, adjustTime,
@@ -3883,3 +3883,5 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
     </div>
   );
 };
+
+export const DataDashboard = React.memo(DataDashboardInner);

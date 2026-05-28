@@ -513,6 +513,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'transit' | 'natal'>('natal');
   const [isLive, setIsLive] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [displayTime, setDisplayTime] = useState(new Date());
   const [selectedPlanet, setSelectedPlanet] = useState<string | null>(null);
   const [selectedZodiac, setSelectedZodiac] = useState<number | null>(null);
   const [hoveredPlanetName, setHoveredPlanetName] = useState<string | null>(null);
@@ -1218,10 +1219,18 @@ INTERPRETATION GUIDELINES:
 
   useEffect(() => {
     if (!isLive) return;
-    const timer = setInterval(() => {
+    // Calculation timer: every 10s to reduce expensive recalculations
+    const calcTimer = setInterval(() => {
       setCurrentTime(new Date());
+    }, 10000);
+    // Display timer: every 1s so the clock stays accurate
+    const displayTimer = setInterval(() => {
+      setDisplayTime(new Date());
     }, 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(calcTimer);
+      clearInterval(displayTimer);
+    };
   }, [isLive]);
 
   const adjustTime = (days: number) => {
@@ -1339,7 +1348,10 @@ INTERPRETATION GUIDELINES:
   const birthYogas = useMemo(() => birthPositions ? detectYogas(birthPositions) : [], [birthPositions]);
   const ashtakavarga = useMemo(() => calculateAshtakavarga(positions), [positions]);
   const natalAshtakavarga = useMemo(() => birthPositions ? calculateAshtakavarga(birthPositions) : null, [birthPositions]);
-  const panchang = useMemo(() => calculatePanchang(currentTime, positions), [currentTime, positions]);
+
+  // Gate panchang on a 10-minute granularity key to avoid recalculating every 10s
+  const panchangKey = useMemo(() => Math.floor(currentTime.getTime() / 600000), [currentTime]);
+  const panchang = useMemo(() => calculatePanchang(currentTime, positions), [panchangKey, positions]);
   const birthPanchang = useMemo(() => {
     if (!birthTime || !birthPositions) return null;
     return calculatePanchang(birthTime, birthPositions);
@@ -1360,7 +1372,8 @@ INTERPRETATION GUIDELINES:
   const natalComparisons = useMemo(() => {
     if (!birthPositions || !transitPositions) return [];
     return analyzeNatalComparison(transitPositions, birthPositions, currentTime);
-  }, [birthPositions, transitPositions, currentTime]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [birthPositions, transitPositions, transitMinuteKey]);
 
   const birthSpecialPoints = useMemo(() => {
     if (!birthTime || !birthPositions || !birthLocation) return null;
@@ -1386,10 +1399,13 @@ INTERPRETATION GUIDELINES:
     );
   }, [birthTime, birthPositions, birthLocation]);
 
+  // Gate sunTimes on date string — no need to recalculate multiple times per day
+  const currentDateStr = useMemo(() => format(currentTime, 'yyyy-MM-dd'), [currentTime]);
   const sunTimes = useMemo(() => {
     if (!location) return null;
     return SunCalc.getTimes(currentTime, location.lat, location.lon);
-  }, [currentTime, location]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDateStr, location]);
 
   const exportData = () => {
     const data = {
@@ -1480,14 +1496,22 @@ INTERPRETATION GUIDELINES:
     setShowEphemerisModal(false);
   };
 
-  const activePlanet = useMemo(() => 
-    positions.find(p => p.name === selectedPlanet) || positions[0], 
+  const activePlanet = useMemo(() =>
+    positions.find(p => p.name === selectedPlanet) || positions[0],
     [positions, selectedPlanet]
   );
 
-  const activePlanetDrishti = useMemo(() => 
+  // Stable fingerprint to avoid recalculating drishti when positions array reference changes
+  // but planetary longitudes haven't meaningfully shifted (less than 1 degree)
+  const positionsKey = useMemo(
+    () => positions.map(p => `${p.name}:${Math.round(p.siderealLongitude)}`).join(','),
+    [positions]
+  );
+
+  const activePlanetDrishti = useMemo(() =>
     calculateDrishti(activePlanet.name, positions),
-    [activePlanet.name, positions]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activePlanet.name, positionsKey]
   );
 
   const natalPlanet = useMemo(() => 
@@ -1621,7 +1645,7 @@ INTERPRETATION GUIDELINES:
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         birthTime={birthTime}
-        currentTime={currentTime}
+        currentTime={displayTime}
         user={user}
         signInWithGoogle={signInWithGoogle}
         logout={logout}

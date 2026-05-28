@@ -1,9 +1,15 @@
 import React, { useMemo } from 'react';
-import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
 
 interface CelestialBackgroundProps {}
+
+// Static drift particles (3 reduced from 8)
+const DRIFT_PARTICLES = [
+  { width: 120, height: 1, left: '15%', top: '30%', rotate: 45, duration: '18s', delay: '0s' },
+  { width: 80, height: 1, left: '65%', top: '70%', rotate: 135, duration: '22s', delay: '6s' },
+  { width: 100, height: 1, left: '45%', top: '55%', rotate: 210, duration: '26s', delay: '12s' },
+];
 
 export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
   const { theme } = useTheme();
@@ -24,6 +30,31 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+      <style>{`
+        @keyframes star-twinkle {
+          0%, 100% { opacity: 0.2; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.5); }
+        }
+        @keyframes nebula-drift-1 {
+          0%   { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+          25%  { transform: translate(50px, -40px) scale(1.15) rotate(5deg); }
+          50%  { transform: translate(-50px, 40px) scale(0.9) rotate(-5deg); }
+          100% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+        }
+        @keyframes nebula-drift-2 {
+          0%   { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+          25%  { transform: translate(-60px, 60px) scale(1.1) rotate(-8deg); }
+          50%  { transform: translate(60px, -60px) scale(0.85) rotate(8deg); }
+          100% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+        }
+        @keyframes drift-particle {
+          0%   { transform: translate(0px, 0px); opacity: 0; }
+          20%  { opacity: 0.2; }
+          80%  { opacity: 0.2; }
+          100% { transform: translate(60px, 40px); opacity: 0; }
+        }
+      `}</style>
+
       {/* Deep Space Base Gradients */}
       <div className={cn(
         "absolute inset-0 transition-opacity duration-1000",
@@ -33,36 +64,16 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
       </div>
 
       {/* Atmospheric Nebula Effects */}
-      <motion.div
-        animate={{
-          x: [0, 50, -50, 0],
-          y: [0, -40, 40, 0],
-          scale: [1, 1.15, 0.9, 1],
-          rotate: [0, 5, -5, 0]
-        }}
-        transition={{
-          duration: 30,
-          repeat: Infinity,
-          ease: "linear"
-        }}
+      <div
+        style={{ animation: 'nebula-drift-1 60s linear infinite' }}
         className={cn(
           "absolute top-[-20%] left-[-10%] w-[80%] h-[80%] blur-[120px] rounded-full transition-colors duration-1000 opacity-[0.15]",
           theme === 'dark' ? "bg-mystic-purple" : "bg-orange-500/5"
         )}
       />
-      
-      <motion.div
-        animate={{
-          x: [0, -60, 60, 0],
-          y: [0, 60, -60, 0],
-          scale: [1, 1.1, 0.85, 1],
-          rotate: [0, -8, 8, 0]
-        }}
-        transition={{
-          duration: 35,
-          repeat: Infinity,
-          ease: "linear"
-        }}
+
+      <div
+        style={{ animation: 'nebula-drift-2 90s linear infinite' }}
         className={cn(
           "absolute bottom-[-20%] right-[-10%] w-[90%] h-[90%] blur-[150px] rounded-full transition-colors duration-1000 opacity-[0.1]",
           theme === 'dark' ? "bg-jyotish-gold" : "bg-blue-500/5"
@@ -72,7 +83,7 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
       {/* Twinkling Stars */}
       <div className="absolute inset-0">
         {stars.map((star) => (
-          <motion.div
+          <div
             key={star.id}
             className="absolute rounded-full"
             style={{
@@ -82,62 +93,38 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
               height: star.size,
               backgroundColor: theme === 'dark' ? star.color : '#cbd5e1',
               boxShadow: star.size > 1 ? `0 0 ${star.size * 2}px ${star.color}` : 'none',
-            }}
-            animate={{
-              opacity: [0.2, 0.8, 0.2],
-              scale: [1, 1.5, 1],
-            }}
-            transition={{
-              duration: star.duration,
-              repeat: Infinity,
-              delay: star.delay,
-              ease: "easeInOut"
+              animation: `star-twinkle ${star.duration}s ease-in-out ${star.delay}s infinite`,
             }}
           />
         ))}
       </div>
 
-      {/* Subtle Drift Particles - for depth */}
+      {/* Subtle Drift Particles - for depth (3 particles) */}
       <div className="absolute inset-0">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <motion.div
+        {DRIFT_PARTICLES.map((p, i) => (
+          <div
             key={`drift-${i}`}
             className={cn(
               "absolute blur-[1px] opacity-20",
               theme === 'dark' ? "bg-white/10" : "bg-black/5"
             )}
             style={{
-              width: Math.random() * 100 + 50,
-              height: 1,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              rotate: Math.random() * 360,
-            }}
-            animate={{
-              x: [0, Math.random() * 100 - 50],
-              y: [0, Math.random() * 100 - 50],
-              opacity: [0, 0.2, 0]
-            }}
-            transition={{
-              duration: Math.random() * 10 + 10,
-              repeat: Infinity,
-              ease: "linear"
+              width: p.width,
+              height: p.height,
+              left: p.left,
+              top: p.top,
+              transform: `rotate(${p.rotate}deg)`,
+              animation: `drift-particle ${p.duration} linear ${p.delay} infinite`,
             }}
           />
         ))}
       </div>
 
-      {/* Texture Overlay */}
-      <div className={cn(
-        "absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] pointer-events-none transition-opacity duration-1000",
-        theme === 'dark' ? "opacity-20 mix-blend-overlay" : "opacity-5"
-      )} />
-      
       {/* Vignette */}
       <div className={cn(
         "absolute inset-0 transition-opacity duration-1000",
-        theme === 'dark' 
-          ? "bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)] opacity-100" 
+        theme === 'dark'
+          ? "bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)] opacity-100"
           : "bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.05)_100%)] opacity-100"
       )} />
     </div>

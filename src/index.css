@@ -46,6 +46,11 @@
   }
 }
 
+@keyframes transit-glow {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.05; }
+  50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.1; }
+}
+
 @layer components {
   .universe-bg {
     @apply transition-colors duration-500;

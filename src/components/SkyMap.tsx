@@ -47,57 +47,58 @@ interface ZodiacLabelProps {
   aspectColor?: string;
 }
 
-const ZodiacLabel: React.FC<ZodiacLabelProps> = ({ index, mapOffset, selectedZodiac, setSelectedZodiac, isAspected, aspectColor }) => {
+const ZodiacLabel: React.FC<ZodiacLabelProps> = React.memo(({ index, mapOffset, selectedZodiac, setSelectedZodiac, isAspected, aspectColor }) => {
   const { theme } = useTheme();
   const targetAngle = index * 30 + mapOffset + 15; // Center the label in the 30° segment
   const angle = useContinuousAngle(targetAngle);
   const isSelected = selectedZodiac === index;
-  
+
   return (
-    <motion.div 
+    <div
       className="absolute inset-0 pointer-events-none"
-      animate={{ rotate: angle }}
-      transition={{ type: "spring", stiffness: 50, damping: 20 }}
+      style={{ transform: `rotate(${angle}deg)`, transition: 'transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
     >
       {/* Clickable segment - centered around the label */}
-      <div 
+      <div
         className={cn(
           "absolute top-0 left-1/2 -translate-x-1/2 w-full h-full pointer-events-auto cursor-pointer transition-all duration-500",
-          isSelected 
-            ? "bg-orange-500/10 shadow-[inset_0_0_40px_rgba(249,115,22,0.1)]" 
-            : isAspected 
+          isSelected
+            ? "bg-orange-500/10 shadow-[inset_0_0_40px_rgba(249,115,22,0.1)]"
+            : isAspected
               ? "bg-orange-500/[0.03] shadow-[inset_0_0_20px_rgba(249,115,22,0.02)]"
               : theme === 'dark' ? "hover:bg-white/[0.03]" : "hover:bg-slate-900/[0.03]"
         )}
-        style={{ 
+        style={{
           clipPath: 'polygon(50% 50%, 36.6% 0%, 63.4% 0%)',
           backgroundColor: isAspected ? `${aspectColor}08` : undefined
         }}
         onClick={() => setSelectedZodiac(isSelected ? null : index)}
       />
-      
+
       {/* Boundary lines */}
       <div className={cn("absolute top-0 left-1/2 w-px h-full -translate-x-1/2", theme === 'dark' ? "bg-white/5" : "bg-slate-900/5")} style={{ transform: 'rotate(-15deg)' }} />
       <div className={cn("absolute top-0 left-1/2 w-px h-full -translate-x-1/2", theme === 'dark' ? "bg-white/5" : "bg-slate-900/5")} style={{ transform: 'rotate(15deg)' }} />
 
-      <motion.div 
+      <div
         className={cn(
           "absolute top-4 lg:top-6 left-1/2 -translate-x-1/2 text-[8px] lg:text-[10px] font-mono uppercase tracking-widest transition-all duration-300",
-          isSelected 
-            ? "text-orange-500 font-extrabold scale-110 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]" 
+          isSelected
+            ? "text-orange-500 font-extrabold scale-110 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]"
             : isAspected
               ? "text-orange-500/80 font-bold scale-105"
               : theme === 'dark' ? "text-white/20" : "text-slate-400"
         )}
-        style={{ color: isAspected ? `${aspectColor}CC` : undefined }}
-        animate={{ rotate: -angle }}
-        transition={{ type: "spring", stiffness: 50, damping: 20 }}
+        style={{
+          color: isAspected ? `${aspectColor}CC` : undefined,
+          transform: `rotate(${-angle}deg)`,
+          transition: 'transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+        }}
       >
         {["ARI", "TAU", "GEM", "CAN", "LEO", "VIR", "LIB", "SCO", "SAG", "CAP", "AQU", "PIS"][index]}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
-}
+})
 
 const NAKSHATRA_ABBREVS = [
   "ASW", "BHA", "KRI", "ROH", "MRI", "ARD", "PUN", "PUS", "ASL",
@@ -112,16 +113,15 @@ interface NakshatraLabelProps {
   mapOffset: number;
 }
 
-const NakshatraLabel: React.FC<NakshatraLabelProps> = ({ index, mapOffset }) => {
+const NakshatraLabel: React.FC<NakshatraLabelProps> = React.memo(({ index, mapOffset }) => {
   const { theme } = useTheme();
   const targetAngle = index * NAKSHATRA_SIZE + mapOffset + NAKSHATRA_SIZE / 2;
   const angle = useContinuousAngle(targetAngle);
 
   return (
-    <motion.div
+    <div
       className="absolute inset-0 pointer-events-none"
-      animate={{ rotate: angle }}
-      transition={{ type: "spring", stiffness: 50, damping: 20 }}
+      style={{ transform: `rotate(${angle}deg)`, transition: 'transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
     >
       {/* Boundary tick at outer edge */}
       <div
@@ -130,19 +130,21 @@ const NakshatraLabel: React.FC<NakshatraLabelProps> = ({ index, mapOffset }) => 
       />
 
       {/* Abbreviated nakshatra name */}
-      <motion.div
+      <div
         className={cn(
           "absolute top-[1.5%] lg:top-[2.5%] left-1/2 -translate-x-1/2 text-[6px] lg:text-[9px] font-mono uppercase tracking-widest",
           theme === 'dark' ? "text-white/40" : "text-slate-500"
         )}
-        animate={{ rotate: -angle }}
-        transition={{ type: "spring", stiffness: 50, damping: 20 }}
+        style={{
+          transform: `rotate(${-angle}deg)`,
+          transition: 'transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+        }}
       >
         {NAKSHATRA_ABBREVS[index]}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
-}
+})
 
 
 interface PlanetMarkerProps {
@@ -160,64 +162,61 @@ interface PlanetMarkerProps {
   isAspectedBySelected?: boolean;
 }
 
-const PlanetMarker: React.FC<PlanetMarkerProps> = ({ p, mapOffset, selectedPlanet, setSelectedPlanet, hoveredPlanetName, setHoveredPlanetName, selectedZodiac, isInner, isComparison, isConjunct, isAspectingSelected, isAspectedBySelected }) => {
+const PlanetMarker: React.FC<PlanetMarkerProps> = React.memo(({ p, mapOffset, selectedPlanet, setSelectedPlanet, hoveredPlanetName, setHoveredPlanetName, selectedZodiac, isInner, isComparison, isConjunct, isAspectingSelected, isAspectedBySelected }) => {
   const { theme } = useTheme();
   const targetAngle = p.siderealLongitude + mapOffset;
   const angle = useContinuousAngle(targetAngle);
-  const ringStyles = getPlanetRingStyles(theme);
+  const ringStyles = React.useMemo(() => getPlanetRingStyles(theme), [theme]);
   const radius = (ringStyles[p.name]?.radius || 100) * (isInner ? 0.8 : 1);
   const isInSelectedZodiac = selectedZodiac !== null && p.rashi === RASHIS[selectedZodiac];
   const isHovered = hoveredPlanetName === p.name;
 
   return (
-    <motion.div
+    <div
       className="absolute inset-0 pointer-events-none group"
-      animate={{ rotate: angle }}
-      transition={{ type: "spring", stiffness: 50, damping: 20 }}
+      style={{ transform: `rotate(${angle}deg)`, transition: 'transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
     >
-      <div 
+      <div
         className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ top: `${50 - radius / 2}%` }}
       >
-        <motion.div 
+        <div
           className="relative flex flex-col items-center"
-          animate={{ rotate: -angle }}
-          transition={{ type: "spring", stiffness: 50, damping: 20 }}
+          style={{ transform: `rotate(${-angle}deg)`, transition: 'transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
         >
           {isConjunct && !isComparison && (
-            <motion.div 
+            <motion.div
               className="absolute inset-0 rounded-full bg-orange-500/30 blur-md"
               animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.6, 0.3] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
           )}
-          <motion.div 
+          <div
             className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center font-bold transition-all duration-300 pointer-events-auto cursor-pointer",
               p.symbol.length > 1 ? "text-[10px]" : "text-sm",
               theme === 'dark' ? "shadow-[0_0_15px_rgba(255,255,255,0.1)]" : "shadow-[0_0_15px_rgba(0,0,0,0.1)]",
-              isComparison 
+              isComparison
                 ? theme === 'dark' ? "border-2 border-dashed border-white/30 bg-black/40" : "border-2 border-dashed border-slate-900/30 bg-white/40"
                 : theme === 'dark' ? "bg-black/60" : "bg-white/80",
-              selectedPlanet === p.name 
+              selectedPlanet === p.name
                 ? theme === 'dark' ? "scale-125 ring-2 ring-white z-50 shadow-[0_0_30px_rgba(255,255,255,0.4)]" : "scale-125 ring-2 ring-slate-900 z-50 shadow-[0_0_30px_rgba(0,0,0,0.2)]"
-                : isHovered 
+                : isHovered
                   ? theme === 'dark' ? "scale-125 ring-2 ring-white z-50 shadow-[0_0_20px_rgba(255,255,255,0.3)]" : "scale-125 ring-2 ring-slate-900 z-50 shadow-[0_0_20px_rgba(0,0,0,0.15)]"
                   : isAspectedBySelected
                     ? "scale-110 ring-1 ring-orange-500/60 z-40 shadow-[0_0_15px_rgba(249,115,22,0.2)]"
                     : isAspectingSelected
                       ? "scale-110 ring-1 ring-blue-500/60 z-40 shadow-[0_0_15px_rgba(59,130,246,0.2)]"
-                      : isInSelectedZodiac ? "scale-110 ring-1 ring-orange-500/40 z-40 shadow-[0_0_15px_rgba(249,115,22,0.3)]" : 
+                      : isInSelectedZodiac ? "scale-110 ring-1 ring-orange-500/40 z-40 shadow-[0_0_15px_rgba(249,115,22,0.3)]" :
                       isConjunct ? "ring-1 ring-orange-500 z-40" : "group-hover:scale-110 hover:z-40"
             )}
-            style={{ 
-              backgroundColor: isComparison ? 'transparent' : p.color, 
+            style={{
+              backgroundColor: isComparison ? 'transparent' : p.color,
               color: isComparison ? p.color : '#000',
               borderColor: isComparison ? p.color : undefined,
               boxShadow: isInSelectedZodiac ? `0 0 25px ${p.color}, 0 0 10px rgba(249,115,22,0.3)` : undefined,
               opacity: isComparison ? 0.7 : 1
             }}
-            layoutId={isComparison ? `comp-planet-${p.name}` : `planet-${p.name}`}
             onClick={() => setSelectedPlanet(selectedPlanet === p.name ? null : p.name)}
             onMouseEnter={() => setHoveredPlanetName(p.name)}
             onMouseLeave={() => setHoveredPlanetName(null)}
@@ -234,12 +233,12 @@ const PlanetMarker: React.FC<PlanetMarkerProps> = ({ p, mapOffset, selectedPlane
               </div>
             )}
             {isComparison && <div className={cn("absolute -top-1 -right-1 w-2 h-2 rounded-full border", theme === 'dark' ? "bg-white/40 border-black" : "bg-slate-900/40 border-white")} />}
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       </div>
-    </motion.div>
+    </div>
   );
-}
+})
 
 interface SkyMapProps {
   chartType: 'circle' | 'north-indian';
@@ -335,16 +334,12 @@ export const SkyMap: React.FC<SkyMapProps> = ({
       {/* Transit View Enhancement: Background Glow */}
       {viewMode === 'transit' && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <motion.div 
-            animate={{ 
-              scale: [1, 1.1, 1],
-              opacity: [0.05, 0.1, 0.05]
-            }}
-            transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+          <div
             className={cn(
               "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] rounded-full blur-[100px]",
               theme === 'dark' ? "bg-blue-500/20" : "bg-blue-500/10"
             )}
+            style={{ animation: 'transit-glow 10s linear infinite' }}
           />
         </div>
       )}
@@ -851,13 +846,13 @@ export const SkyMap: React.FC<SkyMapProps> = ({
               {/* Central Earth */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-4 h-4 bg-blue-500 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.5)] z-20" />
-                <div className="absolute w-32 h-32 border border-blue-500/20 rounded-full animate-[ping_3s_infinite]" />
+                <div className="absolute w-32 h-32 border border-blue-500/20 rounded-full hidden" />
               </div>
 
               {/* Drishti Lines for Circle Chart */}
               <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100">
                 {(() => {
-                  const styles = getPlanetRingStyles(theme);
+                  const styles = ringStyles;
                   const outputs: React.ReactNode[] = [];
 
                   // Helper to render aspects for a specific planet
