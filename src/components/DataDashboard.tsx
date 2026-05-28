@@ -9,7 +9,7 @@ import {
   Clock, Play, Pause, Rewind, FastForward, User as UserIcon, Save, MapPin, 
   LayoutGrid, Sparkles, Activity, Zap, CalendarDays, Sun, Grid, Layers,
   Info, Moon, CircleDot, ChevronRight, ChevronDown, ChevronUp, 
-  CheckCircle2, Flame, List, Eye, Edit, BarChart3, Brain, Briefcase, HeartPulse, Compass, Loader2, Trash2, Shield, Crown, BookOpen, RefreshCw, History, ArrowRightLeft, Timer, Star, Check, Users
+  CheckCircle2, Flame, List, Eye, Edit, BarChart3, Brain, Briefcase, HeartPulse, Compass, Loader2, Trash2, Shield, Crown, BookOpen, RefreshCw, History, ArrowRightLeft, Timer, Star, Check, Users, RotateCcw
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
@@ -73,7 +73,7 @@ interface DataDashboardProps {
   natalPlanet: PlanetPosition | undefined;
   yogas: any[];
   transits: TransitEvent[];
-  upcomingTransits: TransitPrediction[];
+  upcomingTransits: TransitPrediction[] | null;
   natalComparisons: NatalComparisonResult[];
   panchang: PanchangData | null;
   birthPanchang: PanchangData | null;
@@ -417,11 +417,16 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
   }, [user?.uid, activeChildProfileId, birthFingerprint]);
   const [showAllYogas, setShowAllYogas] = React.useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = React.useState(false);
+  const profileDropdownRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (!showProfileDropdown) return;
-    const handler = () => setShowProfileDropdown(false);
-    document.addEventListener('click', handler, { capture: true, once: true });
-    return () => document.removeEventListener('click', handler, { capture: true });
+    const handler = (e: MouseEvent) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target as Node)) {
+        setShowProfileDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, [showProfileDropdown]);
 
   const generateTransitImpactInsight = async () => {
@@ -838,19 +843,33 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 
   const currentAshtakavarga = ashtakavargaMode === 'natal' && natalAshtakavarga ? natalAshtakavarga : ashtakavarga;
 
-  const muhurtaResults = React.useMemo(() => {
-    if (activeTab === 'muhurta' && birthPositions && location && currentDashas) {
-      const start = muhurtaDays === -1 ? dateRange.from : currentTime;
-      const end = muhurtaDays === -1 
-        ? dateRange.to 
-        : new Date(currentTime.getTime() + muhurtaDays * 24 * 60 * 60 * 1000);
-        
-      const dashaStr = currentDashas.length > 0 ? `${currentDashas[0].lord}/${currentDashas[1].lord}` : "";
-      
-      return findMuhurtaWindows(birthPositions, start, end, muhurtaEventType, location.lat, location.lon, dashaStr);
-    }
-    return [];
-  }, [activeTab, currentTime, muhurtaDays, muhurtaEventType, birthPositions, location, dateRange, currentDashas]);
+  const [muhurtaResults, setMuhurtaResults] = React.useState<MuhurtaWindow[] | null>(null);
+
+  // Reset results whenever the user changes search parameters so stale data is not shown
+  React.useEffect(() => {
+    setMuhurtaResults(null);
+    setIsMuhurtaCalculating(false);
+  }, [muhurtaDays, muhurtaEventType, dateRange]);
+
+  const handleCalculateMuhurta = React.useCallback(() => {
+    if (!birthPositions || !location || !currentDashas) return;
+    setIsMuhurtaCalculating(true);
+    setMuhurtaResults(null);
+    // Defer one tick so the spinner renders before the synchronous calculation blocks the thread
+    setTimeout(() => {
+      try {
+        const start = muhurtaDays === -1 ? dateRange.from : currentTime;
+        const end = muhurtaDays === -1
+          ? dateRange.to
+          : new Date(currentTime.getTime() + muhurtaDays * 24 * 60 * 60 * 1000);
+        const dashaStr = currentDashas.length > 0 ? `${currentDashas[0].lord}/${currentDashas[1].lord}` : "";
+        const results = findMuhurtaWindows(birthPositions, start, end, muhurtaEventType, location.lat, location.lon, dashaStr);
+        setMuhurtaResults(results);
+      } finally {
+        setIsMuhurtaCalculating(false);
+      }
+    }, 50);
+  }, [birthPositions, location, currentDashas, muhurtaDays, dateRange, currentTime, muhurtaEventType]);
 
   const savData = React.useMemo(() => {
     if (!currentAshtakavarga) return [];
@@ -1786,7 +1805,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
           <div className="space-y-6 pb-20">
 
             {/* ── Profile Selector ──────────────────────────────────── */}
-            <div className="relative">
+            <div className="relative" ref={profileDropdownRef}>
               <button
                 onClick={() => setShowProfileDropdown(v => !v)}
                 className={cn(
@@ -2770,7 +2789,14 @@ Respond ONLY with valid JSON (no markdown, no backticks):
               </div>
             </div>
 
-            {upcomingTransits
+            {upcomingTransits === null && (
+              <div className={cn("text-center py-16 px-8 rounded-3xl border border-dashed", theme === 'dark' ? "border-white/10 bg-white/[0.01]" : "border-slate-200 bg-slate-50/50")}>
+                <Loader2 className="w-8 h-8 text-jyotish-gold/60 animate-spin mx-auto mb-3" />
+                <p className={cn("text-xs opacity-40", theme === 'dark' ? "text-white" : "text-slate-500")}>Computing upcoming transits…</p>
+              </div>
+            )}
+
+            {(upcomingTransits ?? [])
               .filter(t => upcomingPlanetFilter === 'All' || t.planet === upcomingPlanetFilter)
               .filter(t => {
                 if (upcomingTypeFilter === 'All') return true;
@@ -2893,7 +2919,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                 </div>
               );
             })}
-            {upcomingTransits.filter(t => {
+            {upcomingTransits && upcomingTransits.filter(t => {
               const daysDiff = (t.date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
               const matchesType = upcomingTypeFilter === 'All' || 
                                  (upcomingTypeFilter === 'Natal' && (t.type === 'Natal Conjunction' || t.type === 'Natal Aspect' || t.type === 'House Change')) ||
@@ -2975,7 +3001,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
                 <div className="text-[10px] uppercase tracking-widest font-mono text-white/40">Parashari Synthesis (Top Windows)</div>
-                {muhurtaResults.length > 0 && <span className="text-[9px] font-mono text-jyotish-gold/60">{muhurtaResults.length} windows found</span>}
+                {muhurtaResults && muhurtaResults.length > 0 && <span className="text-[9px] font-mono text-jyotish-gold/60">{muhurtaResults.length} windows found</span>}
               </div>
 
               {currentDashas && currentDashas[0] && (
@@ -2987,7 +3013,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                 </div>
               )}
 
-              {muhurtaResults.map((result, i) => (
+              {muhurtaResults && muhurtaResults.map((result, i) => (
                 <div key={i} className={cn("p-6 rounded-3xl border transition-all relative overflow-hidden group", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-white border-slate-100 shadow-sm")}>
                    {/* Background Decorative Element */}
                    <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:opacity-10 transition-opacity">
@@ -3121,15 +3147,58 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                 </div>
               ))}
 
-              {muhurtaResults.length === 0 && (
-                <div className={cn("text-center py-20 px-8 rounded-3xl border border-dashed", theme === 'dark' ? "border-white/10 bg-white/[0.01]" : "border-slate-200 bg-slate-50/50")}>
+              {/* Idle — user hasn't run the calculation yet */}
+              {muhurtaResults === null && !isMuhurtaCalculating && (
+                <div className={cn("text-center py-16 px-8 rounded-3xl border border-dashed", theme === 'dark' ? "border-white/10 bg-white/[0.01]" : "border-slate-200 bg-slate-50/50")}>
+                  <div className="w-16 h-16 bg-jyotish-gold/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CalendarDays className="w-8 h-8 text-jyotish-gold/60" />
+                  </div>
+                  <h4 className={cn("text-sm font-bold mb-2", theme === 'dark' ? "text-white/70" : "text-slate-700")}>Ready to Find Auspicious Windows</h4>
+                  <p className={cn("text-xs opacity-50 max-w-xs mx-auto mb-6", theme === 'dark' ? "text-white" : "text-slate-500")}>
+                    Select your event category and time window above, then tap Calculate to find your best Muhurta windows.
+                  </p>
+                  <button
+                    onClick={handleCalculateMuhurta}
+                    disabled={!birthPositions || !location}
+                    className={cn(
+                      "inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all border shadow-lg active:scale-95",
+                      birthPositions && location
+                        ? "bg-jyotish-gold text-black border-jyotish-gold hover:bg-jyotish-gold/90 shadow-jyotish-gold/30"
+                        : theme === 'dark' ? "bg-white/5 border-white/10 text-white/30 cursor-not-allowed" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                    )}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Calculate Muhurta Windows
+                  </button>
+                </div>
+              )}
+
+              {/* Calculating — show spinner */}
+              {isMuhurtaCalculating && (
+                <div className={cn("text-center py-16 px-8 rounded-3xl border border-dashed", theme === 'dark' ? "border-white/10 bg-white/[0.01]" : "border-slate-200 bg-slate-50/50")}>
+                  <Loader2 className="w-10 h-10 text-jyotish-gold animate-spin mx-auto mb-4" />
+                  <h4 className={cn("text-sm font-bold mb-1", theme === 'dark' ? "text-white/70" : "text-slate-700")}>Scanning Cosmic Alignments…</h4>
+                  <p className={cn("text-xs opacity-40", theme === 'dark' ? "text-white" : "text-slate-500")}>Analysing {muhurtaDays === -1 ? 'custom range' : `${muhurtaDays}-day window`}</p>
+                </div>
+              )}
+
+              {/* Calculated — no results */}
+              {muhurtaResults !== null && muhurtaResults.length === 0 && (
+                <div className={cn("text-center py-16 px-8 rounded-3xl border border-dashed", theme === 'dark' ? "border-white/10 bg-white/[0.01]" : "border-slate-200 bg-slate-50/50")}>
                   <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 grayscale">
                     <CalendarDays className="w-8 h-8 opacity-20" />
                   </div>
                   <h4 className={cn("text-sm font-bold mb-2", theme === 'dark' ? "text-white/60" : "text-slate-600")}>No Auspicious Windows Found</h4>
-                  <p className={cn("text-xs opacity-50 max-w-xs mx-auto", theme === 'dark' ? "text-white" : "text-slate-500")}>
+                  <p className={cn("text-xs opacity-50 max-w-xs mx-auto mb-4", theme === 'dark' ? "text-white" : "text-slate-500")}>
                     The elimination filters are currently very strict. Try a different event category or expand your search window.
                   </p>
+                  <button
+                    onClick={handleCalculateMuhurta}
+                    className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border", theme === 'dark' ? "bg-white/5 border-white/10 text-white/50 hover:bg-white/10" : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100")}
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Recalculate
+                  </button>
                 </div>
               )}
             </div>

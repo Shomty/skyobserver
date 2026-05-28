@@ -67,10 +67,12 @@ import { SkyMap } from './components/SkyMap';
 import { CelestialBackground } from './components/CelestialBackground';
 import { DataDashboard } from './components/DataDashboard';
 import { OnboardingFlow } from './components/Onboarding';
-import { CosmicReport } from './components/CosmicReport';
-import AIChatPage from './pages/AIChatPage';
-import ProfilesPage, { ChildProfile } from './pages/ProfilesPage';
-import SudarshanaChakraPage from './pages/SudarshanaChakraPage';
+import type { ChildProfile } from './pages/ProfilesPage';
+// Route-level components are lazy-loaded to reduce initial bundle parse cost
+const CosmicReport = React.lazy(() => import('./components/CosmicReport').then(m => ({ default: m.CosmicReport })));
+const AIChatPage = React.lazy(() => import('./pages/AIChatPage'));
+const ProfilesPage = React.lazy(() => import('./pages/ProfilesPage'));
+const SudarshanaChakraPage = React.lazy(() => import('./pages/SudarshanaChakraPage'));
 import { callGeminiProxy, withRetry, getErrorMessage } from './lib/api-utils';
 import { debugError, debugLog, debugWarn } from './lib/debug';
 import { APIErrorMessage } from './components/APIErrorMessage';
@@ -1363,11 +1365,12 @@ INTERPRETATION GUIDELINES:
   }, [birthTime, birthLocation?.lat, birthLocation?.lon]);
   const transits = useMemo(() => analyzeTransits(positions, currentTime), [positions, currentTime]);
   const upcomingTransits = useMemo(() => {
+    if (dashboardTab !== 'upcoming') return null;
     // Always use transitPositions (current sky) as the starting point for predictions.
     // Using `positions` in natal mode would pass birthPositions, causing the function to
     // compare natal planet positions against future transits — producing false sign-ingress events.
     return predictTransits(startOfDay(currentTime), transitPositions, birthPositions || undefined);
-  }, [format(currentTime, 'yyyy-MM-dd'), transitPositions, birthPositions]);
+  }, [dashboardTab, format(currentTime, 'yyyy-MM-dd'), transitPositions, birthPositions]);
   
   const natalComparisons = useMemo(() => {
     if (!birthPositions || !transitPositions) return [];
@@ -1550,78 +1553,86 @@ INTERPRETATION GUIDELINES:
 
   if (activeTab === 'sudarshana' && birthPositions && user && userProfile) {
     return (
-      <SudarshanaChakraPage
-        birthPositions={birthPositions}
-        user={user}
-        userProfile={userProfile}
-        birthFingerprint={birthFingerprint}
-        onClose={() => setActiveTab('sky')}
-      />
+      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" /></div>}>
+        <SudarshanaChakraPage
+          birthPositions={birthPositions}
+          user={user}
+          userProfile={userProfile}
+          birthFingerprint={birthFingerprint}
+          onClose={() => setActiveTab('sky')}
+        />
+      </React.Suspense>
     );
   }
 
   if (activeTab === 'report' && user && userProfile) {
     return (
-      <div className={cn(
-        "min-h-screen font-sans selection:bg-jyotish-gold/30 transition-colors duration-500",
-        theme === 'dark' ? "bg-[#050505] text-white" : "bg-white text-slate-900"
-      )}>
-        <CosmicReport 
-          user={user}
-          profile={userProfile}
-          birthPositions={birthPositions}
-          yogas={birthYogas}
-          panchang={birthPanchang}
-          blueprint={birthSpecialPoints}
-          ashtakavarga={natalAshtakavarga}
-          theme={theme}
-          onClose={() => setActiveTab('sky')}
-          transitPositions={transitPositions}
-          transits={transits}
-          birthFingerprint={birthFingerprint}
-        />
-      </div>
+      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" /></div>}>
+        <div className={cn(
+          "min-h-screen font-sans selection:bg-jyotish-gold/30 transition-colors duration-500",
+          theme === 'dark' ? "bg-[#050505] text-white" : "bg-white text-slate-900"
+        )}>
+          <CosmicReport 
+            user={user}
+            profile={userProfile}
+            birthPositions={birthPositions}
+            yogas={birthYogas}
+            panchang={birthPanchang}
+            blueprint={birthSpecialPoints}
+            ashtakavarga={natalAshtakavarga}
+            theme={theme}
+            onClose={() => setActiveTab('sky')}
+            transitPositions={transitPositions}
+            transits={transits}
+            birthFingerprint={birthFingerprint}
+          />
+        </div>
+      </React.Suspense>
     );
   }
 
   if (activeTab === 'chat' && user && userProfile) {
     return (
-      <AIChatPage
-        user={user}
-        userProfile={userProfile}
-        childProfiles={childProfiles}
-        transitPositions={transitPositions}
-        birthPositions={birthPositions}
-        birthYogas={birthYogas}
-        yogas={yogas}
-        transits={transits}
-        birthPanchang={birthPanchang}
-        panchang={panchang}
-        birthSpecialPoints={birthSpecialPoints}
-        onClose={() => setActiveTab('sky')}
-      />
+      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" /></div>}>
+        <AIChatPage
+          user={user}
+          userProfile={userProfile}
+          childProfiles={childProfiles}
+          transitPositions={transitPositions}
+          birthPositions={birthPositions}
+          birthYogas={birthYogas}
+          yogas={yogas}
+          transits={transits}
+          birthPanchang={birthPanchang}
+          panchang={panchang}
+          birthSpecialPoints={birthSpecialPoints}
+          onClose={() => setActiveTab('sky')}
+        />
+      </React.Suspense>
     );
   }
 
   if (activeTab === 'profiles' && user && userProfile) {
     return (
-      <div className={cn(
-        "min-h-screen font-sans selection:bg-jyotish-gold/30 transition-colors duration-500",
-        theme === 'dark' ? "bg-[#050505] text-white" : "bg-white text-slate-900"
-      )}>
-        <ProfilesPage
-          user={user}
-          userProfile={userProfile}
-          childProfiles={childProfiles}
-          activeChildProfileId={activeChildProfileId}
-          onSaveProfile={saveChildProfile}
-          onDeleteProfile={deleteChildProfile}
-          onLoadProfile={loadChildProfile}
-          onClearProfile={clearChildProfile}
-          geocode={geocode}
-          onClose={() => setActiveTab('sky')}
-        />
-      </div>
+      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" /></div>}>
+        <div className={cn(
+          "min-h-screen font-sans selection:bg-jyotish-gold/30 transition-colors duration-500",
+          theme === 'dark' ? "bg-[#050505] text-white" : "bg-white text-slate-900"
+        )}>
+          <ProfilesPage
+            user={user}
+            userProfile={userProfile}
+            childProfiles={childProfiles}
+            activeChildProfileId={activeChildProfileId}
+            onSaveProfile={saveChildProfile}
+            onDeleteProfile={deleteChildProfile}
+            onLoadProfile={loadChildProfile}
+            onClearProfile={clearChildProfile}
+            geocode={geocode}
+            onClose={() => setActiveTab('sky')}
+          />
+        </div>
+      </React.Suspense>
     );
   }
 
