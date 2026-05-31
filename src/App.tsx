@@ -73,6 +73,7 @@ const CosmicReport = React.lazy(() => import('./components/CosmicReport').then(m
 const AIChatPage = React.lazy(() => import('./pages/AIChatPage'));
 const ProfilesPage = React.lazy(() => import('./pages/ProfilesPage'));
 const SudarshanaChakraPage = React.lazy(() => import('./pages/SudarshanaChakraPage'));
+const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 import { callGeminiProxy, withRetry, getErrorMessage } from './lib/api-utils';
 import { debugError, debugLog, debugWarn } from './lib/debug';
 import { APIErrorMessage } from './components/APIErrorMessage';
@@ -1544,6 +1545,14 @@ INTERPRETATION GUIDELINES:
           <Sparkles className="w-12 h-12" />
         </motion.div>
       </div>
+    );
+  }
+
+  if (isAuthReady && !user) {
+    return (
+      <React.Suspense fallback={<div className="min-h-screen universe-bg dark" />}>
+        <LandingPage onSignIn={() => signInWithGoogle().then(() => {})} />
+      </React.Suspense>
     );
   }
 
