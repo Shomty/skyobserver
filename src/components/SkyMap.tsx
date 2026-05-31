@@ -243,7 +243,7 @@ const PlanetMarker: React.FC<PlanetMarkerProps> = React.memo(({ p, mapOffset, se
 interface SkyMapProps {
   chartType: 'circle' | 'north-indian';
   setChartType: (type: 'circle' | 'north-indian') => void;
-  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana';
+  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin';
   zoom: number;
   setZoom: React.Dispatch<React.SetStateAction<number>>;
   pan: { x: number, y: number };

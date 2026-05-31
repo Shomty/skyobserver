@@ -15,6 +15,16 @@ service cloud.firestore {
              request.auth.token.get('admin', false) == true;
     }
 
+    // Role-based admin check via Firestore (no custom claims needed)
+    function isAdminRole() {
+      return isAuthenticated() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin';
+    }
+
+    function isAdminOrAdminRole() {
+      return isAdmin() || isAdminRole();
+    }
+
     // Validation for User Profile
     function isValidUser(data) {
       return data.uid == request.auth.uid &&
@@ -33,62 +43,72 @@ service cloud.firestore {
              data.title is string && data.content is string;
     }
 
+    // Pending registration queue — written on sign-up, read/deleted by admins
+    match /pendingUsers/{userId} {
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow read, update, delete: if isAdminOrAdminRole();
+    }
+
     // User Profile Rules
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isAdminOrAdminRole();
+      // Owners may not change their own role or approvalStatus fields
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      request.resource.data.uid == resource.data.uid;
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) &&
+                       request.resource.data.uid == resource.data.uid &&
+                       request.resource.data.get('role', null) == resource.data.get('role', null) &&
+                       request.resource.data.get('approvalStatus', null) == resource.data.get('approvalStatus', null)) ||
+                      isAdminOrAdminRole();
       
       // Subcollections
       match /savedCharts/{chartId} {
-        allow read: if isOwner(userId) || isAdmin();
+        allow read: if isOwner(userId) || isAdminOrAdminRole();
         allow create: if isOwner(userId) && isValidChart(request.resource.data);
         allow update: if isOwner(userId) && isValidChart(request.resource.data) &&
                         request.resource.data.uid == resource.data.uid;
-        allow delete: if isOwner(userId) || isAdmin();
+        allow delete: if isOwner(userId) || isAdminOrAdminRole();
       }
 
       match /interpretations/{interpId} {
-        allow read: if isOwner(userId) || isAdmin();
+        allow read: if isOwner(userId) || isAdminOrAdminRole();
         allow create: if isOwner(userId) && isValidInterpretation(request.resource.data);
         allow update: if isOwner(userId) && isValidInterpretation(request.resource.data) &&
                         request.resource.data.uid == resource.data.uid;
-        allow delete: if isOwner(userId) || isAdmin();
+        allow delete: if isOwner(userId) || isAdminOrAdminRole();
       }
 
       match /ai_reports/{reportId} {
-        allow read: if isOwner(userId) || isAdmin();
+        allow read: if isOwner(userId) || isAdminOrAdminRole();
         allow create: if isOwner(userId);
         allow update: if isOwner(userId);
-        allow delete: if isOwner(userId) || isAdmin();
+        allow delete: if isOwner(userId) || isAdminOrAdminRole();
       }
 
       match /ai_chats/{chatId} {
-        allow read: if isOwner(userId) || isAdmin();
+        allow read: if isOwner(userId) || isAdminOrAdminRole();
         allow create: if isOwner(userId);
         allow update: if isOwner(userId);
-        allow delete: if isOwner(userId) || isAdmin();
+        allow delete: if isOwner(userId) || isAdminOrAdminRole();
       }
 
       match /ai_report_backups/{backupId} {
-        allow read: if isOwner(userId) || isAdmin();
+        allow read: if isOwner(userId) || isAdminOrAdminRole();
         allow create: if isOwner(userId);
         allow update: if isOwner(userId);
-        allow delete: if isOwner(userId) || isAdmin();
+        allow delete: if isOwner(userId) || isAdminOrAdminRole();
       }
 
       match /chat_sessions/{sessionId} {
-        allow read: if isOwner(userId) || isAdmin();
+        allow read: if isOwner(userId) || isAdminOrAdminRole();
         allow create: if isOwner(userId);
         allow update: if isOwner(userId);
-        allow delete: if isOwner(userId) || isAdmin();
+        allow delete: if isOwner(userId) || isAdminOrAdminRole();
 
         match /messages/{messageId} {
-          allow read: if isOwner(userId) || isAdmin();
+          allow read: if isOwner(userId) || isAdminOrAdminRole();
           allow create: if isOwner(userId);
           allow update: if isOwner(userId);
-          allow delete: if isOwner(userId) || isAdmin();
+          allow delete: if isOwner(userId) || isAdminOrAdminRole();
         }
       }
     }

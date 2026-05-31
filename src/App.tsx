@@ -67,6 +67,7 @@ import { SkyMap } from './components/SkyMap';
 import { CelestialBackground } from './components/CelestialBackground';
 import { DataDashboard } from './components/DataDashboard';
 import { OnboardingFlow } from './components/Onboarding';
+import { PendingApprovalBanner } from './components/PendingApprovalBanner';
 import type { ChildProfile } from './pages/ProfilesPage';
 // Route-level components are lazy-loaded to reduce initial bundle parse cost
 const CosmicReport = React.lazy(() => import('./components/CosmicReport').then(m => ({ default: m.CosmicReport })));
@@ -74,6 +75,7 @@ const AIChatPage = React.lazy(() => import('./pages/AIChatPage'));
 const ProfilesPage = React.lazy(() => import('./pages/ProfilesPage'));
 const SudarshanaChakraPage = React.lazy(() => import('./pages/SudarshanaChakraPage'));
 const LandingPage = React.lazy(() => import('./pages/LandingPage'));
+const AdminPage = React.lazy(() => import('./pages/AdminPage'));
 import { callGeminiProxy, withRetry, getErrorMessage } from './lib/api-utils';
 import { debugError, debugLog, debugWarn } from './lib/debug';
 import { APIErrorMessage } from './components/APIErrorMessage';
@@ -96,7 +98,8 @@ import {
   orderBy,
   query,
   addDoc,
-  fetchWithRetry
+  fetchWithRetry,
+  createPendingRegistration,
 } from './firebase';
 import { deleteDoc } from 'firebase/firestore';
 
@@ -512,7 +515,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [activeTab, setActiveTab] = useState<'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana'>('sky');
+  const [activeTab, setActiveTab] = useState<'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin'>('sky');
   const [viewMode, setViewMode] = useState<'transit' | 'natal'>('natal');
   const [isLive, setIsLive] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -544,7 +547,9 @@ export default function App() {
       navigate('/profiles');
     } else if (activeTab === 'sudarshana' && routerLocation.pathname !== '/sudarshana') {
       navigate('/sudarshana');
-    } else if (activeTab !== 'report' && activeTab !== 'chat' && activeTab !== 'profiles' && activeTab !== 'sudarshana' && (routerLocation.pathname === '/report' || routerLocation.pathname === '/chat' || routerLocation.pathname === '/profiles' || routerLocation.pathname === '/sudarshana')) {
+    } else if (activeTab === 'admin' && routerLocation.pathname !== '/admin') {
+      navigate('/admin');
+    } else if (activeTab !== 'report' && activeTab !== 'chat' && activeTab !== 'profiles' && activeTab !== 'sudarshana' && activeTab !== 'admin' && (routerLocation.pathname === '/report' || routerLocation.pathname === '/chat' || routerLocation.pathname === '/profiles' || routerLocation.pathname === '/sudarshana' || routerLocation.pathname === '/admin')) {
       navigate('/');
     }
   }, [activeTab, navigate, routerLocation.pathname]);
@@ -559,7 +564,9 @@ export default function App() {
       setActiveTab('profiles');
     } else if (routerLocation.pathname === '/sudarshana') {
       setActiveTab('sudarshana');
-    } else if ((activeTab === 'report' || activeTab === 'chat' || activeTab === 'profiles' || activeTab === 'sudarshana') && routerLocation.pathname === '/') {
+    } else if (routerLocation.pathname === '/admin') {
+      setActiveTab('admin');
+    } else if ((activeTab === 'report' || activeTab === 'chat' || activeTab === 'profiles' || activeTab === 'sudarshana' || activeTab === 'admin') && routerLocation.pathname === '/') {
       setActiveTab('sky');
     }
   }, [routerLocation.pathname]);
@@ -624,18 +631,25 @@ export default function App() {
               }
             }
           } else {
-            // Create initial profile (onboarding not completed)
+            // Create initial profile (onboarding not completed), pending admin approval
             const initialProfile = {
               uid: currentUser.uid,
               displayName: currentUser.displayName || '',
               email: currentUser.email,
               photoURL: currentUser.photoURL || '',
               onboardingCompleted: false,
+              approvalStatus: 'pending',
               createdAt: Timestamp.now(),
               updatedAt: Timestamp.now()
             };
             await setDoc(doc(db, 'users', currentUser.uid), initialProfile);
             setUserProfile(initialProfile);
+            // Write to pending queue so admins can see and approve this registration
+            try {
+              await createPendingRegistration(currentUser.uid, currentUser.email, currentUser.displayName);
+            } catch (regErr) {
+              debugWarn('auth', 'createPendingRegistration failed (non-fatal)', regErr);
+            }
           }
         } catch (error) {
           handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
@@ -1560,6 +1574,21 @@ INTERPRETATION GUIDELINES:
     return <OnboardingFlow theme={theme} user={user} onComplete={handleOnboardingComplete} />;
   }
 
+  const isPendingApproval = userProfile?.approvalStatus === 'pending';
+
+  if (activeTab === 'admin' && user && userProfile) {
+    return (
+      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" /></div>}>
+        <AdminPage
+          user={user}
+          userProfile={userProfile}
+          theme={theme}
+          onClose={() => setActiveTab('sky')}
+        />
+      </React.Suspense>
+    );
+  }
+
   if (activeTab === 'sudarshana' && birthPositions && user && userProfile) {
     return (
       <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" /></div>}>
@@ -1653,6 +1682,8 @@ INTERPRETATION GUIDELINES:
       {/* Atmospheric Background */}
       <CelestialBackground />
 
+      {isPendingApproval && <PendingApprovalBanner />}
+
       <Header 
         isLocating={isLocating}
         locateMe={locateMe}
@@ -1670,6 +1701,7 @@ INTERPRETATION GUIDELINES:
         signInWithGoogle={signInWithGoogle}
         logout={logout}
         handleAutoSelectNatal={handleAutoSelectNatal}
+        isAdmin={userProfile?.role === 'admin'}
       />
 
       <AnimatePresence>

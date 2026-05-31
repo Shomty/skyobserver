@@ -53,6 +53,19 @@ export const registerWithEmail = (email: string, pass: string) => createUserWith
 export const loginWithEmail = (email: string, pass: string) => signInWithEmailAndPassword(auth, email, pass);
 export const logout = () => signOut(auth);
 
+/**
+ * Write a pending-registration record so admins can see and approve new sign-ups.
+ * Safe to call multiple times — uses setDoc with merge so re-logins don't overwrite.
+ */
+export async function createPendingRegistration(uid: string, email: string | null, displayName: string | null) {
+  await setDoc(doc(db, 'pendingUsers', uid), {
+    uid,
+    email: email || '',
+    displayName: displayName || '',
+    createdAt: Timestamp.now(),
+  }, { merge: true });
+}
+
 // Error handling helper
 export enum OperationType {
   CREATE = 'create',

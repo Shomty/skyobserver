@@ -4,8 +4,8 @@ import { cn } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
 
 interface MobileNavigationProps {
-  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana';
-  setActiveTab: (tab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana') => void;
+  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin';
+  setActiveTab: (tab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin') => void;
   setChartType: (type: 'circle' | 'north-indian') => void;
 }
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Compass, MapPin, Loader2, Moon, Sun, User as UserIcon, LogIn, Sparkles, BookOpen, LayoutGrid, Grid, LogOut, Settings, ChevronDown, MessageSquare, Users, CircleDot } from 'lucide-react';
+import { Compass, MapPin, Loader2, Moon, Sun, User as UserIcon, LogIn, Sparkles, BookOpen, LayoutGrid, Grid, LogOut, Settings, ChevronDown, MessageSquare, Users, CircleDot, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 import type { User } from 'firebase/auth';
@@ -15,14 +15,15 @@ interface HeaderProps {
   isBirthMode: boolean;
   setIsBirthMode: (mode: boolean) => void;
   setDashboardTab: (tab: 'overview' | 'yogas' | 'transits' | 'natal' | 'upcoming' | 'panchang' | 'ashtakavarga' | 'muhurta' | 'dashas' | 'impacts' | 'blueprint' | 'rectify') => void;
-  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana';
-  setActiveTab: (tab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana') => void;
+  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin';
+  setActiveTab: (tab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin') => void;
   birthTime: Date | null;
   currentTime: Date;
   user: User | null;
   signInWithGoogle: () => void;
   logout: () => void;
   handleAutoSelectNatal: () => void;
+  isAdmin?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -41,7 +42,8 @@ export const Header: React.FC<HeaderProps> = ({
   user,
   signInWithGoogle,
   logout,
-  handleAutoSelectNatal
+  handleAutoSelectNatal,
+  isAdmin = false,
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -345,6 +347,24 @@ export const Header: React.FC<HeaderProps> = ({
                         <Settings className={cn("w-4 h-4 transition-transform group-hover:rotate-45", activeTab === 'profile' ? "text-jyotish-gold" : "text-white/20")} />
                         <span className="text-[11px] uppercase tracking-widest font-bold">Settings</span>
                       </button>
+
+                      {isAdmin && (
+                        <button
+                          onClick={() => {
+                            setActiveTab('admin');
+                            setIsDropdownOpen(false);
+                          }}
+                          className={cn(
+                            "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group",
+                            activeTab === 'admin'
+                              ? "bg-jyotish-gold/10 text-jyotish-gold"
+                              : theme === 'dark' ? "text-white/60 hover:bg-white/5 hover:text-white" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                          )}
+                        >
+                          <ShieldAlert className={cn("w-4 h-4 transition-transform group-hover:scale-110", activeTab === 'admin' ? "text-jyotish-gold" : "text-white/20")} />
+                          <span className="text-[11px] uppercase tracking-widest font-bold">Admin Panel</span>
+                        </button>
+                      )}
 
                       <button
                         onClick={() => {

@@ -126,6 +126,12 @@ export const LandingSignUpCTA: React.FC<LandingSignUpCTAProps> = ({ onSignIn }) 
               ? "Don't have an account? Create one"
               : 'Already have an account? Sign in'}
           </button>
+
+          {mode === 'signup' && (
+            <p className="mt-3 text-white/30 text-[11px] font-mono text-center leading-relaxed">
+              New accounts require admin approval before full access is granted.
+            </p>
+          )}
         </motion.div>
       </div>
     </section>
