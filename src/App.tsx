@@ -515,7 +515,16 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [activeTab, setActiveTab] = useState<'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin'>('sky');
+  const [activeTab, setActiveTab] = useState<'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin'>(() => {
+    // Initialize from URL so the activeTab→URL effect doesn't redirect on first render
+    const p = window.location.pathname;
+    if (p === '/admin') return 'admin';
+    if (p === '/report') return 'report';
+    if (p === '/chat') return 'chat';
+    if (p === '/profiles') return 'profiles';
+    if (p === '/sudarshana') return 'sudarshana';
+    return 'sky';
+  });
   const [viewMode, setViewMode] = useState<'transit' | 'natal'>('natal');
   const [isLive, setIsLive] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
