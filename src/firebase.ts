@@ -7,7 +7,8 @@ import {
   onAuthStateChanged, 
   User,
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, addDoc, deleteDoc, Timestamp, getDocFromServer, orderBy } from 'firebase/firestore';
 
@@ -127,5 +128,6 @@ export {
   addDoc, 
   deleteDoc, 
   Timestamp, 
-  orderBy 
+  orderBy,
+  sendPasswordResetEmail,
 };
