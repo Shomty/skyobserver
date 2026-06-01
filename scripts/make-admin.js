@@ -9,8 +9,8 @@
  * It will prompt for email and password (password input is hidden).
  */
 
-const https = require('https');
-const readline = require('readline');
+import https from 'https';
+import readline from 'readline';
 
 const PROJECT_ID   = 'gen-lang-client-0197594285';
 const DATABASE_ID  = 'ai-studio-2cf60d21-2a74-4491-bf70-81dcb172e048';

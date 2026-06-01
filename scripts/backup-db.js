@@ -9,10 +9,10 @@
  * Prompts for Firebase credentials to authenticate.
  */
 
-const https  = require('https');
-const fs     = require('fs');
-const path   = require('path');
-const readline = require('readline');
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
+import readline from 'readline';
 
 const PROJECT_ID   = 'gen-lang-client-0197594285';
 const DATABASE_ID  = 'ai-studio-2cf60d21-2a74-4491-bf70-81dcb172e048';
