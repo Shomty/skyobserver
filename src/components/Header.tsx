@@ -73,7 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         <div className="flex flex-col">
           <h1 className="text-sm lg:text-xl font-bold tracking-tighter uppercase italic font-serif leading-none gold-gradient-text">Vedic Sky</h1>
-          <p className={cn("text-[6px] lg:text-[10px] uppercase tracking-[0.2em] font-mono mt-0.5 lg:mt-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-slate-400")}>Sidereal Engine</p>
+          <p className={cn("hidden min-[361px]:block text-[6px] lg:text-[10px] uppercase tracking-[0.2em] font-mono mt-0.5 lg:mt-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-slate-400")}>Sidereal Engine</p>
         </div>
         {/* V2 Preview link */}
         <a
@@ -115,20 +115,20 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Unified View Mode Toggle */}
         <div className={cn(
-          "flex items-center gap-1 rounded-lg p-1 border transition-colors duration-500",
+          "flex items-center gap-0.5 lg:gap-1 rounded-lg p-0.5 lg:p-1 border transition-colors duration-500",
           theme === 'dark' ? "bg-mystic-purple/40 border-jyotish-gold/10" : "bg-slate-100 border-slate-200"
         )}>
           <button 
             onClick={handleAutoSelectNatal}
             className={cn(
-              "px-3 py-1.5 rounded-md text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-2",
+              "px-2 py-1 lg:px-3 lg:py-1.5 rounded-md text-[9px] lg:text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-1.5",
               viewMode === 'natal' 
                 ? "bg-jyotish-gold text-black shadow-[0_0_15px_rgba(212,175,55,0.2)]" 
                 : theme === 'dark' ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-700"
             )}
           >
             <Sparkles className={cn("w-3 h-3", viewMode === 'natal' && "animate-pulse")} />
-            Natal
+            <span className="hidden min-[420px]:inline">Natal</span>
           </button>
           <button 
             onClick={() => {
@@ -137,14 +137,14 @@ export const Header: React.FC<HeaderProps> = ({
               setDashboardTab('overview');
             }}
             className={cn(
-              "px-3 py-1.5 rounded-md text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-2",
+              "px-2 py-1 lg:px-3 lg:py-1.5 rounded-md text-[9px] lg:text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-1.5",
               viewMode === 'transit' 
                 ? "bg-jyotish-gold text-black shadow-[0_0_15px_rgba(212,175,55,0.2)]" 
                 : theme === 'dark' ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-700"
             )}
           >
             <Compass className={cn("w-3 h-3", viewMode === 'transit' && "animate-spin-slow")} />
-            Transit
+            <span className="hidden min-[420px]:inline">Transit</span>
           </button>
         </div>
 
@@ -254,7 +254,7 @@ export const Header: React.FC<HeaderProps> = ({
                   theme === 'dark' ? "border-jyotish-gold/20 bg-white/5" : "border-slate-200 bg-white shadow-sm"
                 )}
               >
-                <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full overflow-hidden border border-white/10 shadow-inner">
+                <div className="w-9 h-9 lg:w-8 lg:h-8 rounded-full overflow-hidden border border-white/10 shadow-inner">
                   {user.photoURL ? (
                     <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (

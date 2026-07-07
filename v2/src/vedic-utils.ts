@@ -1325,7 +1325,7 @@ export const getApproxTransitDates = (p: PlanetPosition, date: Date = new Date()
   const speed = PLANET_SPEEDS[p.name] || 1;
   const degreeInRashi = p.siderealLongitude % 30;
   const isRetro = p.isRetrograde || p.name === "Rahu" || p.name === "Ketu";
-  
+
   let daysSinceStart, daysTillEnd;
   if (isRetro) {
     daysSinceStart = (30 - degreeInRashi) / speed;
@@ -1340,14 +1340,59 @@ export const getApproxTransitDates = (p: PlanetPosition, date: Date = new Date()
   return { start, end };
 };
 
-export const analyzeTransits = (positions: PlanetPosition[], date: Date = new Date()): TransitEvent[] => {
+/**
+ * A single exact sign-ingress event, sourced from openastrology-library's
+ * VedicTransitCalculator (Swiss Ephemeris root-finding — precise to the
+ * second, retrograde re-entries included). Mirrors the shape returned by
+ * services/positionsService.ts's fetchTransitIngresses().
+ */
+export interface TransitIngress {
+  planet: string;
+  sign: string;
+  fromSign: string;
+  date: Date;
+  isRetrograde: boolean;
+  longitude: number;
+}
+
+/**
+ * Find the current-sign transit window (entry/exit dates) for a planet using
+ * real ingress data when available, falling back to the PLANET_SPEEDS
+ * average-motion estimate when no ingress data covers this date (e.g. not
+ * yet fetched, or the planet fell outside the fetched window).
+ */
+export const getTransitWindow = (
+  p: PlanetPosition,
+  date: Date = new Date(),
+  ingresses: TransitIngress[] = [],
+): { start: Date; end: Date } => {
+  const relevant = ingresses
+    .filter(i => i.planet === p.name)
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  let start: Date | null = null;
+  let end: Date | null = null;
+  for (const ing of relevant) {
+    if (ing.date.getTime() <= date.getTime()) {
+      start = ing.date;
+    } else if (!end) {
+      end = ing.date;
+      break;
+    }
+  }
+
+  if (start && end) return { start, end };
+  return getApproxTransitDates(p, date);
+};
+
+export const analyzeTransits = (positions: PlanetPosition[], date: Date = new Date(), ingresses: TransitIngress[] = []): TransitEvent[] => {
   const events: TransitEvent[] = [];
-  
+
   // 1. Dignities
   for (const p of positions) {
     if (p.name === "Ascendant") continue;
-    
-    const { start, end } = getApproxTransitDates(p, date);
+
+    const { start, end } = getTransitWindow(p, date, ingresses);
 
     if (p.dignity === "Exalted") {
       events.push({
@@ -1443,7 +1488,7 @@ export const analyzeTransits = (positions: PlanetPosition[], date: Date = new Da
     if (["Jupiter", "Saturn", "Rahu", "Ketu"].includes(p.name)) {
       // Only add if not already added via dignity
       if (!events.some(e => e.planets.includes(p.name) && e.title.includes(p.name))) {
-        const { start, end } = getApproxTransitDates(p, date);
+        const { start, end } = getTransitWindow(p, date, ingresses);
         events.push({
           title: `${p.name} in ${p.rashi}`,
           description: `Major transit of ${p.name} through ${p.rashi}, influencing long-term trends.`,
@@ -1472,15 +1517,40 @@ export interface TransitPrediction {
   aspectType?: string;
 }
 
-export const predictTransits = (startDate: Date, currentPositions: PlanetPosition[], natalPositions?: PlanetPosition[]): TransitPrediction[] => {
+export const predictTransits = (
+  startDate: Date,
+  currentPositions: PlanetPosition[],
+  natalPositions?: PlanetPosition[],
+  ingresses: TransitIngress[] = [],
+): TransitPrediction[] => {
   const predictions: TransitPrediction[] = [];
   const daysToPredict = 90; // Increased to 3 months for better foresight
-  
+  const endDate = new Date(startDate.getTime() + daysToPredict * 24 * 60 * 60 * 1000);
+
   // We only predict for major planets
   const majorPlanets = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"];
-  
+
+  // Sign (rashi) changes are sourced directly from the Swiss Ephemeris ingress
+  // engine when available — exact to the second, no daily sampling needed.
+  // Falls back to the day-by-day walk below only when ingress data wasn't supplied.
+  const haveIngresses = ingresses.length > 0;
+  if (haveIngresses) {
+    for (const ing of ingresses) {
+      if (ing.date <= startDate || ing.date > endDate) continue;
+      if (!majorPlanets.includes(ing.planet)) continue;
+      predictions.push({
+        planet: ing.planet,
+        type: 'Rashi',
+        from: ing.fromSign,
+        to: ing.sign,
+        date: ing.date,
+        isImportant: ["Jupiter", "Saturn", "Rahu", "Ketu"].includes(ing.planet),
+      });
+    }
+  }
+
   let lastPositions = currentPositions;
-  
+
   // Use a map to track already added predictions to avoid duplicates
   const seenToday = new Set<string>();
 
@@ -1488,16 +1558,17 @@ export const predictTransits = (startDate: Date, currentPositions: PlanetPositio
     const checkDate = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
     // Optimization: for long-term transits, checking once a day is sufficient
     const newPositions = calculatePositions(checkDate);
-    
+
     for (const planetName of majorPlanets) {
       const oldPos = lastPositions.find(p => p.name === planetName);
       const newPos = newPositions.find(p => p.name === planetName);
-      
+
       if (oldPos && newPos) {
         const pKey = (type: string, to: string) => `${planetName}-${type}-${to}`;
 
-        // 1. Rashi Change
-        if (oldPos.rashi !== newPos.rashi) {
+        // 1. Rashi Change — day-walk fallback only; the precise engine path above
+        // (haveIngresses) already covers this when ingress data was supplied.
+        if (!haveIngresses && oldPos.rashi !== newPos.rashi) {
           const key = pKey('Rashi', newPos.rashi);
           if (!seenToday.has(key)) {
             const isSlowPlanet = ["Jupiter", "Saturn", "Rahu", "Ketu"].includes(planetName);
@@ -1653,7 +1724,7 @@ export const getAspectType = (lon1: number, lon2: number, planet1: string): { ty
   return null;
 };
 
-export const analyzeNatalComparison = (transitPositions: PlanetPosition[], natalPositions: PlanetPosition[], date: Date = new Date()): NatalComparisonResult[] => {
+export const analyzeNatalComparison = (transitPositions: PlanetPosition[], natalPositions: PlanetPosition[], date: Date = new Date(), ingresses: TransitIngress[] = []): NatalComparisonResult[] => {
   const results: NatalComparisonResult[] = [];
   
   const planetInterpretations: Record<string, { conjunction: string, rashi: string, action: string }> = {
@@ -1714,7 +1785,7 @@ export const analyzeNatalComparison = (transitPositions: PlanetPosition[], natal
     
     const interpretation = planetInterpretations[tp.name] || { conjunction: "A significant activation of this planet's energy.", rashi: "A shift in the expression of this planet's energy.", action: "Observe how this energy manifests in your daily life." };
     const category = majorPlanets.includes(tp.name) ? 'major' : 'minor';
-    const { start, end } = getApproxTransitDates(tp, date);
+    const { start, end } = getTransitWindow(tp, date, ingresses);
     
     // 1. Conjunctions
     let diff = Math.abs(tp.siderealLongitude - np.siderealLongitude);

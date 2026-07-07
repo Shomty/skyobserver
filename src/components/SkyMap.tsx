@@ -304,6 +304,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
   const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isSavingBirth, setIsSavingBirth] = React.useState(false);
+  const [isSheetExpanded, setIsSheetExpanded] = React.useState(false);
 
   const selectedPlanetDrishti = React.useMemo(() => {
     if (!selectedPlanet) return null;
@@ -331,6 +332,78 @@ export const SkyMap: React.FC<SkyMapProps> = ({
       theme === 'dark' ? "border-white/5 bg-black/40" : "border-slate-200 bg-white/40",
       activeTab === 'stats' ? "hidden lg:flex" : "flex"
     )}>
+      {/* Mobile Controls Bar */}
+      <div className={cn(
+        "lg:hidden flex items-center justify-between px-4 py-2.5 border-b transition-colors duration-500 z-20",
+        theme === 'dark' ? "bg-mystic-purple/80 border-white/5" : "bg-white/80 border-slate-200"
+      )}>
+        {/* Chart type tabs */}
+        <div className={cn(
+          "flex items-center p-0.5 rounded-lg border",
+          theme === 'dark' ? "bg-black/25 border-white/10" : "bg-slate-100 border-slate-200"
+        )}>
+          <button 
+            onClick={() => setChartType('circle')}
+            className={cn(
+              "px-3 py-1 rounded-md text-[9px] uppercase font-bold tracking-widest font-mono transition-all",
+              chartType === 'circle' 
+                ? "bg-jyotish-gold text-black shadow-[0_0_10px_rgba(212,175,55,0.25)]" 
+                : theme === 'dark' ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            Circle
+          </button>
+          <button 
+            onClick={() => setChartType('north-indian')}
+            className={cn(
+              "px-3 py-1 rounded-md text-[9px] uppercase font-bold tracking-widest font-mono transition-all",
+              chartType === 'north-indian' 
+                ? "bg-jyotish-gold text-black shadow-[0_0_10px_rgba(212,175,55,0.25)]" 
+                : theme === 'dark' ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            N.Indian
+          </button>
+        </div>
+
+        {/* Separator & Zoom controls */}
+        <div className="flex items-center gap-1.5">
+          <div className={cn("w-px h-5 mx-1", theme === 'dark' ? "bg-white/10" : "bg-slate-200")} />
+          <div className={cn(
+            "flex items-center p-0.5 rounded-lg border",
+            theme === 'dark' ? "bg-black/25 border-white/10" : "bg-slate-100 border-slate-200"
+          )}>
+            <button 
+              onClick={() => setZoom(prev => Math.min(prev + 0.2, 3))}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+            <button 
+              onClick={() => setZoom(prev => Math.max(prev - 0.2, 0.5))}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <button 
+              onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Transit View Enhancement: Background Glow */}
       {viewMode === 'transit' && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -356,7 +429,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
         const houseLord = houseRashi ? getRashiLord(houseRashi) : null;
 
         return (
-          <div className="flex-shrink-0 px-3 pt-3 z-10">
+          <div className="hidden lg:block flex-shrink-0 px-3 pt-3 z-10">
             <div className="backdrop-blur-md border rounded-xl p-2 flex items-center justify-between pointer-events-auto bg-black/80 border-white/10 min-h-[44px]">
               <AnimatePresence mode="wait">
                 {planet ? (
@@ -441,8 +514,8 @@ export const SkyMap: React.FC<SkyMapProps> = ({
       })()}
 
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8 relative min-h-0">
-        {/* View Mode Controls */}
-        <div className="absolute top-4 lg:top-8 left-4 lg:left-8 z-20 flex flex-col gap-3">
+        {/* View Mode Controls - Desktop Only */}
+        <div className="hidden lg:flex absolute top-4 lg:top-8 left-4 lg:left-8 z-20 flex-col gap-3">
           <div className="flex flex-col gap-1">
             <div className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Chart Mode</div>
             <div className={cn(
@@ -532,7 +605,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
           </AnimatePresence>
         </div>
 
-        <div className="absolute top-4 right-4 z-20 flex flex-wrap gap-2">
+        <div className="hidden lg:flex absolute top-4 right-4 z-20 flex-wrap gap-2">
           {/* Zoom Controls */}
           <div className={cn(
             "flex backdrop-blur-md rounded-lg border p-1 mr-2 transition-colors duration-500",
@@ -603,7 +676,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
               animate={{ opacity: 1, scale: 1, x: 0 }}
               exit={{ opacity: 0, scale: 0.95, x: 20 }}
               className={cn(
-                "absolute top-24 right-4 z-30 w-56 backdrop-blur-xl border rounded-2xl p-5 shadow-2xl",
+                "hidden lg:block absolute top-24 right-4 z-30 w-56 backdrop-blur-xl border rounded-2xl p-5 shadow-2xl",
                 theme === 'dark' ? "bg-black/80 border-white/10" : "bg-white/90 border-slate-200"
               )}
             >
@@ -1082,8 +1155,8 @@ export const SkyMap: React.FC<SkyMapProps> = ({
           )}
         </div>
 
-        {/* Legend */}
-        <div className="absolute bottom-4 lg:bottom-8 left-4 lg:left-8 flex flex-col gap-2">
+        {/* Legend - Desktop Only */}
+        <div className="hidden lg:flex absolute bottom-4 lg:bottom-8 left-4 lg:left-8 flex-col gap-2">
           <div className={cn("flex items-center gap-2 text-[8px] lg:text-[10px] uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
             <div className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-blue-500" /> Earth ({location ? "Topocentric" : "Geocentric"} Center)
           </div>
@@ -1092,6 +1165,374 @@ export const SkyMap: React.FC<SkyMapProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Mobile Legend Bar */}
+      <div className={cn(
+        "lg:hidden min-h-[28px] py-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 border-t border-b flex-shrink-0 transition-colors duration-500",
+        theme === 'dark' ? "bg-black/35 border-white/5" : "bg-slate-50 border-slate-200"
+      )}>
+        <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-wider font-mono font-bold", theme === 'dark' ? "text-white/45" : "text-slate-500")}>
+          <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+          Earth ({location ? "Topocentric" : "Geocentric"})
+        </div>
+        <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-wider font-mono font-bold", theme === 'dark' ? "text-white/45" : "text-slate-500")}>
+          <div className={cn("w-1.5 h-1.5 rounded-full border", theme === 'dark' ? "border-white/20" : "border-slate-300")} />
+          Ecliptic (Sidereal)
+        </div>
+      </div>
+
+      {/* Mobile Hint - show when nothing is selected */}
+      {!selectedPlanet && selectedZodiac === null && (
+        <div className={cn(
+          "lg:hidden mx-4 mt-3 p-2.5 rounded-xl border flex items-center gap-2.5 text-[10px] font-mono font-bold tracking-wider transition-colors duration-500",
+          theme === 'dark' ? "bg-black/40 border-white/5 text-white/40" : "bg-white border-slate-200 text-slate-400"
+        )}>
+          <div className={cn("w-2 h-2 rounded-sm", theme === 'dark' ? "bg-white/5 border border-white/10" : "bg-slate-100 border border-slate-200")} />
+          TAP A PLANET OR ZODIAC SIGN TO INSPECT
+        </div>
+      )}
+
+      {/* Mobile Birth Details Modal */}
+      <AnimatePresence>
+        {viewMode === 'natal' && !birthTime && (
+          <div className="lg:hidden fixed inset-0 flex items-center justify-center p-4 z-40 bg-black/60 backdrop-blur-sm pointer-events-auto">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className={cn(
+                "p-5 rounded-3xl border w-full max-w-sm shadow-2xl",
+                theme === 'dark' ? "bg-[#1a0b2e]/95 border-jyotish-gold/20 text-white" : "bg-white border-slate-200 text-slate-800"
+              )}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="w-5 h-5 text-jyotish-gold animate-pulse" />
+                <h3 className="text-sm font-bold uppercase tracking-widest font-mono">Enter Birth Details</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className={cn("text-[9px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-500")}>Time of birth</label>
+                  <input 
+                    type="datetime-local" 
+                    className={cn(
+                      "w-full bg-transparent border rounded-lg p-2.5 text-xs transition-colors",
+                      theme === 'dark' ? "border-white/10 text-white focus:border-jyotish-gold/50 [color-scheme:dark]" : "border-slate-200 text-slate-800 focus:border-jyotish-gold/50"
+                    )}
+                    value={birthTime ? new Date(birthTime.getTime() - birthTime.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""}
+                    onChange={(e) => setBirthTime(e.target.value ? new Date(e.target.value) : null)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className={cn("text-[9px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-500")}>City of birth</label>
+                  <input 
+                    type="text" 
+                    placeholder="City, Country"
+                    className={cn(
+                      "w-full bg-transparent border rounded-lg p-2.5 text-xs transition-colors",
+                      theme === 'dark' ? "border-white/10 text-white focus:border-jyotish-gold/50" : "border-slate-200 text-slate-800 focus:border-jyotish-gold/50"
+                    )}
+                    value={birthCity}
+                    onChange={(e) => setBirthCity(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button 
+                    onClick={() => setViewMode('transit')}
+                    className={cn(
+                      "flex-1 font-bold py-2.5 rounded-lg text-xs transition-all border",
+                      theme === 'dark' ? "border-white/10 text-white/60 hover:text-white" : "border-slate-200 text-slate-500 hover:text-slate-700"
+                    )}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      setIsSavingBirth(true);
+                      await saveBirthDetails();
+                      setIsSavingBirth(false);
+                    }}
+                    disabled={!birthTime || !birthCity || !birthLocation || isSavingBirth}
+                    className="flex-1 bg-jyotish-gold hover:bg-celestial-gold text-black font-bold py-2.5 rounded-lg text-xs transition-all shadow-lg shadow-jyotish-gold/20 disabled:opacity-50"
+                  >
+                    {isSavingBirth ? "Calculating..." : (!birthLocation && birthCity.length >= 3 ? "Locating..." : "Create Chart")}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Analysis Bottom Sheet */}
+      <AnimatePresence>
+        {(selectedPlanet || selectedZodiac !== null) && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setSelectedPlanet(null);
+                setSelectedZodiac(null);
+                setIsSheetExpanded(false);
+              }}
+              className="lg:hidden fixed inset-0 bg-black z-40 pointer-events-auto"
+            />
+            {/* Bottom Sheet */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0, height: isSheetExpanded ? "88vh" : "55vh" }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 250 }}
+              style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+              className={cn(
+                "lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl border-t p-5 overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-2xl transition-colors duration-500 pointer-events-auto",
+                theme === 'dark' ? "bg-mystic-purple/95 border-jyotish-gold/25 text-white" : "bg-white/95 border-slate-200 text-slate-800"
+              )}
+            >
+              {/* Knob — tap to expand/collapse */}
+              <button
+                onClick={() => setIsSheetExpanded(e => !e)}
+                className="flex flex-col items-center w-full mb-4 gap-1 py-1"
+                aria-label={isSheetExpanded ? "Collapse details" : "Expand details"}
+              >
+                <div className={cn("w-12 h-1 rounded-full transition-colors", theme === 'dark' ? "bg-white/20" : "bg-slate-300")} />
+                <span className={cn("text-[8px] uppercase tracking-widest font-mono font-bold transition-colors", theme === 'dark' ? "text-white/20" : "text-slate-300")}>
+                  {isSheetExpanded ? "▼ collapse" : "▲ expand"}
+                </span>
+              </button>
+
+              {selectedPlanet ? (
+                /* Planet details formatted beautifully */
+                (() => {
+                  const planetObj = positions.find(p => p.name === selectedPlanet);
+                  if (!planetObj) return null;
+                  const nakData = NAKSHATRA_DATA[planetObj.nakshatra as keyof typeof NAKSHATRA_DATA];
+                  const dignityInterp = planetObj.dignity ? getDignityInterpretation(planetObj.name, planetObj.dignity, planetObj.rashi) : null;
+                  return (
+                    <div className="space-y-4">
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold shadow-md"
+                            style={{ backgroundColor: planetObj.color, color: '#000' }}
+                          >
+                            {planetObj.symbol}
+                          </div>
+                          <div>
+                            <h3 className={cn("text-base font-bold", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                              {planetObj.name}
+                            </h3>
+                            <p className={cn("text-xs font-mono uppercase tracking-widest font-bold", theme === 'dark' ? "text-jyotish-gold/70" : "text-orange-500")}>
+                              {planetObj.rashi} {planetObj.house ? `· House ${planetObj.house}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => { setSelectedPlanet(null); setIsSheetExpanded(false); }}
+                          className={cn("w-7 h-7 rounded-full flex items-center justify-center border text-sm font-bold transition-all", theme === 'dark' ? "border-white/10 text-white/40 hover:text-white hover:bg-white/5" : "border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50")}
+                        >
+                          ×
+                        </button>
+                      </div>
+
+                      {/* Data Grid */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Cell 1: Position */}
+                        <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200")}>
+                          <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Position</div>
+                          <div className={cn("text-xs font-mono font-bold", theme === 'dark' ? "text-white" : "text-slate-800")}>{planetObj.degree}°{planetObj.minute}'</div>
+                          <div className={cn("text-[9px] font-bold font-mono mt-0.5", theme === 'dark' ? "text-jyotish-gold/60" : "text-orange-500/80")}>{planetObj.rashi}</div>
+                        </div>
+
+                        {/* Cell 2: Nakshatra */}
+                        <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200")}>
+                          <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Nakshatra</div>
+                          <div className={cn("text-xs font-bold truncate", theme === 'dark' ? "text-jyotish-gold" : "text-orange-600")}>{planetObj.nakshatra}</div>
+                          <div className={cn("text-[9px] mt-0.5 font-bold font-mono", theme === 'dark' ? "text-white/40" : "text-slate-500")}>Pada {planetObj.pada}</div>
+                        </div>
+
+                        {/* Cell 3: Dignity */}
+                        {planetObj.dignity && (
+                          <div className={cn("p-3 rounded-xl border col-span-2", 
+                            dignityInterp?.type === 'positive' ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400" :
+                            dignityInterp?.type === 'negative' ? "bg-rose-500/5 border-rose-500/20 text-rose-400" :
+                            theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200"
+                          )}>
+                            <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Dignity</div>
+                            <div className="text-xs font-bold flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              {planetObj.dignity}
+                            </div>
+                            {dignityInterp && (
+                              <p className={cn("text-[10px] mt-1 leading-relaxed", theme === 'dark' ? "text-white/60" : "text-slate-500")}>
+                                {dignityInterp.description}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Nakshatra Lord / Deity */}
+                      {nakData && (
+                        <div className={cn("p-3.5 rounded-xl border", theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-slate-50/50 border-slate-100")}>
+                          <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1.5", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Nakshatra Energy</div>
+                          <div className={cn("text-[10px] font-bold grid grid-cols-2 gap-1 mb-2", theme === 'dark' ? "text-white/80" : "text-slate-700")}>
+                            <div>Lord: <span className="text-jyotish-gold">{nakData.lord}</span></div>
+                            <div>Deity: <span className="text-jyotish-gold">{nakData.deity}</span></div>
+                          </div>
+                          <p className={cn("text-[10px] italic leading-relaxed", theme === 'dark' ? "text-white/50" : "text-slate-500")}>
+                            {nakData.characteristics}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Combust / Retrograde indicators if active */}
+                      {(planetObj.isRetrograde || planetObj.isCombust) && (
+                        <div className="flex gap-2">
+                          {planetObj.isRetrograde && (
+                            <div className={cn("flex-1 p-2 rounded-lg border text-center font-bold text-xs uppercase tracking-widest bg-orange-500/10 border-orange-500/30 text-orange-400")}>
+                              ℞ Retrograde
+                            </div>
+                          )}
+                          {planetObj.isCombust && (
+                            <div className={cn("flex-1 p-2 rounded-lg border text-center font-bold text-xs uppercase tracking-widest bg-red-500/10 border-red-500/30 text-red-400 flex items-center justify-center gap-1.5")}>
+                              <Flame className="w-3.5 h-3.5 fill-red-500" /> Combust
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Aspects (Drishti) */}
+                      {selectedPlanetDrishti && (
+                        <div className="space-y-3 pt-2.5 border-t border-white/10">
+                          {selectedPlanetDrishti.aspects.length > 0 && (
+                            <div className="space-y-1.5">
+                              <div className={cn("text-[8px] uppercase tracking-widest font-bold font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Aspects (Casts on)</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {Array.from(new Set(selectedPlanetDrishti.aspects)).map(name => (
+                                  <div key={name} className={cn("px-2 py-0.5 rounded text-[10px] font-bold border font-mono", theme === 'dark' ? "bg-orange-500/10 border-orange-500/30 text-orange-400" : "bg-orange-50 border-orange-200 text-orange-600")}>
+                                    {name}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedPlanetDrishti.aspectedBy.length > 0 && (
+                            <div className="space-y-1.5">
+                              <div className={cn("text-[8px] uppercase tracking-widest font-bold font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Aspected By</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {Array.from(new Set(selectedPlanetDrishti.aspectedBy)).map(name => (
+                                  <div key={name} className={cn("px-2 py-0.5 rounded text-[10px] font-bold border font-mono", theme === 'dark' ? "bg-blue-500/10 border-blue-500/30 text-blue-400" : "bg-blue-50 border-blue-200 text-blue-600")}>
+                                    {name}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
+              ) : selectedZodiac !== null ? (
+                /* Zodiac details */
+                (() => {
+                  const ascendant = positions.find(p => p.name === "Ascendant");
+                  const ascRashiIdx = ascendant ? RASHIS.indexOf(ascendant.rashi) : 0;
+                  const houseNum = ((selectedZodiac - ascRashiIdx + 12) % 12) + 1;
+                  const rashiName = RASHIS[selectedZodiac];
+                  const lord = getRashiLord(rashiName);
+                  const planetsInSign = positions.filter(p => p.rashi === rashiName && p.name !== "Ascendant");
+                  const houseInfo = HOUSE_DATA[houseNum];
+                  
+                  return (
+                    <div className="space-y-4">
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center text-base font-bold border",
+                            theme === 'dark' ? "bg-jyotish-gold/10 border-jyotish-gold/30 text-jyotish-gold" : "bg-orange-50 border-orange-200 text-orange-600"
+                          )}>
+                            <Home className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className={cn("text-base font-bold", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                              {rashiName}
+                            </h3>
+                            <p className={cn("text-xs font-mono uppercase tracking-widest font-bold", theme === 'dark' ? "text-jyotish-gold/70" : "text-orange-500")}>
+                              {getOrdinal(houseNum)} House · Lord: {lord}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => { setSelectedZodiac(null); setIsSheetExpanded(false); }}
+                          className={cn("w-7 h-7 rounded-full flex items-center justify-center border text-sm font-bold transition-all", theme === 'dark' ? "border-white/10 text-white/40 hover:text-white hover:bg-white/5" : "border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50")}
+                        >
+                          ×
+                        </button>
+                      </div>
+
+                      {/* House Info grid */}
+                      {houseInfo && (
+                        <div className="grid grid-cols-1 gap-2">
+                          <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200")}>
+                            <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-jyotish-gold/50" : "text-orange-400")}>
+                              House Quality
+                            </div>
+                            <p className={cn("text-xs leading-relaxed italic", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
+                              {houseInfo.quality}
+                            </p>
+                          </div>
+
+                          <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200")}>
+                            <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-emerald-500/60" : "text-emerald-600")}>
+                              Growth Focus
+                            </div>
+                            <p className={cn("text-xs leading-relaxed", theme === 'dark' ? "text-white/60" : "text-slate-600")}>
+                              {houseInfo.workOn}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Occupants & Impacts list */}
+                      <div className="space-y-2 pt-2 border-t border-white/10">
+                        <div className={cn("text-[8px] uppercase tracking-widest font-bold font-mono mb-2", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                          Occupants & Impacts
+                        </div>
+                        {planetsInSign.length > 0 ? (
+                          <div className="space-y-2.5">
+                            {planetsInSign.map(p => (
+                              <div key={p.name} className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-slate-50/50 border-slate-100")}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className={cn("text-xs font-bold", theme === 'dark' ? "text-white" : "text-slate-800")}>{p.name}</span>
+                                  <span className={cn("text-[10px] font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>{p.degree}°{p.minute}'</span>
+                                </div>
+                                <p className={cn("text-xs italic leading-relaxed border-l-2 pl-2.5", theme === 'dark' ? "border-jyotish-gold/30 text-white/50" : "border-orange-300 text-slate-500")}>
+                                  {getPlanetInHouseInterpretation(p.name, houseNum)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className={cn("text-xs italic", theme === 'dark' ? "text-white/20" : "text-slate-400/80")}>
+                            No planets currently in {rashiName}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : null}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

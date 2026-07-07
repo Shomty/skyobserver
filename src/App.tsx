@@ -6,12 +6,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { calculatePositions, PlanetPosition, detectYogas, calculateAshtakavarga, RASHIS, RASHI_DATA, NAKSHATRA_DATA, analyzeTransits, TransitEvent, predictTransits, TransitPrediction, analyzeNatalComparison, NatalComparisonResult, calculatePanchang, PanchangData, calculateDrishti, isConjunct, calculateSpecialPointsV2, getBirthInfo } from './vedic-utils';
-import { fetchPlanetPositions } from './services/positionsService';
+import { calculatePositions, PlanetPosition, detectYogas, calculateAshtakavarga, RASHIS, RASHI_DATA, NAKSHATRA_DATA, analyzeTransits, TransitEvent, predictTransits, TransitPrediction, analyzeNatalComparison, NatalComparisonResult, calculatePanchang, PanchangData, calculateDrishti, isConjunct, calculateSpecialPointsV2, getBirthInfo, TransitIngress } from './vedic-utils';
+import { fetchPlanetPositions, fetchTransitIngresses } from './services/positionsService';
 import NorthIndianChart from './components/NorthIndianChart';
 import { Header } from './components/Header';
 import { MobileNavigation } from './components/MobileNavigation';
-import { format, addDays, startOfDay, endOfDay } from 'date-fns';
+import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
 import SunCalc from 'suncalc';
 import ReactMarkdown from 'react-markdown';
 import { 
@@ -19,7 +19,6 @@ import {
   Clock, 
   Info, 
   Maximize2, 
-  Zap, 
   Moon, 
   Sun, 
   CircleDot,
@@ -38,9 +37,6 @@ import {
   ChevronUp,
   Download,
   X,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
   Bot,
   LogIn,
   LogOut,
@@ -1323,6 +1319,28 @@ INTERPRETATION GUIDELINES:
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transitMinuteKey, location?.lat, location?.lon]);
 
+  // Exact sign-ingress events from the Swiss Ephemeris transit engine, covering
+  // a window wide enough for both current-transit windows (getTransitWindow)
+  // and the 90-day upcoming-transits prediction. Refetched once per day.
+  const [transitIngresses, setTransitIngresses] = useState<TransitIngress[]>([]);
+  const ingressDayKey = format(currentTime, 'yyyy-MM-dd');
+
+  useEffect(() => {
+    let cancelled = false;
+    const windowStart = subDays(startOfDay(currentTime), 30);
+    const windowEnd = addDays(startOfDay(currentTime), 90);
+
+    fetchTransitIngresses(windowStart, windowEnd)
+      .then(ingresses => { if (!cancelled) setTransitIngresses(ingresses); })
+      .catch(() => {
+        // Keep previous ingress data; getTransitWindow()/predictTransits() fall
+        // back to the PLANET_SPEEDS estimate when no ingress covers a date.
+      });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ingressDayKey]);
+
   const [birthPositions, setBirthPositions] = useState<PlanetPosition[] | null>(null);
 
   useEffect(() => {
@@ -1387,20 +1405,20 @@ INTERPRETATION GUIDELINES:
     if (!birthTime || !birthLocation) return null;
     return `${birthTime.toISOString()}_${birthLocation.lat.toFixed(3)}_${birthLocation.lon.toFixed(3)}`;
   }, [birthTime, birthLocation?.lat, birthLocation?.lon]);
-  const transits = useMemo(() => analyzeTransits(positions, currentTime), [positions, currentTime]);
+  const transits = useMemo(() => analyzeTransits(positions, currentTime, transitIngresses), [positions, currentTime, transitIngresses]);
   const upcomingTransits = useMemo(() => {
     if (dashboardTab !== 'upcoming') return null;
     // Always use transitPositions (current sky) as the starting point for predictions.
     // Using `positions` in natal mode would pass birthPositions, causing the function to
     // compare natal planet positions against future transits — producing false sign-ingress events.
-    return predictTransits(startOfDay(currentTime), transitPositions, birthPositions || undefined);
-  }, [dashboardTab, format(currentTime, 'yyyy-MM-dd'), transitPositions, birthPositions]);
-  
+    return predictTransits(startOfDay(currentTime), transitPositions, birthPositions || undefined, transitIngresses);
+  }, [dashboardTab, format(currentTime, 'yyyy-MM-dd'), transitPositions, birthPositions, transitIngresses]);
+
   const natalComparisons = useMemo(() => {
     if (!birthPositions || !transitPositions) return [];
-    return analyzeNatalComparison(transitPositions, birthPositions, currentTime);
+    return analyzeNatalComparison(transitPositions, birthPositions, currentTime, transitIngresses);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [birthPositions, transitPositions, transitMinuteKey]);
+  }, [birthPositions, transitPositions, transitMinuteKey, transitIngresses]);
 
   const birthSpecialPoints = useMemo(() => {
     if (!birthTime || !birthPositions || !birthLocation) return null;
@@ -1730,7 +1748,7 @@ INTERPRETATION GUIDELINES:
         )}
       </AnimatePresence>
 
-      <main className="relative z-10 flex-1 flex flex-col overflow-hidden custom-scrollbar pb-24 lg:pb-0">
+      <main className="relative z-10 flex-1 flex flex-col overflow-hidden custom-scrollbar pb-[calc(56px+env(safe-area-inset-bottom))] lg:pb-0">
         {/* Primary Views Grid */}
         {activeTab !== 'archives' && activeTab !== 'profile' && (
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden">
@@ -1954,39 +1972,7 @@ INTERPRETATION GUIDELINES:
         setChartType={setChartType}
       />
 
-      {/* Floating Controls - Mobile Only */}
-      {activeTab !== 'stats' && (
-        <div className="lg:hidden fixed top-20 right-4 z-40 flex flex-col gap-2">
-          <div className={cn(
-            "flex flex-col backdrop-blur-md rounded-xl border p-1 transition-colors duration-500",
-            theme === 'dark' ? "bg-black/60 border-white/10" : "bg-white/80 border-slate-200 shadow-lg"
-          )}>
-            <button 
-              onClick={() => setZoom(prev => Math.min(prev + 0.2, 3))}
-              className={cn("p-2 rounded-lg transition-colors", theme === 'dark' ? "hover:bg-white/10 text-white/60" : "hover:bg-slate-100 text-slate-500")}
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-            <button 
-              onClick={() => setZoom(prev => Math.max(prev - 0.2, 0.5))}
-              className={cn("p-2 rounded-lg transition-colors", theme === 'dark' ? "hover:bg-white/10 text-white/60" : "hover:bg-slate-100 text-slate-500")}
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
-          </div>
-          <button 
-            onClick={handleAutoSelectNatal}
-            className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center border transition-all shadow-lg",
-              viewMode === 'natal' 
-                ? "bg-orange-500 text-black border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)]" 
-                : "bg-black/60 text-white/60 border-white/10 backdrop-blur-md"
-            )}
-          >
-            <Zap className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+
     </div>
   );
 }

@@ -1,11 +1,13 @@
-import {StrictMode} from 'react';
+import {StrictMode, lazy, Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
 import {ThemeProvider} from './context/ThemeContext.tsx';
-import {BrowserRouter} from 'react-router-dom';
+import {BrowserRouter, Routes, Route} from 'react-router-dom';
 import {ErrorBoundary} from './components/ErrorBoundary.tsx';
+
+const MobileSkyPage = lazy(() => import('./pages/MobileSkyPage/index.tsx'));
 import {debugLog, installDebugConsole, isDebugEnabled} from './lib/debug.ts';
 
 // Suppress benign Vite HMR noise only in development.
@@ -56,7 +58,14 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <ThemeProvider>
         <BrowserRouter>
-          <App />
+          <Routes>
+            <Route path="/mobile" element={
+              <Suspense fallback={null}>
+                <MobileSkyPage />
+              </Suspense>
+            } />
+            <Route path="/*" element={<App />} />
+          </Routes>
         </BrowserRouter>
       </ThemeProvider>
     </ErrorBoundary>

@@ -10,9 +10,9 @@ import { createRequire } from 'module';
 import { GoogleGenAI } from '@google/genai';
 // openastrology-library's .mjs build uses `import * as swisseph` which doesn't
 // work for a native CJS addon. Load the CJS build explicitly via createRequire.
-import type { VedicChartCalculations } from 'openastrology-library';
+import type { VedicChartCalculations, Planet } from 'openastrology-library';
 const _require = createRequire(import.meta.url);
-const { VedicAstrologyCalculator } = _require('openastrology-library') as typeof import('openastrology-library');
+const { VedicAstrologyCalculator, VedicTransitCalculator } = _require('openastrology-library') as typeof import('openastrology-library');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,6 +44,13 @@ const vedicCalc = new VedicAstrologyCalculator({
   houseSystem: 'wholehouse',
   ephePath: EPHE_PATH,
 });
+
+const transitCalc = new VedicTransitCalculator({
+  ayanamsa: 'lahiri',
+  ephePath: EPHE_PATH,
+});
+
+const ALL_VEDIC_PLANETS: Planet[] = ['sun', 'moon', 'mars', 'mercury', 'jupiter', 'venus', 'saturn', 'rahu', 'ketu'];
 
 // Planet metadata for mapping library output → app PlanetPosition
 const PLANET_META: Record<string, { symbol: string; color: string }> = {
@@ -302,6 +309,36 @@ async function startServer() {
     } catch (e: any) {
       serverLog('error', 'planet-positions', 'Position calculation error', e.message);
       res.status(500).json({ error: e.message || 'Position calculation failed' });
+    }
+  });
+
+  // Swiss Ephemeris transit-ingress engine — exact sign-change timestamps
+  app.post('/api/transit-ingresses', rateLimit, async (req, res) => {
+    const { startDate, endDate, planets } = req.body as { startDate?: string; endDate?: string; planets?: string[] };
+    if (!startDate || typeof startDate !== 'string' || !endDate || typeof endDate !== 'string') {
+      return res.status(400).json({ error: 'startDate and endDate are required' });
+    }
+
+    try {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({ error: 'Invalid startDate or endDate' });
+      }
+
+      const requestedPlanets = Array.isArray(planets) && planets.length > 0
+        ? planets.filter((p): p is Planet => ALL_VEDIC_PLANETS.includes(p as Planet))
+        : ALL_VEDIC_PLANETS;
+
+      const ingresses = transitCalc.calculateTransitIngresses(requestedPlanets, start, end);
+
+      if (DEBUG_SERVER_LOGS) {
+        serverLog('log', 'transit-ingresses', 'Ingresses calculated', { startDate, endDate, count: ingresses.length });
+      }
+      res.json(ingresses);
+    } catch (e: any) {
+      serverLog('error', 'transit-ingresses', 'Transit ingress calculation error', e.message);
+      res.status(500).json({ error: e.message || 'Transit ingress calculation failed' });
     }
   });
 

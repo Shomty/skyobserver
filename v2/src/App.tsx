@@ -6,12 +6,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { calculatePositions, PlanetPosition, detectYogas, calculateAshtakavarga, RASHIS, RASHI_DATA, NAKSHATRA_DATA, analyzeTransits, TransitEvent, predictTransits, TransitPrediction, analyzeNatalComparison, NatalComparisonResult, calculatePanchang, PanchangData, calculateDrishti, isConjunct, calculateSpecialPointsV2, getBirthInfo } from './vedic-utils';
-import { fetchPlanetPositions } from './services/positionsService';
+import { calculatePositions, PlanetPosition, detectYogas, calculateAshtakavarga, RASHIS, RASHI_DATA, NAKSHATRA_DATA, analyzeTransits, TransitEvent, predictTransits, TransitPrediction, analyzeNatalComparison, NatalComparisonResult, calculatePanchang, PanchangData, calculateDrishti, isConjunct, calculateSpecialPointsV2, getBirthInfo, TransitIngress } from './vedic-utils';
+import { fetchPlanetPositions, fetchTransitIngresses } from './services/positionsService';
 import NorthIndianChart from './components/NorthIndianChart';
 import { Header } from './components/Header';
 import { MobileNavigation } from './components/MobileNavigation';
-import { format, addDays, startOfDay, endOfDay } from 'date-fns';
+import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
 import SunCalc from 'suncalc';
 import ReactMarkdown from 'react-markdown';
 import { 
@@ -1288,6 +1288,28 @@ INTERPRETATION GUIDELINES:
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transitMinuteKey, location?.lat, location?.lon]);
 
+  // Exact sign-ingress events from the Swiss Ephemeris transit engine, covering
+  // a window wide enough for both current-transit windows (getTransitWindow)
+  // and the 90-day upcoming-transits prediction. Refetched once per day.
+  const [transitIngresses, setTransitIngresses] = useState<TransitIngress[]>([]);
+  const ingressDayKey = format(currentTime, 'yyyy-MM-dd');
+
+  useEffect(() => {
+    let cancelled = false;
+    const windowStart = subDays(startOfDay(currentTime), 30);
+    const windowEnd = addDays(startOfDay(currentTime), 90);
+
+    fetchTransitIngresses(windowStart, windowEnd)
+      .then(ingresses => { if (!cancelled) setTransitIngresses(ingresses); })
+      .catch(() => {
+        // Keep previous ingress data; getTransitWindow()/predictTransits() fall
+        // back to the PLANET_SPEEDS estimate when no ingress covers a date.
+      });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ingressDayKey]);
+
   const [birthPositions, setBirthPositions] = useState<PlanetPosition[] | null>(null);
 
   useEffect(() => {
@@ -1349,18 +1371,18 @@ INTERPRETATION GUIDELINES:
     if (!birthTime || !birthLocation) return null;
     return `${birthTime.toISOString()}_${birthLocation.lat.toFixed(3)}_${birthLocation.lon.toFixed(3)}`;
   }, [birthTime, birthLocation?.lat, birthLocation?.lon]);
-  const transits = useMemo(() => analyzeTransits(positions, currentTime), [positions, currentTime]);
+  const transits = useMemo(() => analyzeTransits(positions, currentTime, transitIngresses), [positions, currentTime, transitIngresses]);
   const upcomingTransits = useMemo(() => {
     // Always use transitPositions (current sky) as the starting point for predictions.
     // Using `positions` in natal mode would pass birthPositions, causing the function to
     // compare natal planet positions against future transits — producing false sign-ingress events.
-    return predictTransits(startOfDay(currentTime), transitPositions, birthPositions || undefined);
-  }, [format(currentTime, 'yyyy-MM-dd'), transitPositions, birthPositions]);
-  
+    return predictTransits(startOfDay(currentTime), transitPositions, birthPositions || undefined, transitIngresses);
+  }, [format(currentTime, 'yyyy-MM-dd'), transitPositions, birthPositions, transitIngresses]);
+
   const natalComparisons = useMemo(() => {
     if (!birthPositions || !transitPositions) return [];
-    return analyzeNatalComparison(transitPositions, birthPositions, currentTime);
-  }, [birthPositions, transitPositions, currentTime]);
+    return analyzeNatalComparison(transitPositions, birthPositions, currentTime, transitIngresses);
+  }, [birthPositions, transitPositions, currentTime, transitIngresses]);
 
   const birthSpecialPoints = useMemo(() => {
     if (!birthTime || !birthPositions || !birthLocation) return null;
