@@ -360,37 +360,12 @@ async function startServer() {
   });
 
   if (process.env.NODE_ENV !== 'production') {
-    // v2 app — wrapped so its SPA fallback only fires for /v2/* paths
-    const vite2 = await createViteServer({
-      configFile: path.join(__dirname, 'v2/vite.config.ts'),
-      base: '/v2',
-      server: { middlewareMode: true, hmr: false },
-      appType: 'spa',
-    });
-    app.use((req, res, next) => {
-      if (req.path === '/v2' || req.path.startsWith('/v2/')) {
-        vite2.middlewares(req, res, next);
-      } else {
-        next();
-      }
-    });
-
-    // Main app
     const vite = await createViteServer({
       server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    // v2 production — serve before main catch-all
-    const v2DistPath = path.join(process.cwd(), 'v2-dist');
-    if (existsSync(v2DistPath)) {
-      app.use('/v2', express.static(v2DistPath));
-      app.get('/v2/*', (_req, res) => {
-        res.sendFile(path.join(v2DistPath, 'index.html'));
-      });
-    }
-
     const distPath = path.join(process.cwd(), 'dist');
     // acceptRanges: false prevents browsers from caching partial 206 responses
     // which can cause blank pages on first load of large JS bundles.

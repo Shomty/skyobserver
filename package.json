@@ -10,10 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit",
-    "v2:dev": "vite --config v2/vite.config.ts",
-    "v2:build": "vite build --config v2/vite.config.ts",
-    "v2:lint": "tsc --noEmit --project v2/tsconfig.json"
+    "lint": "tsc --noEmit"
   },
   "engines": {
     "node": ">=18.18.0",

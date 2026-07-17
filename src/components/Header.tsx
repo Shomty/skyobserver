@@ -75,19 +75,6 @@ export const Header: React.FC<HeaderProps> = ({
           <h1 className="text-sm lg:text-xl font-bold tracking-tighter uppercase italic font-serif leading-none gold-gradient-text">Vedic Sky</h1>
           <p className={cn("hidden min-[361px]:block text-[6px] lg:text-[10px] uppercase tracking-[0.2em] font-mono mt-0.5 lg:mt-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-slate-400")}>Sidereal Engine</p>
         </div>
-        {/* V2 Preview link */}
-        <a
-          href="/v2"
-          className={cn(
-            "hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] uppercase tracking-widest font-bold transition-all",
-            theme === 'dark'
-              ? "border-jyotish-gold/30 text-jyotish-gold/70 hover:text-jyotish-gold hover:border-jyotish-gold/60 hover:bg-jyotish-gold/5"
-              : "border-orange-300 text-orange-500 hover:border-orange-400 hover:bg-orange-50"
-          )}
-          title="Try the new v2 design"
-        >
-          V2 ✦
-        </a>
       </div>
       
       <div className="flex items-center gap-2 lg:gap-6">
