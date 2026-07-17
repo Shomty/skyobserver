@@ -103,3 +103,31 @@
     scrollbar-width: none;
   }
 }
+
+/*
+ * Print / "Save as PDF" support for chat conversations.
+ * The section-print trick: hide everything on the page, then reveal only the
+ * dedicated #chat-print-root container so the browser prints a clean document
+ * (no app chrome) and handles pagination across long conversations natively.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #chat-print-root,
+  #chat-print-root * {
+    visibility: visible;
+  }
+  #chat-print-root {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 24px;
+    color: #111;
+    background: #fff;
+  }
+  #chat-print-root a {
+    color: #111;
+    text-decoration: none;
+  }
+}

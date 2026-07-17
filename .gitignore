@@ -29,6 +29,9 @@ ephe/
 # Dev-internal task notes
 tasks/
 
+# Generated knowledge graph
+graphify-out/
+
 # Editor
 .vscode/
 .idea/

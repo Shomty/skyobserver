@@ -1,10 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, MessageSquare, Plus, Trash2, Sparkles, Menu, ChevronDown, Check, Users, Loader2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Plus, Trash2, Sparkles, Menu, ChevronDown, Check, Users, Loader2, Printer, Share2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
 import { db, doc, collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc } from '../firebase';
-import { serverTimestamp, arrayUnion, getDoc } from 'firebase/firestore';
+import { serverTimestamp, arrayUnion, getDoc, deleteField } from 'firebase/firestore';
+import { createSharedChat, revokeSharedChat } from '../services/shareService';
+import ChatPrintView from '../components/chat/ChatPrintView';
+import ShareChatModal from '../components/chat/ShareChatModal';
 import { callGeminiProxy, getErrorMessage } from '../lib/api-utils';
 import { PlanetPosition, Yoga, TransitEvent, PanchangData, calculatePositions, detectYogas, calculatePanchang, calculateSpecialPointsV2, getBirthInfo, RASHIS } from '../vedic-utils';
 import { fetchPlanetPositions } from '../services/positionsService';
@@ -58,6 +61,13 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
+  const [activeSessionTitle, setActiveSessionTitle] = useState('');
+  const [activeSessionSubject, setActiveSessionSubject] = useState<string | null>(null);
+  const [shareId, setShareId] = useState<string | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [isCreatingShare, setIsCreatingShare] = useState(false);
+  const [isRevokingShare, setIsRevokingShare] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -175,6 +185,9 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
   useEffect(() => {
     if (!activeSessionId) {
       setMessages([]);
+      setActiveSessionTitle('');
+      setActiveSessionSubject(null);
+      setShareId(null);
       return;
     }
     const sessionDocRef = doc(db, `users/${user.uid}/ai_chats`, activeSessionId);
@@ -183,6 +196,9 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
       (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data();
+          setActiveSessionTitle(data.title || 'Chat');
+          setActiveSessionSubject(data.subjectName ?? null);
+          setShareId(data.shareId ?? null);
           setMessages(
             (data.messages || []).map((m: any, i: number) => ({
               id: `msg-${i}-${m.createdAt || i}`,
@@ -193,6 +209,9 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
           );
         } else {
           setMessages([]);
+          setActiveSessionTitle('');
+          setActiveSessionSubject(null);
+          setShareId(null);
         }
       },
       (err) => {
@@ -364,7 +383,52 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
     }
   };
 
+  const handleExportPdf = () => {
+    window.print();
+  };
+
+  const handleOpenShare = () => {
+    setShareError(null);
+    setShareModalOpen(true);
+  };
+
+  const handleCreateShare = async () => {
+    if (!activeSessionId || messages.length === 0) return;
+    setShareError(null);
+    setIsCreatingShare(true);
+    try {
+      const newShareId = await createSharedChat(user.uid, {
+        sourceChatId: activeSessionId,
+        title: activeSessionTitle || 'Shared Chat',
+        subjectName: activeSessionSubject,
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+      });
+      await updateDoc(doc(db, `users/${user.uid}/ai_chats`, activeSessionId), { shareId: newShareId });
+      setShareId(newShareId);
+    } catch (error) {
+      setShareError(getErrorMessage(error));
+    } finally {
+      setIsCreatingShare(false);
+    }
+  };
+
+  const handleRevokeShare = async () => {
+    if (!shareId || !activeSessionId) return;
+    setShareError(null);
+    setIsRevokingShare(true);
+    try {
+      await revokeSharedChat(shareId, user.uid);
+      await updateDoc(doc(db, `users/${user.uid}/ai_chats`, activeSessionId), { shareId: deleteField() });
+      setShareId(null);
+    } catch (error) {
+      setShareError(getErrorMessage(error));
+    } finally {
+      setIsRevokingShare(false);
+    }
+  };
+
   const isDark = theme === 'dark';
+  const canShareOrExport = !!activeSessionId && messages.length > 0;
 
   return (
     <div className={cn(
@@ -470,17 +534,46 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
           </div>
         )}
 
-        <button
-          onClick={() => setSidebarOpen(s => !s)}
-          className={cn(
-            "lg:hidden p-2 rounded-lg transition-colors",
-            childProfiles.length > 0 ? '' : 'ml-auto',
-            isDark ? "text-white/40 hover:text-white hover:bg-white/5" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+        <div className={cn('flex items-center gap-1', childProfiles.length === 0 && 'ml-auto')}>
+          {canShareOrExport && (
+            <>
+              <button
+                onClick={handleExportPdf}
+                title="Export as PDF"
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors',
+                  isDark ? 'text-white/50 hover:text-white hover:bg-white/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                )}
+              >
+                <Printer className="w-4 h-4" />
+                <span className="hidden md:inline">PDF</span>
+              </button>
+              <button
+                onClick={handleOpenShare}
+                title="Share this chat"
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors',
+                  shareId
+                    ? 'text-jyotish-gold bg-jyotish-gold/10'
+                    : isDark ? 'text-white/50 hover:text-white hover:bg-white/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                )}
+              >
+                <Share2 className="w-4 h-4" />
+                <span className="hidden md:inline">{shareId ? 'Shared' : 'Share'}</span>
+              </button>
+            </>
           )}
-          aria-label="Toggle session list"
-        >
-          <Menu className="w-4 h-4" />
-        </button>
+          <button
+            onClick={() => setSidebarOpen(s => !s)}
+            className={cn(
+              "lg:hidden p-2 rounded-lg transition-colors",
+              isDark ? "text-white/40 hover:text-white hover:bg-white/5" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            )}
+            aria-label="Toggle session list"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+        </div>
       </header>
 
       {/* Body: sidebar + chat */}
@@ -591,6 +684,31 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Screen-hidden; revealed only when printing (see index.css) */}
+      {canShareOrExport && (
+        <ChatPrintView
+          title={activeSessionTitle || 'Chat'}
+          subjectName={activeSessionSubject}
+          date={format(new Date(), 'MMMM d, yyyy')}
+          messages={messages.map(m => ({ role: m.role, content: m.content }))}
+        />
+      )}
+
+      <AnimatePresence>
+        {shareModalOpen && (
+          <ShareChatModal
+            theme={theme}
+            shareId={shareId}
+            isCreating={isCreatingShare}
+            isRevoking={isRevokingShare}
+            error={shareError}
+            onCreate={handleCreateShare}
+            onRevoke={handleRevokeShare}
+            onClose={() => setShareModalOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -114,6 +114,20 @@ service cloud.firestore {
       }
     }
 
+    // Publicly shareable chat snapshots.
+    // The document id is an unguessable Firestore auto-id acting as a capability token:
+    //   - get is public so anyone holding the link can read that one snapshot
+    //   - list is denied so the collection cannot be enumerated/scanned
+    //   - snapshots are immutable (no update); re-sharing creates a new document
+    //   - only the owner (or an admin) may create/delete
+    match /sharedChats/{shareId} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if isOwner(request.resource.data.ownerUid);
+      allow update: if false;
+      allow delete: if isOwner(resource.data.ownerUid) || isAdminOrAdminRole();
+    }
+
     // Default deny
     match /{path=**} {
       allow read, write: if false;
