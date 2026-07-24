@@ -530,7 +530,10 @@ export default function App() {
   const [selectedZodiac, setSelectedZodiac] = useState<number | null>(null);
   const [hoveredPlanetName, setHoveredPlanetName] = useState<string | null>(null);
   const [hoveredHouse, setHoveredHouse] = useState<number | null>(null);
-  const [chartType, setChartType] = useState<'circle' | 'north-indian'>('circle');
+  const [chartType, setChartType] = useState<'circle' | 'north-indian'>(
+    // Default to the North Indian kundali on mobile (< lg), circle sky map on desktop.
+    () => (typeof window !== 'undefined' && window.innerWidth < 1024 ? 'north-indian' : 'circle')
+  );
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
 
@@ -1770,7 +1773,7 @@ INTERPRETATION GUIDELINES:
       <main className="relative z-10 flex-1 flex flex-col overflow-hidden custom-scrollbar pb-[calc(56px+env(safe-area-inset-bottom))] lg:pb-0">
         {/* Primary Views Grid */}
         {activeTab !== 'archives' && activeTab !== 'profile' && (
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden">
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden">
             {/* Left Panel: Sky Map / Chart */}
             <SkyMap
               chartType={chartType}

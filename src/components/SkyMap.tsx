@@ -356,34 +356,19 @@ export const SkyMap: React.FC<SkyMapProps> = ({
         "lg:hidden flex items-center justify-between px-4 py-2.5 border-b transition-colors duration-500 z-20",
         theme === 'dark' ? "bg-mystic-purple/80 border-white/5" : "bg-white/80 border-slate-200"
       )}>
-        {/* Chart type tabs */}
-        <div className={cn(
-          "flex items-center p-0.5 rounded-lg border",
-          theme === 'dark' ? "bg-black/25 border-white/10" : "bg-slate-100 border-slate-200"
-        )}>
-          <button 
-            onClick={() => setChartType('circle')}
-            className={cn(
-              "px-3 py-1 rounded-md text-[9px] uppercase font-bold tracking-widest font-mono transition-all",
-              chartType === 'circle' 
-                ? "bg-jyotish-gold text-black shadow-[0_0_10px_rgba(212,175,55,0.25)]" 
-                : theme === 'dark' ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            Circle
-          </button>
-          <button 
-            onClick={() => setChartType('north-indian')}
-            className={cn(
-              "px-3 py-1 rounded-md text-[9px] uppercase font-bold tracking-widest font-mono transition-all",
-              chartType === 'north-indian' 
-                ? "bg-jyotish-gold text-black shadow-[0_0_10px_rgba(212,175,55,0.25)]" 
-                : theme === 'dark' ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            N.Indian
-          </button>
-        </div>
+        {/* Chart type dropdown */}
+        <select
+          value={chartType}
+          onChange={(e) => setChartType(e.target.value as 'circle' | 'north-indian')}
+          aria-label="Chart type"
+          className={cn(
+            "rounded-lg border px-2.5 py-1.5 text-[10px] uppercase font-bold tracking-widest font-mono transition-colors focus:outline-none focus:border-jyotish-gold/50",
+            theme === 'dark' ? "bg-black/25 border-white/10 text-white [color-scheme:dark]" : "bg-slate-100 border-slate-200 text-slate-700"
+          )}
+        >
+          <option value="north-indian">North Indian</option>
+          <option value="circle">Circle</option>
+        </select>
 
         {/* Separator & Zoom controls */}
         <div className="flex items-center gap-1.5">
@@ -542,7 +527,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
         );
       })()}
 
-      <div className="flex-1 flex items-center justify-center p-4 lg:p-8 relative min-h-0">
+      <div className="flex-1 flex items-center justify-center p-4 lg:p-8 relative min-h-[66dvh] lg:min-h-0">
         {/* View Mode Controls - Desktop Only */}
         <div className="hidden lg:flex absolute top-4 lg:top-8 left-4 lg:left-8 z-20 flex-col gap-3">
           <AnimatePresence>
@@ -1186,17 +1171,6 @@ export const SkyMap: React.FC<SkyMapProps> = ({
           Ecliptic (Sidereal)
         </div>
       </div>
-
-      {/* Mobile Hint - show when nothing is selected */}
-      {!selectedPlanet && selectedZodiac === null && (
-        <div className={cn(
-          "lg:hidden mx-4 mt-3 p-2.5 rounded-xl border flex items-center gap-2.5 text-caption font-mono font-semibold tracking-wide transition-colors duration-500",
-          theme === 'dark' ? "bg-black/40 border-white/5 text-white/40" : "bg-white border-slate-200 text-slate-400"
-        )}>
-          <div className={cn("w-2 h-2 rounded-sm", theme === 'dark' ? "bg-white/5 border border-white/10" : "bg-slate-100 border border-slate-200")} />
-          TAP A PLANET OR ZODIAC SIGN TO INSPECT
-        </div>
-      )}
 
       {/* Mobile Birth Details Modal */}
       <AnimatePresence>
