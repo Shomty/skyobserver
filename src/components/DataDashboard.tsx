@@ -15,7 +15,7 @@ import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getOrdinal } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
-import { Label, StatTile, TabGroup, type TabGroupItem } from './ui';
+import { Label, StatTile } from './ui';
 import { DASHBOARD_TABS } from '../lib/dashboardTabs';
 import AIAssistant from './AIAssistant';
 import { DateRangePicker } from './DateRangePicker';
@@ -1258,32 +1258,6 @@ Respond ONLY with valid JSON (no markdown, no backticks):
           </>
         );
       })()}
-
-      {/* Dashboard tabs — desktop only. Mobile uses Modules sheet above. */}
-      <TabGroup
-        className="hidden lg:block"
-        activeId={activeTab}
-        onChange={(id) => {
-          const tabDef = DASHBOARD_TABS.find((t) => t.id === id);
-          if (tabDef?.requiredMode && tabDef.requiredMode !== viewMode) {
-            if (tabDef.requiredMode === 'natal') {
-              handleAutoSelectNatal();
-            } else {
-              switchToTransitMode();
-            }
-          }
-          setActiveTab(id as any);
-        }}
-        items={DASHBOARD_TABS.map((tab): TabGroupItem => ({
-          id: tab.id,
-          label: tab.label,
-          icon: tab.icon,
-          group: tab.group,
-          badge: tab.requiredMode && tab.requiredMode !== viewMode
-            ? (tab.requiredMode === 'natal' ? <Sparkles className="w-3 h-3 opacity-50" /> : <Compass className="w-3 h-3 opacity-50" />)
-            : undefined,
-        }))}
-      />
 
       {/* Mode banner — desktop only */}
       <div className={cn("hidden lg:block px-4 py-1.5 border-b", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
