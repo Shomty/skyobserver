@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Compass, MapPin, Loader2, Moon, Sun, User as UserIcon, LogIn, Sparkles, BookOpen, LayoutGrid, Grid, LogOut, Settings, ChevronDown, MessageSquare, Users, CircleDot, ShieldAlert } from 'lucide-react';
+import { Compass, MapPin, Loader2, Moon, Sun, User as UserIcon, LogIn, Sparkles, BookOpen, LogOut, Settings, ChevronDown, MessageSquare, Users, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 import type { User } from 'firebase/auth';
 import { useTheme } from '../context/ThemeContext';
 import { motion, AnimatePresence } from 'motion/react';
+import type { NavId } from '../lib/navigation';
 
 interface HeaderProps {
   isLocating: boolean;
@@ -15,8 +16,8 @@ interface HeaderProps {
   isBirthMode: boolean;
   setIsBirthMode: (mode: boolean) => void;
   setDashboardTab: (tab: 'overview' | 'yogas' | 'transits' | 'natal' | 'upcoming' | 'panchang' | 'ashtakavarga' | 'muhurta' | 'dashas' | 'impacts' | 'blueprint' | 'rectify') => void;
-  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin';
-  setActiveTab: (tab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin') => void;
+  activeTab: NavId;
+  setActiveTab: (tab: NavId) => void;
   birthTime: Date | null;
   currentTime: Date;
   user: User | null;
@@ -73,7 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         <div className="flex flex-col">
           <h1 className="text-sm lg:text-xl font-bold tracking-tighter uppercase italic font-serif leading-none gold-gradient-text">Vedic Sky</h1>
-          <p className={cn("hidden min-[361px]:block text-[6px] lg:text-[10px] uppercase tracking-[0.2em] font-mono mt-0.5 lg:mt-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-slate-400")}>Sidereal Engine</p>
+          <p className={cn("hidden sm:block text-caption uppercase tracking-[0.2em] font-mono mt-0.5 lg:mt-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-slate-400")}>Sidereal Engine</p>
         </div>
       </div>
       
@@ -105,109 +106,35 @@ export const Header: React.FC<HeaderProps> = ({
           "flex items-center gap-0.5 lg:gap-1 rounded-lg p-0.5 lg:p-1 border transition-colors duration-500",
           theme === 'dark' ? "bg-mystic-purple/40 border-jyotish-gold/10" : "bg-slate-100 border-slate-200"
         )}>
-          <button 
+          <button
             onClick={handleAutoSelectNatal}
+            title="Natal — your birth chart"
             className={cn(
-              "px-2 py-1 lg:px-3 lg:py-1.5 rounded-md text-[9px] lg:text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-1.5",
-              viewMode === 'natal' 
-                ? "bg-jyotish-gold text-black shadow-[0_0_15px_rgba(212,175,55,0.2)]" 
+              "min-h-[36px] px-2 py-1 lg:px-3 lg:py-1.5 rounded-md text-caption font-semibold transition-all flex items-center gap-1.5",
+              viewMode === 'natal'
+                ? "bg-jyotish-gold text-black shadow-[0_0_15px_rgba(212,175,55,0.2)]"
                 : theme === 'dark' ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-700"
             )}
           >
             <Sparkles className={cn("w-3 h-3", viewMode === 'natal' && "animate-pulse")} />
             <span className="hidden min-[420px]:inline">Natal</span>
           </button>
-          <button 
+          <button
             onClick={() => {
               setViewMode('transit');
               setIsBirthMode(false);
               setDashboardTab('overview');
             }}
+            title="Transit — the sky right now"
             className={cn(
-              "px-2 py-1 lg:px-3 lg:py-1.5 rounded-md text-[9px] lg:text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-1.5",
-              viewMode === 'transit' 
-                ? "bg-jyotish-gold text-black shadow-[0_0_15px_rgba(212,175,55,0.2)]" 
+              "min-h-[36px] px-2 py-1 lg:px-3 lg:py-1.5 rounded-md text-caption font-semibold transition-all flex items-center gap-1.5",
+              viewMode === 'transit'
+                ? "bg-jyotish-gold text-black shadow-[0_0_15px_rgba(212,175,55,0.2)]"
                 : theme === 'dark' ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-700"
             )}
           >
             <Compass className={cn("w-3 h-3", viewMode === 'transit' && "animate-spin-slow")} />
             <span className="hidden min-[420px]:inline">Transit</span>
-          </button>
-        </div>
-
-        {/* Desktop Navigation */}
-        <div className="hidden lg:flex items-center gap-1 bg-black/20 p-1 rounded-xl border border-white/5">
-          <button 
-            onClick={() => setActiveTab('sky')}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-2",
-              activeTab === 'sky' 
-                ? "bg-jyotish-gold/10 text-jyotish-gold" 
-                : "text-white/40 hover:text-white/60"
-            )}
-          >
-            <Compass className="w-3.5 h-3.5" />
-            Sky
-          </button>
-          <button 
-            onClick={() => setActiveTab('chart')}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-2",
-              activeTab === 'chart' 
-                ? "bg-jyotish-gold/10 text-jyotish-gold" 
-                : "text-white/40 hover:text-white/60"
-            )}
-          >
-            <Grid className="w-3.5 h-3.5" />
-            Chart
-          </button>
-          <button 
-            onClick={() => setActiveTab('stats')}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-2",
-              activeTab === 'stats' 
-                ? "bg-jyotish-gold/10 text-jyotish-gold" 
-                : "text-white/40 hover:text-white/60"
-            )}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            Data
-          </button>
-          <button 
-            onClick={() => setActiveTab('archives')}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-2",
-              activeTab === 'archives' 
-                ? "bg-jyotish-gold/10 text-jyotish-gold shadow-[inset_0_0_10px_rgba(212,175,55,0.1)]" 
-                : "text-white/40 hover:text-white/60"
-            )}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            Journal
-          </button>
-          <button 
-            onClick={() => setActiveTab('chat')}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-2",
-              activeTab === 'chat' 
-                ? "bg-jyotish-gold/10 text-jyotish-gold shadow-[inset_0_0_10px_rgba(212,175,55,0.1)]" 
-                : "text-white/40 hover:text-white/60"
-            )}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            AI Chat
-          </button>
-          <button
-            onClick={() => setActiveTab('sudarshana')}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-2",
-              activeTab === 'sudarshana'
-                ? "bg-jyotish-gold/10 text-jyotish-gold shadow-[inset_0_0_10px_rgba(212,175,55,0.1)]"
-                : "text-white/40 hover:text-white/60"
-            )}
-          >
-            <CircleDot className="w-3.5 h-3.5" />
-            Sudarshana
           </button>
         </div>
 
@@ -266,8 +193,8 @@ export const Header: React.FC<HeaderProps> = ({
                     )}
                   >
                     <div className={cn("p-4 border-b", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
-                      <p className={cn("text-xs font-bold truncate", theme === 'dark' ? "text-white/90" : "text-slate-900")}>{user.displayName}</p>
-                      <p className={cn("text-[10px] font-mono truncate mt-0.5", theme === 'dark' ? "text-white/40" : "text-slate-400")}>{user.email}</p>
+                      <p className={cn("text-body font-semibold truncate", theme === 'dark' ? "text-white/90" : "text-slate-900")}>{user.displayName}</p>
+                      <p className={cn("text-caption font-mono truncate mt-0.5", theme === 'dark' ? "text-white/40" : "text-slate-400")}>{user.email}</p>
                     </div>
 
                     <div className="p-2 space-y-1">
@@ -284,7 +211,7 @@ export const Header: React.FC<HeaderProps> = ({
                         )}
                       >
                         <Users className={cn("w-4 h-4 transition-transform group-hover:scale-110", activeTab === 'profiles' ? "text-jyotish-gold" : "text-white/20")} />
-                        <span className="text-[11px] uppercase tracking-widest font-bold">People Profiles</span>
+                        <span className="text-label font-semibold">People Profiles</span>
                       </button>
 
                       <button
@@ -300,7 +227,7 @@ export const Header: React.FC<HeaderProps> = ({
                         )}
                       >
                         <MessageSquare className={cn("w-4 h-4 transition-transform group-hover:scale-110", activeTab === 'chat' ? "text-jyotish-gold" : "text-white/20")} />
-                        <span className="text-[11px] uppercase tracking-widest font-bold">AI Chat</span>
+                        <span className="text-label font-semibold">AI Chat</span>
                       </button>
 
                       <button
@@ -316,7 +243,7 @@ export const Header: React.FC<HeaderProps> = ({
                         )}
                       >
                         <BookOpen className={cn("w-4 h-4 transition-transform group-hover:scale-110", activeTab === 'report' ? "text-jyotish-gold" : "text-white/20")} />
-                        <span className="text-[11px] uppercase tracking-widest font-bold">Full Report</span>
+                        <span className="text-label font-semibold">Full Report</span>
                       </button>
 
                       <button
@@ -332,7 +259,7 @@ export const Header: React.FC<HeaderProps> = ({
                         )}
                       >
                         <Settings className={cn("w-4 h-4 transition-transform group-hover:rotate-45", activeTab === 'profile' ? "text-jyotish-gold" : "text-white/20")} />
-                        <span className="text-[11px] uppercase tracking-widest font-bold">Settings</span>
+                        <span className="text-label font-semibold">Settings</span>
                       </button>
 
                       {isAdmin && (
@@ -349,7 +276,7 @@ export const Header: React.FC<HeaderProps> = ({
                           )}
                         >
                           <ShieldAlert className={cn("w-4 h-4 transition-transform group-hover:scale-110", activeTab === 'admin' ? "text-jyotish-gold" : "text-white/20")} />
-                          <span className="text-[11px] uppercase tracking-widest font-bold">Admin Panel</span>
+                          <span className="text-label font-semibold">Admin Panel</span>
                         </button>
                       )}
 
@@ -364,7 +291,7 @@ export const Header: React.FC<HeaderProps> = ({
                         )}
                       >
                         <LogOut className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-                        <span className="text-[11px] uppercase tracking-widest font-bold">Sign Out</span>
+                        <span className="text-label font-semibold">Sign Out</span>
                       </button>
                     </div>
                   </motion.div>

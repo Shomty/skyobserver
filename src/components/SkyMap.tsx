@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Flame, ZoomIn, ZoomOut, RotateCcw, Eye, Home, Shield } from 'lucide-react';
+import { Flame, ZoomIn, ZoomOut, RotateCcw, Eye, Home, Shield, Maximize2, Minimize2 } from 'lucide-react';
 import { cn, getOrdinal } from '../lib/utils';
 import NorthIndianChart from './NorthIndianChart';
 import { PlanetPosition, RASHIS, calculateDrishti, Drishti, getDignityInterpretation, getRashiLord, HOUSE_DATA, getPlanetInHouseInterpretation, NAKSHATRA_DATA } from '../vedic-utils';
@@ -243,7 +243,6 @@ const PlanetMarker: React.FC<PlanetMarkerProps> = React.memo(({ p, mapOffset, se
 interface SkyMapProps {
   chartType: 'circle' | 'north-indian';
   setChartType: (type: 'circle' | 'north-indian') => void;
-  activeTab: 'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin';
   zoom: number;
   setZoom: React.Dispatch<React.SetStateAction<number>>;
   pan: { x: number, y: number };
@@ -274,7 +273,6 @@ interface SkyMapProps {
 export const SkyMap: React.FC<SkyMapProps> = ({
   chartType,
   setChartType,
-  activeTab,
   zoom,
   setZoom,
   pan,
@@ -303,8 +301,26 @@ export const SkyMap: React.FC<SkyMapProps> = ({
 }) => {
   const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const [isSavingBirth, setIsSavingBirth] = React.useState(false);
   const [isSheetExpanded, setIsSheetExpanded] = React.useState(false);
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
+
+  const toggleFullscreen = React.useCallback(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    } else {
+      el.requestFullscreen?.().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(document.fullscreenElement === rootRef.current);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
 
   const selectedPlanetDrishti = React.useMemo(() => {
     if (!selectedPlanet) return null;
@@ -327,10 +343,13 @@ export const SkyMap: React.FC<SkyMapProps> = ({
   const ringStyles = React.useMemo(() => getPlanetRingStyles(theme), [theme]);
 
   return (
-    <div className={cn(
-      "lg:col-span-7 flex flex-col relative border-b lg:border-r lg:border-b-0 min-h-0 overflow-hidden transition-colors duration-500",
-      theme === 'dark' ? "border-white/5 bg-black/40" : "border-slate-200 bg-white/40",
-      activeTab === 'stats' ? "hidden lg:flex" : "flex"
+    <div
+      ref={rootRef}
+      className={cn(
+      "flex flex-col relative border-b lg:border-r lg:border-b-0 min-h-0 min-w-0 overflow-hidden transition-colors duration-500 lg:col-span-6",
+      isFullscreen
+        ? (theme === 'dark' ? "bg-mystic-purple" : "bg-white")
+        : (theme === 'dark' ? "border-white/5 bg-black/40" : "border-slate-200 bg-white/40")
     )}>
       {/* Mobile Controls Bar */}
       <div className={cn(
@@ -391,7 +410,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <button 
+            <button
               onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
               className={cn(
                 "p-1.5 rounded transition-colors",
@@ -399,6 +418,16 @@ export const SkyMap: React.FC<SkyMapProps> = ({
               )}
             >
               <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
+              )}
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
@@ -516,37 +545,6 @@ export const SkyMap: React.FC<SkyMapProps> = ({
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8 relative min-h-0">
         {/* View Mode Controls - Desktop Only */}
         <div className="hidden lg:flex absolute top-4 lg:top-8 left-4 lg:left-8 z-20 flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <div className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Chart Mode</div>
-            <div className={cn(
-              "flex p-1 rounded-xl border backdrop-blur-md transition-colors duration-500",
-              theme === 'dark' ? "bg-black/40 border-white/10" : "bg-white/60 border-slate-200"
-            )}>
-              <button 
-                onClick={() => setViewMode('transit')}
-                className={cn(
-                  "px-4 py-1.5 rounded-lg text-xs font-bold transition-all uppercase tracking-widest",
-                  viewMode === 'transit' 
-                    ? "bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.3)]" 
-                    : theme === 'dark' ? "text-white/40 hover:text-white/60" : "text-slate-400 hover:text-slate-600"
-                )}
-              >
-                Transit
-              </button>
-              <button 
-                onClick={() => setViewMode('natal')}
-                className={cn(
-                  "px-4 py-1.5 rounded-lg text-xs font-bold transition-all uppercase tracking-widest",
-                  viewMode === 'natal' 
-                    ? "bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.3)]" 
-                    : theme === 'dark' ? "text-white/40 hover:text-white/60" : "text-slate-400 hover:text-slate-600"
-                )}
-              >
-                Natal
-              </button>
-            </div>
-          </div>
-          
           <AnimatePresence>
             {viewMode === 'natal' && !birthTime && (
               <motion.div 
@@ -641,9 +639,19 @@ export const SkyMap: React.FC<SkyMapProps> = ({
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
+            <button
+              onClick={toggleFullscreen}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+              )}
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
           </div>
 
-          <button 
+          <button
             onClick={() => setChartType('circle')}
             className={cn(
               "px-3 py-1.5 rounded-lg text-[10px] font-mono uppercase tracking-widest transition-all border",
@@ -870,10 +878,8 @@ export const SkyMap: React.FC<SkyMapProps> = ({
           className={cn(
             "relative w-full max-w-[400px] lg:max-w-[700px] aspect-square flex items-center justify-center transition-all duration-500",
             chartType === 'circle' 
-              ? cn("overflow-hidden rounded-full border transition-colors duration-500", theme === 'dark' ? "border-white/5 bg-black/20" : "border-slate-200 bg-white/40 shadow-inner") 
-              : "overflow-visible",
-            activeTab === 'sky' && chartType === 'north-indian' ? "hidden lg:flex" : "flex",
-            activeTab === 'chart' && chartType === 'circle' ? "hidden lg:flex" : "flex"
+              ? cn("overflow-hidden rounded-full border transition-colors duration-500", theme === 'dark' ? "border-white/5 bg-black/20" : "border-slate-200 bg-white/40 shadow-inner")
+              : "overflow-visible"
           )}
         >
           {chartType === 'circle' ? (
@@ -1157,10 +1163,10 @@ export const SkyMap: React.FC<SkyMapProps> = ({
 
         {/* Legend - Desktop Only */}
         <div className="hidden lg:flex absolute bottom-4 lg:bottom-8 left-4 lg:left-8 flex-col gap-2">
-          <div className={cn("flex items-center gap-2 text-[8px] lg:text-[10px] uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+          <div className={cn("flex items-center gap-2 text-caption uppercase tracking-wide", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
             <div className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-blue-500" /> Earth ({location ? "Topocentric" : "Geocentric"} Center)
           </div>
-          <div className={cn("flex items-center gap-2 text-[8px] lg:text-[10px] uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+          <div className={cn("flex items-center gap-2 text-caption uppercase tracking-wide", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
             <div className={cn("w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full border", theme === 'dark' ? "border-white/20" : "border-slate-300")} /> Ecliptic Path (Sidereal)
           </div>
         </div>
@@ -1171,11 +1177,11 @@ export const SkyMap: React.FC<SkyMapProps> = ({
         "lg:hidden min-h-[28px] py-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 border-t border-b flex-shrink-0 transition-colors duration-500",
         theme === 'dark' ? "bg-black/35 border-white/5" : "bg-slate-50 border-slate-200"
       )}>
-        <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-wider font-mono font-bold", theme === 'dark' ? "text-white/45" : "text-slate-500")}>
+        <div className={cn("flex items-center gap-1.5 text-caption uppercase tracking-wide font-semibold", theme === 'dark' ? "text-white/45" : "text-slate-500")}>
           <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
           Earth ({location ? "Topocentric" : "Geocentric"})
         </div>
-        <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-wider font-mono font-bold", theme === 'dark' ? "text-white/45" : "text-slate-500")}>
+        <div className={cn("flex items-center gap-1.5 text-caption uppercase tracking-wide font-semibold", theme === 'dark' ? "text-white/45" : "text-slate-500")}>
           <div className={cn("w-1.5 h-1.5 rounded-full border", theme === 'dark' ? "border-white/20" : "border-slate-300")} />
           Ecliptic (Sidereal)
         </div>
@@ -1184,7 +1190,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
       {/* Mobile Hint - show when nothing is selected */}
       {!selectedPlanet && selectedZodiac === null && (
         <div className={cn(
-          "lg:hidden mx-4 mt-3 p-2.5 rounded-xl border flex items-center gap-2.5 text-[10px] font-mono font-bold tracking-wider transition-colors duration-500",
+          "lg:hidden mx-4 mt-3 p-2.5 rounded-xl border flex items-center gap-2.5 text-caption font-mono font-semibold tracking-wide transition-colors duration-500",
           theme === 'dark' ? "bg-black/40 border-white/5 text-white/40" : "bg-white border-slate-200 text-slate-400"
         )}>
           <div className={cn("w-2 h-2 rounded-sm", theme === 'dark' ? "bg-white/5 border border-white/10" : "bg-slate-100 border border-slate-200")} />

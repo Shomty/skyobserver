@@ -10,7 +10,12 @@ import { calculatePositions, PlanetPosition, detectYogas, calculateAshtakavarga,
 import { fetchPlanetPositions, fetchTransitIngresses } from './services/positionsService';
 import NorthIndianChart from './components/NorthIndianChart';
 import { Header } from './components/Header';
+import { SectionNav } from './components/SectionNav';
 import { MobileNavigation } from './components/MobileNavigation';
+import { MoreSheet } from './components/MoreSheet';
+import { type NavId, pathToNavId, navIdToPath, DEFAULT_NAV_ID, MORE_SHEET_IDS } from './lib/navigation';
+import { DASHBOARD_TABS } from './lib/dashboardTabs';
+import { TabGroup, type TabGroupItem } from './components/ui';
 import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
 import SunCalc from 'suncalc';
 import ReactMarkdown from 'react-markdown';
@@ -65,13 +70,14 @@ import { DataDashboard } from './components/DataDashboard';
 import { OnboardingFlow } from './components/Onboarding';
 import { PendingApprovalBanner } from './components/PendingApprovalBanner';
 import type { ChildProfile } from './pages/ProfilesPage';
+import { lazyWithReload } from './lib/lazyWithReload';
 // Route-level components are lazy-loaded to reduce initial bundle parse cost
-const CosmicReport = React.lazy(() => import('./components/CosmicReport').then(m => ({ default: m.CosmicReport })));
-const AIChatPage = React.lazy(() => import('./pages/AIChatPage'));
-const ProfilesPage = React.lazy(() => import('./pages/ProfilesPage'));
-const SudarshanaChakraPage = React.lazy(() => import('./pages/SudarshanaChakraPage'));
-const LandingPage = React.lazy(() => import('./pages/LandingPage'));
-const AdminPage = React.lazy(() => import('./pages/AdminPage'));
+const CosmicReport = lazyWithReload(() => import('./components/CosmicReport.tsx').then(m => ({ default: m.CosmicReport })));
+const AIChatPage = lazyWithReload(() => import('./pages/AIChatPage.tsx'));
+const ProfilesPage = lazyWithReload(() => import('./pages/ProfilesPage.tsx'));
+const SudarshanaChakraPage = lazyWithReload(() => import('./pages/SudarshanaChakraPage.tsx'));
+const LandingPage = lazyWithReload(() => import('./pages/LandingPage/index.tsx'));
+const AdminPage = lazyWithReload(() => import('./pages/AdminPage.tsx'));
 import { callGeminiProxy, withRetry, getErrorMessage } from './lib/api-utils';
 import { debugError, debugLog, debugWarn } from './lib/debug';
 import { APIErrorMessage } from './components/APIErrorMessage';
@@ -511,16 +517,11 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [activeTab, setActiveTab] = useState<'sky' | 'chart' | 'stats' | 'archives' | 'profile' | 'report' | 'chat' | 'profiles' | 'sudarshana' | 'admin'>(() => {
+  const [activeTab, setActiveTab] = useState<NavId>(() => {
     // Initialize from URL so the activeTab→URL effect doesn't redirect on first render
-    const p = window.location.pathname;
-    if (p === '/admin') return 'admin';
-    if (p === '/report') return 'report';
-    if (p === '/chat') return 'chat';
-    if (p === '/profiles') return 'profiles';
-    if (p === '/sudarshana') return 'sudarshana';
-    return 'sky';
+    return pathToNavId(window.location.pathname) ?? DEFAULT_NAV_ID;
   });
+  const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'transit' | 'natal'>('natal');
   const [isLive, setIsLive] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -542,37 +543,19 @@ export default function App() {
   const routerLocation = useLocation();
   const navigate = useNavigate();
 
-  // Sync URL with activeTab
+  // Sync URL with activeTab — every destination now has a canonical path
   useEffect(() => {
-    if (activeTab === 'report' && routerLocation.pathname !== '/report') {
-      navigate('/report');
-    } else if (activeTab === 'chat' && routerLocation.pathname !== '/chat') {
-      navigate('/chat');
-    } else if (activeTab === 'profiles' && routerLocation.pathname !== '/profiles') {
-      navigate('/profiles');
-    } else if (activeTab === 'sudarshana' && routerLocation.pathname !== '/sudarshana') {
-      navigate('/sudarshana');
-    } else if (activeTab === 'admin' && routerLocation.pathname !== '/admin') {
-      navigate('/admin');
-    } else if (activeTab !== 'report' && activeTab !== 'chat' && activeTab !== 'profiles' && activeTab !== 'sudarshana' && activeTab !== 'admin' && (routerLocation.pathname === '/report' || routerLocation.pathname === '/chat' || routerLocation.pathname === '/profiles' || routerLocation.pathname === '/sudarshana' || routerLocation.pathname === '/admin')) {
-      navigate('/');
+    const desiredPath = navIdToPath(activeTab);
+    if (routerLocation.pathname !== desiredPath) {
+      navigate(desiredPath);
     }
   }, [activeTab, navigate, routerLocation.pathname]);
 
-  // Sync activeTab with URL (handles initial load and back button)
+  // Sync activeTab with URL (handles initial load, deep links, and back button)
   useEffect(() => {
-    if (routerLocation.pathname === '/report') {
-      setActiveTab('report');
-    } else if (routerLocation.pathname === '/chat') {
-      setActiveTab('chat');
-    } else if (routerLocation.pathname === '/profiles') {
-      setActiveTab('profiles');
-    } else if (routerLocation.pathname === '/sudarshana') {
-      setActiveTab('sudarshana');
-    } else if (routerLocation.pathname === '/admin') {
-      setActiveTab('admin');
-    } else if ((activeTab === 'report' || activeTab === 'chat' || activeTab === 'profiles' || activeTab === 'sudarshana' || activeTab === 'admin') && routerLocation.pathname === '/') {
-      setActiveTab('sky');
+    const id = pathToNavId(routerLocation.pathname);
+    if (id && id !== activeTab) {
+      setActiveTab(id);
     }
   }, [routerLocation.pathname]);
 
@@ -735,6 +718,11 @@ export default function App() {
     }
   };
 
+  const switchToTransitMode = () => {
+    setViewMode('transit');
+    setIsBirthMode(false);
+  };
+
   const saveBirthDetails = async () => {
     // Never save when viewing a child profile — would corrupt the user's own birth data
     if (!user || !birthTime || !birthLocation || activeChildProfileId) return;
@@ -870,7 +858,7 @@ export default function App() {
     setIsBirthMode(true);
     setViewMode('natal');
     setDashboardTab('natal');
-    setActiveTab('stats');
+    setActiveTab('overview');
 
     if (user) {
       await updateDoc(doc(db, 'users', user.uid), { updatedAt: Timestamp.now() });
@@ -1610,7 +1598,7 @@ INTERPRETATION GUIDELINES:
           user={user}
           userProfile={userProfile}
           theme={theme}
-          onClose={() => setActiveTab('sky')}
+          onClose={() => setActiveTab('overview')}
         />
       </React.Suspense>
     );
@@ -1624,7 +1612,7 @@ INTERPRETATION GUIDELINES:
           user={user}
           userProfile={userProfile}
           birthFingerprint={birthFingerprint}
-          onClose={() => setActiveTab('sky')}
+          onClose={() => setActiveTab('overview')}
         />
       </React.Suspense>
     );
@@ -1646,7 +1634,7 @@ INTERPRETATION GUIDELINES:
             blueprint={birthSpecialPoints}
             ashtakavarga={natalAshtakavarga}
             theme={theme}
-            onClose={() => setActiveTab('sky')}
+            onClose={() => setActiveTab('overview')}
             transitPositions={transitPositions}
             transits={transits}
             birthFingerprint={birthFingerprint}
@@ -1671,7 +1659,7 @@ INTERPRETATION GUIDELINES:
           birthPanchang={birthPanchang}
           panchang={panchang}
           birthSpecialPoints={birthSpecialPoints}
-          onClose={() => setActiveTab('sky')}
+          onClose={() => setActiveTab('overview')}
         />
       </React.Suspense>
     );
@@ -1694,7 +1682,7 @@ INTERPRETATION GUIDELINES:
             onLoadProfile={loadChildProfile}
             onClearProfile={clearChildProfile}
             geocode={geocode}
-            onClose={() => setActiveTab('sky')}
+            onClose={() => setActiveTab('overview')}
           />
         </div>
       </React.Suspense>
@@ -1731,6 +1719,37 @@ INTERPRETATION GUIDELINES:
         isAdmin={userProfile?.role === 'admin'}
       />
 
+      <SectionNav activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {/* Row 3 — dashboard section tabs (desktop/tablet bar + mobile sheet menu) */}
+      {(activeTab === 'overview' || activeTab === 'stats') && (
+        <TabGroup
+          activeId={dashboardTab}
+          onChange={(id) => {
+            const tabDef = DASHBOARD_TABS.find((t) => t.id === id);
+            if (tabDef?.requiredMode && tabDef.requiredMode !== viewMode) {
+              if (tabDef.requiredMode === 'natal') {
+                handleAutoSelectNatal();
+              } else {
+                switchToTransitMode();
+              }
+            }
+            setDashboardTab(id as typeof dashboardTab);
+          }}
+          items={DASHBOARD_TABS.map((tab): TabGroupItem => ({
+            id: tab.id,
+            label: tab.label,
+            icon: tab.icon,
+            group: tab.group,
+            badge: tab.requiredMode && tab.requiredMode !== viewMode
+              ? (tab.requiredMode === 'natal'
+                  ? <Sparkles className="w-3 h-3 opacity-50" />
+                  : <Compass className="w-3 h-3 opacity-50" />)
+              : undefined,
+          }))}
+        />
+      )}
+
       <AnimatePresence>
         {apiError && (
           <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4">
@@ -1756,7 +1775,6 @@ INTERPRETATION GUIDELINES:
             <SkyMap
               chartType={chartType}
               setChartType={setChartType}
-              activeTab={activeTab}
               zoom={zoom}
               setZoom={setZoom}
               pan={pan}
@@ -1786,9 +1804,8 @@ INTERPRETATION GUIDELINES:
 
             {/* Right Panel: Data Dashboard */}
             <div className={cn(
-              "lg:col-span-5 flex flex-col min-h-0 border-t lg:border-t-0 transition-colors duration-500",
-              theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-200",
-              activeTab !== 'stats' ? "hidden lg:flex" : "flex"
+              "flex flex-col min-h-0 min-w-0 border-t lg:border-t-0 transition-colors duration-500 lg:col-span-6",
+              theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-200"
             )}>
               <DataDashboard
                 activeTab={dashboardTab}
@@ -1833,6 +1850,7 @@ INTERPRETATION GUIDELINES:
                 dateRange={dateRange}
                 setDateRange={setDateRange}
                 handleAutoSelectNatal={handleAutoSelectNatal}
+                switchToTransitMode={switchToTransitMode}
                 interpretTransit={interpretTransit}
                 interpretPrediction={interpretPrediction}
                 isYogasExpanded={isYogasExpanded}
@@ -1876,7 +1894,7 @@ INTERPRETATION GUIDELINES:
               profile={userProfile} 
               onSave={saveProfile} 
               onGeocode={geocode}
-              onClose={() => setActiveTab('sky')}
+              onClose={() => setActiveTab('overview')}
             />
           </div>
         )}
@@ -1966,12 +1984,22 @@ INTERPRETATION GUIDELINES:
 
       {/* Transit Interpretation Modal - Moved after profile logic or kept here if still useful */}
 
-      <MobileNavigation 
+      <MobileNavigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        setChartType={setChartType}
+        onMoreClick={() => setIsMoreSheetOpen(true)}
+        isMoreActive={MORE_SHEET_IDS.has(activeTab)}
       />
 
+      <MoreSheet
+        isOpen={isMoreSheetOpen}
+        onClose={() => setIsMoreSheetOpen(false)}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isAdmin={userProfile?.role === 'admin'}
+        user={user}
+        logout={logout}
+      />
 
     </div>
   );

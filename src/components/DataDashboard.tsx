@@ -15,6 +15,8 @@ import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getOrdinal } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
+import { Label, StatTile, TabGroup, type TabGroupItem } from './ui';
+import { DASHBOARD_TABS } from '../lib/dashboardTabs';
 import AIAssistant from './AIAssistant';
 import { DateRangePicker } from './DateRangePicker';
 import { db, updateDoc, doc } from '../firebase';
@@ -81,6 +83,7 @@ interface DataDashboardProps {
   ashtakavarga: any;
   viewMode: 'transit' | 'natal';
   handleAutoSelectNatal: () => void;
+  switchToTransitMode: () => void;
   interpretTransit: (transit: TransitEvent) => void;
   interpretPrediction: (prediction: TransitPrediction) => void;
   isYogasExpanded: boolean;
@@ -346,7 +349,7 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
     user, userProfile, setUserProfile, birthTime, setBirthTime, birthCity, setBirthCity, saveBirthDetails,
     isBirthMode, setIsBirthMode, editingChartId, setEditingChartId, positions, comparisonPositions, selectedZodiac, setSelectedZodiac,
     selectedPlanet, setSelectedPlanet, activePlanet, activePlanetDrishti, isConjunctWithNatal, natalPlanet,
-    yogas, transits, upcomingTransits, natalComparisons, panchang, birthPanchang, sunTimes, ashtakavarga, viewMode, handleAutoSelectNatal,
+    yogas, transits, upcomingTransits, natalComparisons, panchang, birthPanchang, sunTimes, ashtakavarga, viewMode, handleAutoSelectNatal, switchToTransitMode,
     interpretTransit, interpretPrediction, isYogasExpanded, setIsYogasExpanded, isTransitsExpanded, setIsTransitsExpanded,
     isUpcomingTransitsExpanded, setIsUpcomingTransitsExpanded, setMainTab, location, birthPositions, 
     rectifyTime, setRectifyTime, isRectifying, setIsRectifying, rectifiedPositions,
@@ -1102,47 +1105,42 @@ Respond ONLY with valid JSON (no markdown, no backticks):
         </div>
       )}
 
-      {/* Tabs */}
-      <div className={cn("flex overflow-x-auto no-scrollbar border-b z-20 backdrop-blur-md", theme === 'dark' ? "border-white/10 bg-black/40" : "border-slate-200 bg-white/80")}>
-        <div className="flex px-2 py-2 gap-1 min-w-max">
-          {[
-            { id: 'overview', label: 'Overview', icon: LayoutGrid },
-            { id: 'blueprint', label: 'Blueprint', icon: Compass, hidden: viewMode !== 'natal' },
-            { id: 'dashas', label: 'Dashas', icon: Zap, hidden: viewMode !== 'natal' },
-            { id: 'rectify', label: 'Rectify', icon: Edit, hidden: viewMode !== 'natal' },
-            { id: 'impacts', label: 'Impacts', icon: Activity, hidden: viewMode !== 'natal' },
-            { id: 'yogas', label: 'Yogas', icon: Sparkles, hidden: viewMode !== 'natal' },
-            {id: 'transits', label: 'Transits', icon: Activity, hidden: viewMode !== 'transit'},
-            { id: 'natal', label: 'Birth', icon: UserIcon, hidden: viewMode !== 'natal' },
-            { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, hidden: viewMode !== 'transit' },
-            { id: 'panchang', label: 'Panchang', icon: Clock },
-            { id: 'ashtakavarga', label: 'Ashtaka', icon: Grid, hidden: viewMode !== 'natal' },
-            { id: 'vargas', label: 'Vargas', icon: Layers, hidden: viewMode !== 'natal' },
-            { id: 'muhurta', label: 'Muhurta', icon: CheckCircle2, hidden: viewMode !== 'transit' },
-          ].filter(t => !t.hidden).map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={cn(
-                  "px-4 py-2 flex items-center gap-2 transition-all rounded-full whitespace-nowrap",
-                  isActive 
-                    ? (theme === 'dark' ? "bg-jyotish-gold/20 text-jyotish-gold" : "bg-orange-100 text-orange-600 font-medium") 
-                    : (theme === 'dark' ? "text-white/50 hover:text-white/80 hover:bg-white/5" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100")
-                )}
-              >
-                <Icon className={cn("w-4 h-4", isActive ? "scale-110" : "scale-100")} />
-                <span className="text-xs font-medium">{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+      {/* Dashboard tabs — wrapping rows on desktop/tablet, dropdown on mobile */}
+      <TabGroup
+        activeId={activeTab}
+        onChange={(id) => {
+          const tabDef = DASHBOARD_TABS.find((t) => t.id === id);
+          if (tabDef?.requiredMode && tabDef.requiredMode !== viewMode) {
+            if (tabDef.requiredMode === 'natal') {
+              handleAutoSelectNatal();
+            } else {
+              switchToTransitMode();
+            }
+          }
+          setActiveTab(id as any);
+        }}
+        items={DASHBOARD_TABS.map((tab): TabGroupItem => ({
+          id: tab.id,
+          label: tab.label,
+          icon: tab.icon,
+          group: tab.group,
+          badge: tab.requiredMode && tab.requiredMode !== viewMode
+            ? (tab.requiredMode === 'natal' ? <Sparkles className="w-3 h-3 opacity-50" /> : <Compass className="w-3 h-3 opacity-50" />)
+            : undefined,
+        }))}
+      />
+
+      {/* Mode banner — makes the current Natal/Transit context explicit */}
+      <div className={cn("px-4 py-1.5 border-b", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
+        <Label muted>
+          {viewMode === 'natal'
+            ? `Natal mode — birth chart for ${userProfile?.name || 'you'}`
+            : 'Transit mode — the current sky'}
+        </Label>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-4">
         {dashboardError && (
           <APIErrorMessage 
             error={dashboardError.error}
@@ -1161,33 +1159,35 @@ Respond ONLY with valid JSON (no markdown, no backticks):
             {/* Summary Cards */}
             <div className="grid grid-cols-2 gap-3">
               {(viewMode === 'natal' ? birthPanchang : panchang) && (
-                <div className={cn("p-3 rounded-2xl border flex flex-col justify-between", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-white border-slate-100 shadow-sm")}>
-                  <div className={cn("text-[8px] uppercase tracking-widest font-mono mb-1", theme === 'dark' ? "text-white/40" : "text-slate-500")}>
-                    {viewMode === 'natal' ? 'Birth Tithi' : 'Current Tithi'}
-                  </div>
-                  <div className="text-sm font-bold text-jyotish-gold truncate">
-                    {(viewMode === 'natal' ? birthPanchang : panchang)!.tithi.name}
-                  </div>
-                </div>
+                <StatTile
+                  label={viewMode === 'natal' ? 'Birth Tithi' : 'Current Tithi'}
+                  value={<span className="text-jyotish-gold truncate block">{(viewMode === 'natal' ? birthPanchang : panchang)!.tithi.name}</span>}
+                />
               )}
               {isBirthMode && currentTarabala && (
-                <div className={cn("p-3 rounded-2xl border flex flex-col justify-between", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-white border-slate-100 shadow-sm")}>
-                  <div className={cn("text-[8px] uppercase tracking-widest font-mono mb-1", theme === 'dark' ? "text-white/40" : "text-slate-500")}>Your Energy</div>
-                  <div className={cn("text-sm font-bold truncate", currentTarabala.score >= 80 ? "text-green-500" : "text-jyotish-gold")}>
-                    {currentTarabala.name}
-                  </div>
-                </div>
+                <StatTile
+                  label="Your Energy"
+                  value={
+                    <span className={cn("truncate block", currentTarabala.score >= 80 ? "text-green-500" : "text-jyotish-gold")}>
+                      {currentTarabala.name}
+                    </span>
+                  }
+                />
               )}
               {(() => {
                 const bb = positions.find(p => p.name === "Bhrigu Bindu");
                 if (!bb) return null;
                 return (
-                  <div className={cn("p-3 rounded-2xl border flex flex-col justify-between col-span-2", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-white border-slate-100 shadow-sm")}>
-                    <div className={cn("text-[8px] uppercase tracking-widest font-mono mb-1", theme === 'dark' ? "text-white/40" : "text-slate-500")}>Bhrigu Bindu (Destiny Point)</div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-bold text-orange-400">{bb.degree}° {bb.rashi}</div>
-                      <div className={cn("text-[10px] font-mono", theme === 'dark' ? "text-white/30" : "text-slate-400")}>{bb.nakshatra}</div>
-                    </div>
+                  <div className="col-span-2">
+                    <StatTile
+                      label="Bhrigu Bindu (Destiny Point)"
+                      value={
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-orange-400">{bb.degree}° {bb.rashi}</span>
+                          <span className={cn("text-caption font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>{bb.nakshatra}</span>
+                        </div>
+                      }
+                    />
                   </div>
                 );
               })()}
@@ -1324,8 +1324,8 @@ Respond ONLY with valid JSON (no markdown, no backticks):
             {/* Planet List */}
             <div className="space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <div className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-500")}>Planetary Positions</div>
-                <div className="text-[10px] text-jyotish-gold uppercase tracking-widest font-mono">Sidereal (Lahiri)</div>
+                <Label>Planetary Positions</Label>
+                <Label muted={false} className="text-jyotish-gold">Sidereal (Lahiri)</Label>
               </div>
               <div className="grid grid-cols-1 gap-2.5">
                 {positions.map((p, idx) => {
@@ -1750,7 +1750,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                 <Grid className="w-3 h-3" /> Bhinnashtakavarga (BAV)
               </div>
               
-              <div className="flex gap-1 overflow-x-auto pb-2 custom-scrollbar">
+              <div className="flex flex-wrap gap-1">
                 {["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"].map(planet => (
                   <button
                     key={planet}
@@ -1925,41 +1925,77 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                   <div className={cn("text-[10px] uppercase tracking-widest font-mono mb-4 flex items-center gap-2", theme === 'dark' ? "text-jyotish-gold/60" : "text-slate-400")}>
                     <Sparkles className="w-3 h-3" /> Planet Positions at Birth
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className={cn("border-b", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
-                          {["Planet", "Rashi", "Nakshatra", "House", "Deg", "Status"].map(h => (
-                            <th key={h} className={cn("pb-2 text-left text-[9px] uppercase tracking-widest font-mono font-medium", theme === 'dark' ? "text-white/30" : "text-slate-400")}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.03]">
-                        {birthPositions.map((p, i) => {
-                          const status = p.isRetrograde ? 'R' : p.dignity === 'exalted' ? 'Exalt' : p.dignity === 'debilitated' ? 'Debil' : p.dignity === 'moolatrikona' ? 'MT' : p.dignity === 'own' ? 'Own' : '';
-                          const statusColor = p.isRetrograde ? 'text-amber-400' : p.dignity === 'exalted' ? 'text-green-400' : p.dignity === 'debilitated' ? 'text-red-400' : p.dignity === 'moolatrikona' ? 'text-blue-400' : p.dignity === 'own' ? 'text-jyotish-gold' : theme === 'dark' ? 'text-white/20' : 'text-slate-300';
-                          return (
-                            <tr key={i} className={cn("transition-colors", theme === 'dark' ? "hover:bg-white/[0.02]" : "hover:bg-slate-50")}>
-                              <td className="py-2 pr-3 font-medium">
-                                <span className="flex items-center gap-1.5">
-                                  <span className="text-sm">{PLANET_GLYPHS[p.name] || ''}</span>
-                                  <span className={theme === 'dark' ? "text-white/80" : "text-slate-700"}>{p.name}</span>
+                  {(() => {
+                    const statusOf = (p: PlanetPosition) => p.isRetrograde ? 'R' : p.dignity === 'exalted' ? 'Exalt' : p.dignity === 'debilitated' ? 'Debil' : p.dignity === 'moolatrikona' ? 'MT' : p.dignity === 'own' ? 'Own' : '';
+                    const statusColorOf = (p: PlanetPosition) => p.isRetrograde ? 'text-amber-400' : p.dignity === 'exalted' ? 'text-green-400' : p.dignity === 'debilitated' ? 'text-red-400' : p.dignity === 'moolatrikona' ? 'text-blue-400' : p.dignity === 'own' ? 'text-jyotish-gold' : theme === 'dark' ? 'text-white/20' : 'text-slate-300';
+                    return (
+                      <>
+                        {/* Mobile: stacked cards (no horizontal scroll) */}
+                        <div className="md:hidden space-y-2">
+                          {birthPositions.map((p, i) => (
+                            <div key={i} className={cn("rounded-xl border p-3 flex flex-col gap-2 min-w-0", theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-100")}>
+                              <div className="flex items-center justify-between gap-2 min-w-0">
+                                <span className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-sm shrink-0">{PLANET_GLYPHS[p.name] || ''}</span>
+                                  <span className={cn("font-medium truncate", theme === 'dark' ? "text-white/80" : "text-slate-700")}>{p.name}</span>
                                 </span>
-                              </td>
-                              <td className={cn("py-2 pr-3", theme === 'dark' ? "text-white/70" : "text-slate-600")}>{p.rashi}</td>
-                              <td className={cn("py-2 pr-3 text-[10px]", theme === 'dark' ? "text-white/50" : "text-slate-500")}>
-                                {p.nakshatra}
-                                <span className={cn("ml-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-orange-400")}>P{p.pada}</span>
-                              </td>
-                              <td className={cn("py-2 pr-3 font-mono", theme === 'dark' ? "text-white/60" : "text-slate-500")}>{p.house}</td>
-                              <td className={cn("py-2 pr-3 font-mono text-[10px]", theme === 'dark' ? "text-white/50" : "text-slate-400")}>{p.degree}°{p.minute}'</td>
-                              <td className={cn("py-2 text-[10px] font-bold", statusColor)}>{status || '—'}</td>
+                                <span className={cn("text-[10px] font-bold shrink-0", statusColorOf(p))}>{statusOf(p) || '—'}</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] min-w-0">
+                                <div className="flex justify-between gap-2 min-w-0">
+                                  <span className={theme === 'dark' ? "text-white/30" : "text-slate-400"}>Rashi</span>
+                                  <span className={cn("truncate text-right", theme === 'dark' ? "text-white/70" : "text-slate-600")}>{p.rashi}</span>
+                                </div>
+                                <div className="flex justify-between gap-2 min-w-0">
+                                  <span className={theme === 'dark' ? "text-white/30" : "text-slate-400"}>House</span>
+                                  <span className={cn("font-mono", theme === 'dark' ? "text-white/60" : "text-slate-500")}>{p.house}</span>
+                                </div>
+                                <div className="flex justify-between gap-2 min-w-0 col-span-2">
+                                  <span className={theme === 'dark' ? "text-white/30" : "text-slate-400"}>Nakshatra</span>
+                                  <span className={cn("truncate text-right", theme === 'dark' ? "text-white/50" : "text-slate-500")}>{p.nakshatra} <span className={theme === 'dark' ? "text-jyotish-gold/40" : "text-orange-400"}>P{p.pada}</span></span>
+                                </div>
+                                <div className="flex justify-between gap-2 min-w-0">
+                                  <span className={theme === 'dark' ? "text-white/30" : "text-slate-400"}>Degree</span>
+                                  <span className={cn("font-mono", theme === 'dark' ? "text-white/50" : "text-slate-400")}>{p.degree}°{p.minute}'</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Desktop: table */}
+                        <table className="hidden md:table w-full text-xs">
+                          <thead>
+                            <tr className={cn("border-b", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
+                              {["Planet", "Rashi", "Nakshatra", "House", "Deg", "Status"].map(h => (
+                                <th key={h} className={cn("pb-2 text-left text-[9px] uppercase tracking-widest font-mono font-medium", theme === 'dark' ? "text-white/30" : "text-slate-400")}>{h}</th>
+                              ))}
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                          </thead>
+                          <tbody className="divide-y divide-white/[0.03]">
+                            {birthPositions.map((p, i) => (
+                              <tr key={i} className={cn("transition-colors", theme === 'dark' ? "hover:bg-white/[0.02]" : "hover:bg-slate-50")}>
+                                <td className="py-2 pr-3 font-medium">
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="text-sm">{PLANET_GLYPHS[p.name] || ''}</span>
+                                    <span className={theme === 'dark' ? "text-white/80" : "text-slate-700"}>{p.name}</span>
+                                  </span>
+                                </td>
+                                <td className={cn("py-2 pr-3", theme === 'dark' ? "text-white/70" : "text-slate-600")}>{p.rashi}</td>
+                                <td className={cn("py-2 pr-3 text-[10px]", theme === 'dark' ? "text-white/50" : "text-slate-500")}>
+                                  {p.nakshatra}
+                                  <span className={cn("ml-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-orange-400")}>P{p.pada}</span>
+                                </td>
+                                <td className={cn("py-2 pr-3 font-mono", theme === 'dark' ? "text-white/60" : "text-slate-500")}>{p.house}</td>
+                                <td className={cn("py-2 pr-3 font-mono text-[10px]", theme === 'dark' ? "text-white/50" : "text-slate-400")}>{p.degree}°{p.minute}'</td>
+                                <td className={cn("py-2 text-[10px] font-bold", statusColorOf(p))}>{statusOf(p) || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    );
+                  })()}
                 </div>
               </motion.div>
             )}
@@ -2628,7 +2664,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
           <div className="space-y-4">
             {/* Filters */}
             <div className={cn("p-4 rounded-2xl border flex flex-col gap-4", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-white border-slate-100 shadow-sm")}>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={cn("block text-[10px] font-mono uppercase tracking-widest mb-2", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Filter by Planet</label>
                   <select 
@@ -2716,7 +2752,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
           <div className="space-y-3 pb-20">
             {/* Filters */}
             <div className={cn("p-4 rounded-2xl border flex flex-col gap-4 mb-4", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-white border-slate-100 shadow-sm")}>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={cn("block text-[10px] font-mono uppercase tracking-widest mb-2", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Filter by Planet</label>
                   <select 
@@ -3052,7 +3088,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                   </div>
 
                   {/* Synthesis Meters */}
-                  <div className="grid grid-cols-2 gap-4 mb-6 relative z-10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 relative z-10">
                     <div className="space-y-2">
                        <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-widest opacity-40">
                           <span>Cosmic Weather</span>
@@ -3729,54 +3765,55 @@ const RectifySection: React.FC<{
   );
 };
 
-const BlueprintTableRow: React.FC<{ 
-  name: string; 
-  sign: number; 
-  degree: number; 
-  meaning: string; 
+const BlueprintCard: React.FC<{
+  name: string;
+  sign: number;
+  degree: number;
+  meaning: string;
   tags?: { label: string; type: 'success' | 'neutral' | 'warning' }[];
   planet?: string;
 }> = ({ name, sign, degree, meaning, tags, planet }) => {
   const { theme } = useTheme();
   const RASHIS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
   return (
-    <tr className={cn("border-b transition-colors hover:bg-white/[0.04]", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
-      <td className="py-6 px-6 align-top">
-        <div className="font-serif font-bold text-lg text-jyotish-gold leading-tight flex items-center gap-2">
-          <PlanetGlyph name={name} className="text-jyotish-gold/60" />
-          {name}
+    <div className={cn(
+      "rounded-2xl border p-4 flex flex-col gap-3 min-w-0 transition-colors duration-500",
+      theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-white border-slate-200 shadow-sm"
+    )}>
+      <div className="flex items-start justify-between gap-2 min-w-0">
+        <div className="min-w-0">
+          <div className="font-serif font-bold text-base sm:text-lg text-jyotish-gold leading-tight flex items-center gap-2 min-w-0">
+            <PlanetGlyph name={name} className="text-jyotish-gold/60 shrink-0" />
+            <span className="truncate">{name}</span>
+          </div>
+          {planet && (
+            <div className={cn("text-sm font-bold mt-1 tracking-wide flex items-center gap-1.5", theme === 'dark' ? "text-white/80" : "text-slate-700")}>
+              <PlanetGlyph name={planet} className="scale-75 opacity-70 shrink-0" />
+              <span className="truncate">{planet}</span>
+            </div>
+          )}
         </div>
-        {planet && (
-          <div className="text-sm font-bold text-white/80 mt-1 tracking-wide flex items-center gap-1.5">
-            <PlanetGlyph name={planet} className="scale-75 opacity-70" />
-            {planet}
+        {tags && tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 justify-end shrink-0">
+            {tags.map((tag, i) => (
+              <span key={i} className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap",
+                tag.type === 'success' ? "bg-green-500/10 text-green-500 border border-green-500/20" :
+                tag.type === 'warning' ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" :
+                theme === 'dark' ? "bg-white/5 text-white/40 border border-white/10" : "bg-slate-100 text-slate-500 border border-slate-200")}>
+                {tag.label}
+              </span>
+            ))}
           </div>
         )}
-      </td>
-      <td className="py-6 px-6 align-top">
-        <div className="flex flex-col">
-          <span className={cn("inline-flex w-fit px-2.5 py-1 rounded-lg text-xs font-mono font-bold mb-1.5 shadow-sm", theme === 'dark' ? "bg-jyotish-gold/20 text-jyotish-gold" : "bg-orange-100 text-orange-600")}>
-            {RASHIS[sign - 1]}
-          </span>
-          <span className="text-[12px] font-mono text-white/60">{degree.toFixed(2)}°</span>
-        </div>
-      </td>
-      <td className="py-6 px-6 align-top">
-        <p className="text-[13px] leading-relaxed text-white/70 max-w-sm">{meaning}</p>
-      </td>
-      <td className="py-6 px-6 align-top text-right">
-        <div className="flex flex-wrap gap-2 justify-end">
-          {tags?.map((tag, i) => (
-            <span key={i} className={cn("px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0", 
-              tag.type === 'success' ? "bg-green-500/10 text-green-500 border border-green-500/20" : 
-              tag.type === 'warning' ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" :
-              "bg-white/5 text-white/40 border border-white/10")}>
-              {tag.label}
-            </span>
-          ))}
-        </div>
-      </td>
-    </tr>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className={cn("inline-flex px-2.5 py-1 rounded-lg text-xs font-mono font-bold shadow-sm", theme === 'dark' ? "bg-jyotish-gold/20 text-jyotish-gold" : "bg-orange-100 text-orange-600")}>
+          {RASHIS[sign - 1]}
+        </span>
+        <span className={cn("text-[12px] font-mono", theme === 'dark' ? "text-white/60" : "text-slate-500")}>{degree.toFixed(2)}°</span>
+      </div>
+      <p className={cn("text-[13px] leading-relaxed break-words", theme === 'dark' ? "text-white/70" : "text-slate-600")}>{meaning}</p>
+    </div>
   );
 };
 
@@ -3797,25 +3834,14 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
-      <div className={cn("rounded-3xl border overflow-hidden", theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-100 shadow-xl")}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[700px]">
-            <thead>
-              <tr className={cn("border-b", theme === 'dark' ? "border-white/10 bg-white/[0.04]" : "border-slate-100 bg-slate-50")}>
-                <th className="py-5 px-6 text-[11px] font-bold uppercase tracking-[0.2em] text-white/60">Point</th>
-                <th className="py-5 px-6 text-[11px] font-bold uppercase tracking-[0.2em] text-white/60">Placement</th>
-                <th className="py-5 px-6 text-[11px] font-bold uppercase tracking-[0.2em] text-white/60">Significance</th>
-                <th className="py-5 px-6 text-right text-[11px] font-bold uppercase tracking-[0.2em] text-white/60">Status</th>
-              </tr>
-            </thead>
-            <tbody>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Chara Karakas */}
               {charaKarakas.map((ck) => {
                 const planetName = result.charakarakas[ck.key];
                 const pos = birthPositions?.find(p => p.name === planetName);
                 if (!pos) return null;
                 return (
-                  <BlueprintTableRow 
+                  <BlueprintCard 
                     key={ck.key}
                     name={ck.label}
                     planet={planetName}
@@ -3827,34 +3853,34 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
               })}
 
               {/* Special Lagnas */}
-              <BlueprintTableRow 
+              <BlueprintCard 
                 name="Ghati Lagna"
                 sign={result.ghatiLagna.ghatiLagnaSignNumber}
                 degree={result.ghatiLagna.ghatiLagnaDegree}
                 meaning="Power, authority, and professional influence."
                 tags={[{ label: result.ghatiLagna.isDayBirth ? 'Day Birth' : 'Night Birth', type: 'neutral' }]}
               />
-              <BlueprintTableRow 
+              <BlueprintCard 
                 name="Hora Lagna"
                 sign={result.horaLagna.horaLagnaSignNumber}
                 degree={result.horaLagna.horaLagnaDegree}
                 meaning="Wealth potential, financial status, and prosperity."
                 tags={[{ label: result.horaLagna.isDayBirth ? 'Day Birth' : 'Night Birth', type: 'neutral' }]}
               />
-              <BlueprintTableRow 
+              <BlueprintCard 
                 name="Bhava Lagna"
                 sign={result.bhavaLagna.bhavaLagnaSignNumber}
                 degree={result.bhavaLagna.bhavaLagnaDegree}
                 meaning="Physical body and life circumstances."
               />
-              <BlueprintTableRow 
+              <BlueprintCard 
                 name="Pranapada Lagna"
                 sign={result.pranapada.pranapadalagnaSignNumber}
                 degree={result.pranapada.pranapadalagnaDegree}
                 meaning="Auspiciousness of birth and overall life vitality."
                 tags={[{ label: result.pranapada.isFortunate ? 'Fortunate' : 'Neutral', type: result.pranapada.isFortunate ? 'success' : 'neutral' }]}
               />
-              <BlueprintTableRow 
+              <BlueprintCard 
                 name="Sree Lagna"
                 sign={result.sreeLagna.signNumber}
                 degree={0}
@@ -3862,14 +3888,14 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
               />
 
               {/* Arudha Lagnas */}
-              <BlueprintTableRow 
+              <BlueprintCard 
                 name="Arudha Lagna"
                 sign={result.arudhaLagna.signNumber}
                 degree={0}
                 meaning="Social image, status, and how the world perceives you."
                 tags={[{ label: 'AL', type: 'neutral' }]}
               />
-              <BlueprintTableRow 
+              <BlueprintCard 
                 name="Upapada Lagna"
                 sign={result.upapadaLagna.signNumber}
                 degree={0}
@@ -3880,14 +3906,14 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
               {/* Kaal Velas */}
               {result.kaalVelas && (
                 <>
-                  <BlueprintTableRow 
+                  <BlueprintCard 
                     name="Gulika"
                     sign={result.kaalVelas.gulika.signNumber}
                     degree={0}
                     meaning="Point of deep karmic entanglement for the house it occupies."
                     tags={[{ label: 'Severe Malefic', type: 'warning' }]}
                   />
-                  <BlueprintTableRow 
+                  <BlueprintCard 
                     name="Maandi"
                     sign={result.kaalVelas.maandi.signNumber}
                     degree={0}
@@ -3898,14 +3924,14 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
               )}
 
               {/* Sphutas */}
-              <BlueprintTableRow 
+              <BlueprintCard 
                 name="Beeja Sphuta"
                 sign={result.beejaSphuata.signNumber}
                 degree={result.beejaSphuata.degree}
                 meaning="Fertility and creative vitality (Male / Solar seed)."
                 tags={[{ label: result.beejaSphuata.isAuspicious ? 'Strong' : 'Weak', type: result.beejaSphuata.isAuspicious ? 'success' : 'neutral' }]}
               />
-              <BlueprintTableRow 
+              <BlueprintCard 
                 name="Ksheetra Sphuta"
                 sign={result.kshetraSphuta.signNumber}
                 degree={result.kshetraSphuta.degree}
@@ -3914,18 +3940,15 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
               />
 
               {/* Midpoints */}
-              <BlueprintTableRow 
+              <BlueprintCard 
                 name="Bhrigu Bindu"
                 sign={result.bhriguBindu.signNumber}
                 degree={result.bhriguBindu.degree}
                 meaning="Highly sensitive karmic focal point between Moon and Rahu."
                 tags={[{ label: 'Destiny Hub', type: 'success' }]}
               />
-            </tbody>
-          </table>
-        </div>
       </div>
-      
+
       {/* Dhooma Chain - Still nice in grid for "Non-Luminous" vibe, or I can add to table */}
       <div className={cn("p-6 rounded-3xl border mt-6", theme === 'dark' ? "bg-white/[0.01] border-white/5" : "bg-slate-50 border-slate-100")}>
         <div className="flex items-center gap-2 mb-4">

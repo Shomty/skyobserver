@@ -1,14 +1,15 @@
-import {StrictMode, lazy, Suspense} from 'react';
+import {StrictMode, Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
 import {ThemeProvider} from './context/ThemeContext.tsx';
-import {BrowserRouter, Routes, Route} from 'react-router-dom';
+import {BrowserRouter, Routes, Route, useLocation} from 'react-router-dom';
 import {ErrorBoundary} from './components/ErrorBoundary.tsx';
-
-const SharedChatPage = lazy(() => import('./pages/SharedChatPage.tsx'));
+import {lazyWithReload} from './lib/lazyWithReload.ts';
 import {debugLog, installDebugConsole, isDebugEnabled} from './lib/debug.ts';
+
+const SharedChatPage = lazyWithReload(() => import('./pages/SharedChatPage.tsx'));
 
 // Suppress benign Vite HMR noise only in development.
 if (typeof window !== 'undefined') {
@@ -53,24 +54,32 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
   };
 }
 
+/** Keeps the root ErrorBoundary from sticking after a failed lazy route load. */
+function RoutedApp() {
+  const { pathname } = useLocation();
+  return (
+    <ErrorBoundary resetKey={pathname}>
+      <Routes>
+        <Route
+          path="/shared/:shareId"
+          element={
+            <Suspense fallback={null}>
+              <SharedChatPage />
+            </Suspense>
+          }
+        />
+        <Route path="*" element={<App />} />
+      </Routes>
+    </ErrorBoundary>
+  );
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ErrorBoundary>
-      <ThemeProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route
-              path="/shared/:shareId"
-              element={
-                <Suspense fallback={null}>
-                  <SharedChatPage />
-                </Suspense>
-              }
-            />
-            <Route path="*" element={<App />} />
-          </Routes>
-        </BrowserRouter>
-      </ThemeProvider>
-    </ErrorBoundary>
+    <ThemeProvider>
+      <BrowserRouter>
+        <RoutedApp />
+      </BrowserRouter>
+    </ThemeProvider>
   </StrictMode>,
 );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlanetPosition, RASHIS, isConjunct, calculateDrishti, Drishti } from '../vedic-utils';
+import { PlanetPosition, RASHIS, isConjunct, calculateDrishti, Drishti, NAKSHATRAS, NAKSHATRA_DATA } from '../vedic-utils';
 import { cn, getOrdinal } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
 import { motion } from 'motion/react';
@@ -54,6 +54,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
 }) => {
   const { theme } = useTheme();
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const [hoveredNakshatraIdx, setHoveredNakshatraIdx] = React.useState<number | null>(null);
 
   const selectedPlanetDrishti = React.useMemo(() => {
     if (!selectedPlanet) return null;
@@ -63,10 +64,27 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
   // Find the Ascendant to determine the starting Rashi for the 1st House
   // We use the primary positions' ascendant as the base for the houses
   const activeAscendant = positions.find(p => p.name === "Ascendant");
-  
+
   if (!activeAscendant) return <div className={cn("italic", theme === 'dark' ? "text-white/20" : "text-slate-400")}>Calculating chart...</div>;
 
   const startRashiIdx = RASHIS.indexOf(activeAscendant.rashi);
+
+  // Centroids for the 27 nakshatra ring sectors, used for both rendering and the hover tooltip position
+  const nakshatraSegments = React.useMemo(() => {
+    const cx = 200, cy = 200, rLabel = 236;
+    const nakSize = 360 / 27;
+    const baseLon = startRashiIdx * 30;
+
+    return NAKSHATRAS.map((name, i) => {
+      const startLon = i * nakSize;
+      const aMid = (-90 - (startLon + nakSize / 2 - baseLon)) * Math.PI / 180;
+      return {
+        name,
+        lx: cx + rLabel * Math.cos(aMid),
+        ly: cy + rLabel * Math.sin(aMid),
+      };
+    });
+  }, [startRashiIdx]);
 
   // Helper to get Rashi index for a house (1-indexed)
   const getRashiForHouse = (houseNum: number) => {
@@ -93,7 +111,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
     list.sort((a, b) => (a.degree * 60 + a.minute) - (b.degree * 60 + b.minute));
   });
 
-  if (isBirthMode && comparisonPositions) {
+  if (isBirthMode && viewMode !== 'natal' && comparisonPositions) {
     comparisonPositions.forEach(p => {
       const house = getHouseForRashi(RASHIS.indexOf(p.rashi));
       if (!comparisonPlanetsInHouses[house]) comparisonPlanetsInHouses[house] = [];
@@ -281,7 +299,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
                   })}
                   
                   {/* Comparison Planets */}
-                  {isBirthMode && comparisonPlanets.map((p, idx) => {
+                  {isBirthMode && viewMode !== 'natal' && comparisonPlanets.map((p, idx) => {
                     const isPlanetHighlighted = hoveredPlanetName === p.name || hoveredHouse === house.id;
                     const isAsc = p.name === "Ascendant";
                     const label = viewMode === 'transit' ? 'N' : 'T';
@@ -345,14 +363,14 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
           const baseLon = startRashiIdx * 30;
 
           return (
-            <g className="pointer-events-none">
-              <circle cx={cx} cy={cy} r={r1} fill="none" stroke={theme === 'dark' ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"} strokeWidth="0.5" />
-              <circle cx={cx} cy={cy} r={r2} fill="none" stroke={theme === 'dark' ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"} strokeWidth="0.5" />
+            <g>
+              <circle cx={cx} cy={cy} r={r1} fill="none" stroke={theme === 'dark' ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"} strokeWidth="0.5" className="pointer-events-none" />
+              <circle cx={cx} cy={cy} r={r2} fill="none" stroke={theme === 'dark' ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"} strokeWidth="0.5" className="pointer-events-none" />
               {Array.from({ length: 27 }).map((_, i) => {
+                const isHovered = hoveredNakshatraIdx === i;
                 const startLon = i * nakSize;
                 const a1 = (-90 - (startLon - baseLon)) * Math.PI / 180;
                 const a2 = (-90 - (startLon + nakSize - baseLon)) * Math.PI / 180;
-                const aMid = (-90 - (startLon + nakSize / 2 - baseLon)) * Math.PI / 180;
 
                 const ix1 = cx + r1 * Math.cos(a1), iy1 = cy + r1 * Math.sin(a1);
                 const ix2 = cx + r1 * Math.cos(a2), iy2 = cy + r1 * Math.sin(a2);
@@ -364,18 +382,22 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
                 const tx1 = cx + rTick1 * Math.cos(a1), ty1 = cy + rTick1 * Math.sin(a1);
                 const tx2 = cx + rTick2 * Math.cos(a1), ty2 = cy + rTick2 * Math.sin(a1);
 
-                const lx = cx + rLabel * Math.cos(aMid);
-                const ly = cy + rLabel * Math.sin(aMid);
+                const { lx, ly } = nakshatraSegments[i];
 
                 return (
-                  <g key={`nak-ring-${i}`}>
+                  <g key={`nak-ring-${i}`} className="pointer-events-none">
                     <path
                       d={d}
-                      fill={i % 2 === 0
-                        ? (theme === 'dark' ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)")
-                        : "transparent"}
-                      stroke={theme === 'dark' ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)"}
-                      strokeWidth="0.3"
+                      fill={isHovered
+                        ? (theme === 'dark' ? "rgba(249,115,22,0.18)" : "rgba(249,115,22,0.12)")
+                        : i % 2 === 0
+                          ? (theme === 'dark' ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)")
+                          : "transparent"}
+                      stroke={isHovered ? "rgba(249,115,22,0.6)" : (theme === 'dark' ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)")}
+                      strokeWidth={isHovered ? "1" : "0.3"}
+                      className="pointer-events-auto cursor-pointer transition-all duration-200"
+                      onMouseEnter={() => setHoveredNakshatraIdx(i)}
+                      onMouseLeave={() => setHoveredNakshatraIdx(null)}
                     />
                     <line
                       x1={tx1} y1={ty1} x2={tx2} y2={ty2}
@@ -388,7 +410,8 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
                       dominantBaseline="middle"
                       fontSize="8"
                       fontFamily="monospace"
-                      fill={theme === 'dark' ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)"}
+                      fill={isHovered ? "#f97316" : (theme === 'dark' ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)")}
+                      fontWeight={isHovered ? "bold" : "normal"}
                     >
                       {NAKSHATRA_ABBREVS[i]}
                     </text>
@@ -518,11 +541,43 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
       </svg>
     </motion.div>
 
+      {/* Nakshatra Hover Tooltip */}
+      {hoveredNakshatraIdx !== null && (() => {
+        const seg = nakshatraSegments[hoveredNakshatraIdx];
+        const data = NAKSHATRA_DATA[seg.name];
+        if (!data) return null;
+
+        const percentX = Math.min(88, Math.max(12, ((seg.lx + 50) / 500) * 100));
+        const percentY = Math.min(88, Math.max(12, ((seg.ly + 50) / 500) * 100));
+
+        return (
+          <div
+            className={cn(
+              "absolute z-20 pointer-events-none w-44 p-3 rounded-xl border shadow-2xl backdrop-blur-md",
+              theme === 'dark' ? "bg-black/85 border-white/10 text-white" : "bg-white/95 border-slate-200 text-slate-900"
+            )}
+            style={{ left: `${percentX}%`, top: `${percentY}%`, transform: 'translate(-50%, -50%)' }}
+          >
+            <div className="text-[11px] font-bold uppercase tracking-wide text-orange-500">{seg.name}</div>
+            <div className={cn("mt-1 space-y-0.5 text-[9px] font-mono", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
+              <div><span className="opacity-60">Lord:</span> {data.lord}</div>
+              <div><span className="opacity-60">Deity:</span> {data.deity}</div>
+              <div><span className="opacity-60">Symbol:</span> {data.symbol}</div>
+            </div>
+            <div className={cn("mt-1.5 text-[9px] leading-snug", theme === 'dark' ? "text-white/60" : "text-slate-500")}>
+              {data.characteristics}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Legend */}
       <div className="absolute bottom-2 left-4 flex gap-4">
-        <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
-          <div className="w-2 h-2 rounded bg-orange-500/20 border border-orange-500/40" /> Transit
-        </div>
+        {(!isBirthMode || viewMode !== 'natal') && (
+          <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+            <div className="w-2 h-2 rounded bg-orange-500/20 border border-orange-500/40" /> Transit
+          </div>
+        )}
         {isBirthMode && (
           <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
             <div className="w-2 h-2 rounded-full border border-orange-500/40" /> Natal
