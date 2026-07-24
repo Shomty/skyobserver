@@ -6,6 +6,7 @@ import NorthIndianChart from './NorthIndianChart';
 import { PlanetPosition, RASHIS, calculateDrishti, Drishti, getDignityInterpretation, getRashiLord, HOUSE_DATA, getPlanetInHouseInterpretation, NAKSHATRA_DATA } from '../vedic-utils';
 import { Sparkles } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import type { NavId } from '../lib/navigation';
 
 function useContinuousAngle(targetAngle: number) {
   const prevTargetRef = useRef(targetAngle);
@@ -243,6 +244,7 @@ const PlanetMarker: React.FC<PlanetMarkerProps> = React.memo(({ p, mapOffset, se
 interface SkyMapProps {
   chartType: 'circle' | 'north-indian';
   setChartType: (type: 'circle' | 'north-indian') => void;
+  activeTab?: NavId;
   zoom: number;
   setZoom: React.Dispatch<React.SetStateAction<number>>;
   pan: { x: number, y: number };
@@ -273,6 +275,7 @@ interface SkyMapProps {
 export const SkyMap: React.FC<SkyMapProps> = ({
   chartType,
   setChartType,
+  activeTab = 'overview',
   zoom,
   setZoom,
   pan,
@@ -347,78 +350,61 @@ export const SkyMap: React.FC<SkyMapProps> = ({
       ref={rootRef}
       className={cn(
       "flex flex-col relative border-b lg:border-r lg:border-b-0 w-full min-h-0 min-w-0 overflow-hidden transition-colors duration-500 lg:col-span-6",
-      // Mobile NI: claim the fold so only My Chart fits below (planets require scroll).
-      // Reserve: header (~3.75rem) + tab dropdown (~3.75rem) + bottom nav (~3.75rem) + My Chart row (~5rem).
+      // Hide on mobile when Insights is active; always show on lg+ dual pane
+      activeTab === 'stats' ? "hidden lg:flex" : "flex",
+      // Mobile NI: claim the fold (header + bottom nav + floating pill)
       chartType === 'north-indian' &&
-        "min-h-[calc(100dvh-16.25rem-env(safe-area-inset-bottom))] lg:min-h-0",
+        "min-h-[calc(100dvh-12rem-env(safe-area-inset-bottom))] lg:min-h-0",
       isFullscreen
         ? (theme === 'dark' ? "bg-mystic-purple" : "bg-white")
         : (theme === 'dark' ? "border-white/5 bg-black/40" : "border-slate-200 bg-white/40")
     )}>
-      {/* Mobile Controls Bar */}
+      {/* Mobile Controls Bar — zoom/fullscreen only; chart type comes from bottom nav */}
       <div className={cn(
-        "lg:hidden flex items-center justify-between px-4 py-2.5 border-b transition-colors duration-500 z-20",
+        "lg:hidden flex items-center justify-end px-4 py-2.5 border-b transition-colors duration-500 z-20",
         theme === 'dark' ? "bg-mystic-purple/80 border-white/5" : "bg-white/80 border-slate-200"
       )}>
-        {/* Chart type dropdown */}
-        <select
-          value={chartType}
-          onChange={(e) => setChartType(e.target.value as 'circle' | 'north-indian')}
-          aria-label="Chart type"
-          className={cn(
-            "rounded-lg border px-2.5 py-1.5 text-[10px] uppercase font-bold tracking-widest font-mono transition-colors focus:outline-none focus:border-jyotish-gold/50",
-            theme === 'dark' ? "bg-black/25 border-white/10 text-white [color-scheme:dark]" : "bg-slate-100 border-slate-200 text-slate-700"
-          )}
-        >
-          <option value="north-indian">North Indian</option>
-          <option value="circle">Circle</option>
-        </select>
-
-        {/* Separator & Zoom controls */}
-        <div className="flex items-center gap-1.5">
-          <div className={cn("w-px h-5 mx-1", theme === 'dark' ? "bg-white/10" : "bg-slate-200")} />
-          <div className={cn(
-            "flex items-center p-0.5 rounded-lg border",
-            theme === 'dark' ? "bg-black/25 border-white/10" : "bg-slate-100 border-slate-200"
-          )}>
-            <button 
-              onClick={() => setZoom(prev => Math.min(prev + 0.2, 3))}
-              className={cn(
-                "p-1.5 rounded transition-colors",
-                theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
-              )}
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </button>
-            <button 
-              onClick={() => setZoom(prev => Math.max(prev - 0.2, 0.5))}
-              className={cn(
-                "p-1.5 rounded transition-colors",
-                theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
-              )}
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
-              className={cn(
-                "p-1.5 rounded transition-colors",
-                theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
-              )}
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={toggleFullscreen}
-              className={cn(
-                "p-1.5 rounded transition-colors",
-                theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
-              )}
-              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-            >
-              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            </button>
-          </div>
+        <div className={cn(
+          "flex items-center p-0.5 rounded-lg border",
+          theme === 'dark' ? "bg-black/25 border-white/10" : "bg-slate-100 border-slate-200"
+        )}>
+          <button
+            onClick={() => setZoom(prev => Math.min(prev + 0.2, 3))}
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <ZoomIn className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setZoom(prev => Math.max(prev - 0.2, 0.5))}
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              theme === 'dark' ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"
+            )}
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
         </div>
       </div>
 

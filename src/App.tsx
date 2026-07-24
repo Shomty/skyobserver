@@ -13,7 +13,7 @@ import { Header } from './components/Header';
 import { SectionNav } from './components/SectionNav';
 import { MobileNavigation } from './components/MobileNavigation';
 import { MoreSheet } from './components/MoreSheet';
-import { type NavId, pathToNavId, navIdToPath, DEFAULT_NAV_ID, MORE_SHEET_IDS } from './lib/navigation';
+import { type NavId, pathToNavId, navIdToPath, DEFAULT_NAV_ID, MORE_SHEET_IDS, CONTROLS_HUD_IDS } from './lib/navigation';
 import { DASHBOARD_TABS } from './lib/dashboardTabs';
 import { TabGroup, type TabGroupItem } from './components/ui';
 import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
@@ -522,6 +522,7 @@ export default function App() {
     return pathToNavId(window.location.pathname) ?? DEFAULT_NAV_ID;
   });
   const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
+  const [isControlsOpen, setIsControlsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'transit' | 'natal'>('natal');
   const [isLive, setIsLive] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -561,6 +562,12 @@ export default function App() {
       setActiveTab(id);
     }
   }, [routerLocation.pathname]);
+
+  // Keep chart geometry coupled to Sky / Kundli destinations (URL + nav)
+  useEffect(() => {
+    if (activeTab === 'sky') setChartType('circle');
+    if (activeTab === 'chart') setChartType('north-indian');
+  }, [activeTab]);
 
   const [selectedTransitForAI, setSelectedTransitForAI] = useState<TransitEvent | null>(null);
   const [transitInterpretation, setTransitInterpretation] = useState<string | null>(null);
@@ -1601,7 +1608,7 @@ INTERPRETATION GUIDELINES:
           user={user}
           userProfile={userProfile}
           theme={theme}
-          onClose={() => setActiveTab('overview')}
+          onClose={() => setActiveTab(DEFAULT_NAV_ID)}
         />
       </React.Suspense>
     );
@@ -1615,7 +1622,7 @@ INTERPRETATION GUIDELINES:
           user={user}
           userProfile={userProfile}
           birthFingerprint={birthFingerprint}
-          onClose={() => setActiveTab('overview')}
+          onClose={() => setActiveTab(DEFAULT_NAV_ID)}
         />
       </React.Suspense>
     );
@@ -1637,7 +1644,7 @@ INTERPRETATION GUIDELINES:
             blueprint={birthSpecialPoints}
             ashtakavarga={natalAshtakavarga}
             theme={theme}
-            onClose={() => setActiveTab('overview')}
+            onClose={() => setActiveTab(DEFAULT_NAV_ID)}
             transitPositions={transitPositions}
             transits={transits}
             birthFingerprint={birthFingerprint}
@@ -1662,7 +1669,7 @@ INTERPRETATION GUIDELINES:
           birthPanchang={birthPanchang}
           panchang={panchang}
           birthSpecialPoints={birthSpecialPoints}
-          onClose={() => setActiveTab('overview')}
+          onClose={() => setActiveTab(DEFAULT_NAV_ID)}
         />
       </React.Suspense>
     );
@@ -1685,7 +1692,7 @@ INTERPRETATION GUIDELINES:
             onLoadProfile={loadChildProfile}
             onClearProfile={clearChildProfile}
             geocode={geocode}
-            onClose={() => setActiveTab('overview')}
+            onClose={() => setActiveTab(DEFAULT_NAV_ID)}
           />
         </div>
       </React.Suspense>
@@ -1724,9 +1731,10 @@ INTERPRETATION GUIDELINES:
 
       <SectionNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* Row 3 — dashboard section tabs (desktop/tablet bar + mobile sheet menu) */}
+      {/* Row 3 — dashboard section tabs (desktop only; mobile uses Insights modules sheet) */}
       {(activeTab === 'overview' || activeTab === 'stats') && (
         <TabGroup
+          className="hidden lg:block"
           activeId={dashboardTab}
           onChange={(id) => {
             const tabDef = DASHBOARD_TABS.find((t) => t.id === id);
@@ -1774,10 +1782,11 @@ INTERPRETATION GUIDELINES:
         {/* Primary Views Grid */}
         {activeTab !== 'archives' && activeTab !== 'profile' && (
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden">
-            {/* Left Panel: Sky Map / Chart */}
+            {/* Left Panel: Sky Map / Chart — exclusive on mobile for sky/chart */}
             <SkyMap
               chartType={chartType}
               setChartType={setChartType}
+              activeTab={activeTab}
               zoom={zoom}
               setZoom={setZoom}
               pan={pan}
@@ -1805,10 +1814,11 @@ INTERPRETATION GUIDELINES:
               saveBirthDetails={saveBirthDetails}
             />
 
-            {/* Right Panel: Data Dashboard */}
+            {/* Right Panel: Data Dashboard — exclusive on mobile for stats */}
             <div className={cn(
               "flex flex-col min-h-0 min-w-0 border-t lg:border-t-0 transition-colors duration-500 lg:col-span-6",
-              theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-200"
+              theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-200",
+              (activeTab === 'sky' || activeTab === 'chart') ? "hidden lg:flex" : "flex"
             )}>
               <DataDashboard
                 activeTab={dashboardTab}
@@ -1897,7 +1907,7 @@ INTERPRETATION GUIDELINES:
               profile={userProfile} 
               onSave={saveProfile} 
               onGeocode={geocode}
-              onClose={() => setActiveTab('overview')}
+              onClose={() => setActiveTab(DEFAULT_NAV_ID)}
             />
           </div>
         )}
@@ -1990,9 +2000,228 @@ INTERPRETATION GUIDELINES:
       <MobileNavigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        setChartType={setChartType}
         onMoreClick={() => setIsMoreSheetOpen(true)}
         isMoreActive={MORE_SHEET_IDS.has(activeTab)}
       />
+
+      {/* Floating status pill — mobile sky/chart only */}
+      {CONTROLS_HUD_IDS.has(activeTab) && (
+        <div
+          onClick={() => setIsControlsOpen(true)}
+          className={cn(
+            "lg:hidden fixed bottom-[5.5rem] left-1/2 -translate-x-1/2 z-40 border backdrop-blur-md rounded-full px-5 py-2.5 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.4)] cursor-pointer active:scale-95 transition-transform duration-300",
+            theme === 'dark'
+              ? "bg-[#0b0c10]/90 border-jyotish-gold/25"
+              : "bg-white/90 border-slate-200"
+          )}
+        >
+          <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
+          <span className="text-[10px] uppercase tracking-widest font-mono font-bold leading-none select-none text-jyotish-gold">
+            {viewMode === 'natal' ? "Natal" : "Transit"} • {city?.split(',')[0]} • {format(viewMode === 'natal' && birthTime ? birthTime : currentTime, 'HH:mm')}
+          </span>
+          <Settings className="w-3.5 h-3.5 text-jyotish-gold shrink-0 ml-1 hover:rotate-45 transition-transform duration-300" />
+        </div>
+      )}
+
+      {/* Celestial Matrix Controls bottom sheet */}
+      <AnimatePresence>
+        {isControlsOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsControlsOpen(false)}
+              className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-50 transition-all"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className={cn(
+                "lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-[2rem] border-t px-6 pt-4 flex flex-col gap-5 shadow-3xl max-h-[85vh] overflow-y-auto custom-scrollbar transition-all font-sans",
+                "pb-[calc(1.5rem+env(safe-area-inset-bottom))]",
+                theme === 'dark'
+                  ? "bg-[#090a0f]/98 border-white/5 text-white shadow-black/80"
+                  : "bg-[#fcfdfe]/98 border-slate-200 text-slate-800 shadow-slate-200/50"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-12 h-1 rounded-full mx-auto mb-2 cursor-pointer",
+                  theme === 'dark' ? "bg-white/10" : "bg-slate-300"
+                )}
+                onClick={() => setIsControlsOpen(false)}
+              />
+
+              <div className={cn(
+                "flex items-center justify-between pb-3 border-b",
+                theme === 'dark' ? "border-white/5" : "border-slate-100"
+              )}>
+                <div className="flex items-center gap-2">
+                  <Compass className="w-5 h-5 text-jyotish-gold animate-spin-slow" />
+                  <p className="text-xs font-bold font-mono tracking-[0.2em] uppercase text-jyotish-gold">Celestial Matrix Controls</p>
+                </div>
+                <button
+                  onClick={() => setIsControlsOpen(false)}
+                  className={cn(
+                    "p-1.5 rounded-full transition-colors",
+                    theme === 'dark' ? "hover:bg-white/5 text-white/40 hover:text-white" : "hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+                  )}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[9px] uppercase tracking-widest font-mono text-jyotish-gold/70 font-bold">Chart Focus Mode</label>
+                <div className={cn(
+                  "flex p-1 rounded-xl border transition-all",
+                  theme === 'dark' ? "bg-black/30 border-white/5" : "bg-slate-100 border-slate-200"
+                )}>
+                  <button
+                    onClick={() => handleAutoSelectNatal()}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2",
+                      viewMode === 'natal'
+                        ? "bg-jyotish-gold text-black shadow-sm"
+                        : "text-slate-400 dark:text-white/40"
+                    )}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Natal Chart
+                  </button>
+                  <button
+                    onClick={() => {
+                      setViewMode('transit');
+                      setIsBirthMode(false);
+                      setDashboardTab('overview');
+                    }}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2",
+                      viewMode === 'transit'
+                        ? "bg-jyotish-gold text-black shadow-sm"
+                        : "text-slate-400 dark:text-white/40"
+                    )}
+                  >
+                    <Compass className="w-3.5 h-3.5" />
+                    Live Transits
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[9px] uppercase tracking-widest font-mono text-jyotish-gold/70 font-bold">Observer Location</label>
+                <div className={cn(
+                  "p-4 rounded-xl border flex items-center justify-between gap-3",
+                  theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-100 shadow-sm"
+                )}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <MapPin className="w-4 h-4 text-jyotish-gold shrink-0" />
+                    {isLocating ? (
+                      <span className="text-xs font-mono text-jyotish-gold flex items-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Georeferencing...
+                      </span>
+                    ) : (
+                      <span className="text-xs font-bold font-mono text-jyotish-gold truncate">{city || "Unknown Location"}</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={locateMe}
+                    disabled={isLocating}
+                    className="px-3 py-2 bg-jyotish-gold/10 text-jyotish-gold hover:bg-jyotish-gold/20 text-[9px] font-bold font-mono uppercase tracking-widest rounded-lg transition-colors shadow-sm"
+                  >
+                    Locate Me
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[9px] uppercase tracking-widest font-mono text-jyotish-gold/70 font-bold">Epoch Setup</label>
+                <div className={cn(
+                  "p-4 rounded-xl border flex flex-col gap-4",
+                  theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-100 shadow-sm"
+                )}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-jyotish-gold" />
+                      <span className="text-xs font-bold font-mono tracking-wider">Date & Time</span>
+                    </div>
+                    <input
+                      type="datetime-local"
+                      value={formatForInput(viewMode === 'natal' && birthTime ? birthTime : currentTime)}
+                      onChange={(e) => {
+                        if (viewMode === 'natal') {
+                          setBirthTime(e.target.value ? new Date(e.target.value) : null);
+                        } else {
+                          handleDateChange(e);
+                        }
+                      }}
+                      className={cn(
+                        "bg-transparent border-none text-xs font-bold font-mono focus:ring-0 p-0 text-right w-[160px] sm:w-[180px] [color-scheme:dark]",
+                        theme === 'dark' ? "text-white" : "text-slate-800"
+                      )}
+                    />
+                  </div>
+
+                  {viewMode === 'transit' && (
+                    <div className={cn(
+                      "flex flex-col sm:flex-row sm:items-center justify-between border-t pt-4 gap-3",
+                      theme === 'dark' ? "border-white/5" : "border-slate-100"
+                    )}>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setIsLive(!isLive)}
+                          className={cn(
+                            "p-2 rounded-lg transition-all flex items-center justify-center",
+                            isLive
+                              ? "bg-jyotish-gold/20 text-jyotish-gold scale-105"
+                              : "bg-white/5 text-slate-400 hover:bg-white/10"
+                          )}
+                        >
+                          {isLive ? <Pause className="w-4 h-4 animate-pulse" /> : <Play className="w-4 h-4" />}
+                        </button>
+                        <span className="text-[9px] font-mono uppercase font-bold tracking-widest text-[#FF5A0F]">
+                          {isLive ? "REALTIME TRACKING" : "TIMELINE PAUSED"}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <button
+                          onClick={() => adjustTime(-1)}
+                          className={cn(
+                            "flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 text-[9px] font-mono uppercase tracking-wider transition-all border active:scale-95",
+                            theme === 'dark' ? "bg-white/5 hover:bg-white/10 text-white/60 border-white/10" : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200 shadow-sm"
+                          )}
+                        >
+                          <Rewind className="w-3.5 h-3.5" /> -1 Day
+                        </button>
+                        <button
+                          onClick={() => adjustTime(1)}
+                          className={cn(
+                            "flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 text-[9px] font-mono uppercase tracking-wider transition-all border active:scale-95",
+                            theme === 'dark' ? "bg-white/5 hover:bg-white/10 text-white/60 border-white/10" : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200 shadow-sm"
+                          )}
+                        >
+                          +1 Day <FastForward className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsControlsOpen(false)}
+                className="w-full bg-jyotish-gold hover:bg-celestial-gold text-black font-extrabold py-3.5 rounded-xl text-center text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-jyotish-gold/15 mt-2"
+              >
+                Apply Epoch Matrix
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <MoreSheet
         isOpen={isMoreSheetOpen}

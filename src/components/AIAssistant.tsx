@@ -232,60 +232,88 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
   return (
     <>
-      {/* Floating Toggle Button */}
+      {/* Floating Toggle Button — clears bottom nav + floating controls pill */}
       <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
+        whileHover={{ scale: 1.08 }}
+        whileTap={{ scale: 0.92 }}
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'fixed bottom-24 lg:bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl z-50 transition-all duration-300',
+          'fixed bottom-28 lg:bottom-6 right-5 w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shadow-2xl z-50 transition-all duration-300 active:scale-95',
           isOpen
-            ? 'bg-red-500 rotate-90'
-            : 'bg-jyotish-gold/90 hover:bg-jyotish-gold shadow-[0_0_20px_rgba(212,175,55,0.3)]'
+            ? 'bg-red-500 rotate-90 text-white'
+            : 'bg-jyotish-gold text-black hover:bg-celestial-gold shadow-jyotish-gold/20'
         )}
       >
-        {isOpen ? <X className="text-white" /> : <Bot className="text-black w-7 h-7" />}
+        {isOpen ? <X className="w-6 h-6" /> : <Bot className="w-6 h-6" />}
       </motion.button>
 
-      {/* Chat Panel */}
+      {/* Chat Panel — full mobile sheet / floating window on desktop */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className={cn(
-              'fixed bottom-40 lg:bottom-24 right-6 w-[90vw] max-w-[420px] h-[65vh] max-h-[640px] backdrop-blur-xl border rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-colors duration-500',
-              isDark ? 'bg-black/90 border-jyotish-gold/10' : 'bg-white/95 border-slate-200'
-            )}
-          >
-            {/* Header */}
-            <div className={cn(
-              'p-4 border-b flex items-center gap-2 flex-shrink-0 transition-colors duration-500',
-              isDark ? 'border-jyotish-gold/10 bg-white/5' : 'border-slate-100 bg-slate-50'
-            )}>
-              <div className="w-8 h-8 rounded-lg bg-jyotish-gold/10 border border-jyotish-gold/30 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-jyotish-gold" />
-              </div>
-              <div>
-                <h3 className={cn('font-bold text-sm gold-gradient-text')}>Jyotish AI</h3>
-                <p className={cn('text-[10px] uppercase tracking-widest font-mono', isDark ? 'text-white/40' : 'text-slate-400')}>
-                  Vedic Astrology Assistant
-                </p>
-              </div>
-              {activeSessionId && (
-                <button
-                  onClick={() => setActiveSessionId(null)}
-                  className={cn(
-                    'ml-auto text-[10px] uppercase tracking-wider font-mono px-2 py-1 rounded-md transition-colors',
-                    isDark ? 'text-white/30 hover:text-white/60 hover:bg-white/5' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-                  )}
-                  title="New Chat"
-                >
-                  + New
-                </button>
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 30, scale: 0.96 }}
+              transition={{ type: "spring", damping: 25, stiffness: 280 }}
+              className={cn(
+                'fixed z-50 flex flex-col overflow-hidden transition-colors duration-500 font-sans shadow-2xl',
+                'inset-x-0 bottom-0 top-12 rounded-t-[2rem] border-t lg:top-auto lg:bottom-24 lg:right-6 lg:left-auto lg:w-[90vw] lg:max-w-[420px] lg:h-[70vh] lg:max-h-[700px] lg:rounded-3xl lg:border',
+                isDark ? 'bg-[#090a0e]/98 border-white/10 text-white shadow-black/80' : 'bg-white/98 border-slate-200 text-slate-800 shadow-slate-200/50'
               )}
-            </div>
+            >
+              <div
+                className={cn(
+                  "lg:hidden w-12 h-1 rounded-full mx-auto my-2.5 shrink-0 cursor-pointer",
+                  isDark ? "bg-white/20" : "bg-slate-300"
+                )}
+                onClick={() => setIsOpen(false)}
+              />
+
+              {/* Header */}
+              <div className={cn(
+                'px-5 py-3.5 border-b flex items-center gap-2 flex-shrink-0 transition-colors duration-500',
+                isDark ? 'border-white/10 bg-white/5' : 'border-slate-100 bg-slate-50'
+              )}>
+                <div className="w-8 h-8 rounded-lg bg-jyotish-gold/10 border border-jyotish-gold/30 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-jyotish-gold" />
+                </div>
+                <div>
+                  <h3 className={cn('font-bold text-sm gold-gradient-text')}>Jyotish AI</h3>
+                  <p className={cn('text-[10px] uppercase tracking-widest font-mono', isDark ? 'text-white/40' : 'text-slate-400')}>
+                    Vedic Astrology Assistant
+                  </p>
+                </div>
+                {activeSessionId && (
+                  <button
+                    onClick={() => setActiveSessionId(null)}
+                    className={cn(
+                      'ml-auto text-[10px] uppercase tracking-wider font-mono px-2 py-1 rounded-md transition-colors',
+                      isDark ? 'text-white/30 hover:text-white/60 hover:bg-white/5' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                    )}
+                    title="New Chat"
+                  >
+                    + New
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className={cn(
+                    "lg:hidden p-1.5 rounded-full",
+                    isDark ? "text-white/40 hover:text-white" : "text-slate-400 hover:text-slate-700",
+                    activeSessionId ? "ml-2" : "ml-auto"
+                  )}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
             {/* Error banner */}
             {chatError && (
@@ -321,7 +349,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
             {/* Input */}
             <div className={cn(
-              'flex-shrink-0 p-4 border-t transition-colors duration-500',
+              'flex-shrink-0 p-4 border-t transition-colors duration-500 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:pb-4',
               isDark ? 'border-white/5 bg-black/20' : 'border-slate-100 bg-slate-50'
             )}>
               <ChatInput
@@ -334,6 +362,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
               />
             </div>
           </motion.div>
+          </>
         )}
       </AnimatePresence>
     </>

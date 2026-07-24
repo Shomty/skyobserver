@@ -79,6 +79,26 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
       
       <div className="flex items-center gap-2 lg:gap-6">
+        {/* Mobile GPS Location Chip */}
+        <button
+          onClick={locateMe}
+          disabled={isLocating}
+          className={cn(
+            "lg:hidden flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono font-bold transition-all active:scale-95 shrink-0",
+            theme === 'dark'
+              ? "bg-white/5 border-white/10 text-jyotish-gold hover:bg-white/10"
+              : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"
+          )}
+          title="Detect Current GPS Location"
+        >
+          {isLocating ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-jyotish-gold" />
+          ) : (
+            <MapPin className="w-3.5 h-3.5 text-jyotish-gold shrink-0" />
+          )}
+          <span className="truncate max-w-[65px] sm:max-w-[90px]">{city?.split(',')[0] || "GPS"}</span>
+        </button>
+
         {/* Location & Time - Desktop Only */}
         <div className="hidden lg:flex items-center gap-6 font-mono text-sm">
           <div className="flex flex-col items-end">
@@ -101,9 +121,9 @@ export const Header: React.FC<HeaderProps> = ({
           <div className={cn("w-px h-8", theme === 'dark' ? "bg-jyotish-gold/10" : "bg-slate-200")} />
         </div>
 
-        {/* Unified View Mode Toggle */}
+        {/* Natal/Transit toggle — desktop only; mobile uses controls sheet */}
         <div className={cn(
-          "flex items-center gap-0.5 lg:gap-1 rounded-lg p-0.5 lg:p-1 border transition-colors duration-500",
+          "hidden lg:flex items-center gap-0.5 lg:gap-1 rounded-lg p-0.5 lg:p-1 border transition-colors duration-500",
           theme === 'dark' ? "bg-mystic-purple/40 border-jyotish-gold/10" : "bg-slate-100 border-slate-200"
         )}>
           <button
@@ -117,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           >
             <Sparkles className={cn("w-3 h-3", viewMode === 'natal' && "animate-pulse")} />
-            <span className="hidden min-[420px]:inline">Natal</span>
+            <span>Natal</span>
           </button>
           <button
             onClick={() => {
@@ -134,7 +154,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           >
             <Compass className={cn("w-3 h-3", viewMode === 'transit' && "animate-spin-slow")} />
-            <span className="hidden min-[420px]:inline">Transit</span>
+            <span>Transit</span>
           </button>
         </div>
 

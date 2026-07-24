@@ -34,7 +34,7 @@ export const MoreSheet: React.FC<MoreSheetProps> = ({ isOpen, onClose, activeTab
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="md:hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+            className="lg:hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
           />
           <motion.div
             initial={{ y: '100%' }}
@@ -42,7 +42,7 @@ export const MoreSheet: React.FC<MoreSheetProps> = ({ isOpen, onClose, activeTab
             exit={{ y: '100%' }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
             className={cn(
-              "md:hidden fixed left-0 right-0 bottom-0 z-[70] rounded-t-3xl border-t px-4 pt-3 backdrop-blur-xl",
+              "lg:hidden fixed left-0 right-0 bottom-0 z-[70] rounded-t-3xl border-t px-4 pt-3 backdrop-blur-xl",
               "pb-[calc(1.5rem+env(safe-area-inset-bottom))]",
               theme === 'dark' ? "bg-mystic-purple/95 border-jyotish-gold/20 shadow-black/50" : "bg-white/95 border-slate-200 shadow-slate-200/50"
             )}
