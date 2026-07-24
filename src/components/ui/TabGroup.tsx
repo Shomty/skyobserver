@@ -68,7 +68,7 @@ export function TabGroup({ items, activeId, onChange, className }: TabGroupProps
         className
       )}
     >
-      {/* Mobile: dropdown */}
+      {/* Mobile: dropdown (App chrome only — DataDashboard hides this breakpoint) */}
       <div className="md:hidden relative px-3 py-2" ref={menuRef}>
         <button
           type="button"

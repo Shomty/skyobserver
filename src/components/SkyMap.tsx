@@ -346,7 +346,11 @@ export const SkyMap: React.FC<SkyMapProps> = ({
     <div
       ref={rootRef}
       className={cn(
-      "flex flex-col relative border-b lg:border-r lg:border-b-0 min-h-0 min-w-0 overflow-hidden transition-colors duration-500 lg:col-span-6",
+      "flex flex-col relative border-b lg:border-r lg:border-b-0 w-full min-h-0 min-w-0 overflow-hidden transition-colors duration-500 lg:col-span-6",
+      // Mobile NI: claim the fold so only My Chart fits below (planets require scroll).
+      // Reserve: header (~3.75rem) + tab dropdown (~3.75rem) + bottom nav (~3.75rem) + My Chart row (~5rem).
+      chartType === 'north-indian' &&
+        "min-h-[calc(100dvh-16.25rem-env(safe-area-inset-bottom))] lg:min-h-0",
       isFullscreen
         ? (theme === 'dark' ? "bg-mystic-purple" : "bg-white")
         : (theme === 'dark' ? "border-white/5 bg-black/40" : "border-slate-200 bg-white/40")
@@ -527,7 +531,13 @@ export const SkyMap: React.FC<SkyMapProps> = ({
         );
       })()}
 
-      <div className="flex-1 flex items-center justify-center p-4 lg:p-8 relative min-h-[66dvh] lg:min-h-0">
+      <div className={cn(
+        "relative w-full flex justify-center min-h-0",
+        // Mobile NI: grow to fill the expanded SkyMap fold; keep chart centered & max-sized.
+        chartType === 'north-indian'
+          ? "flex-1 items-center p-2 lg:p-8"
+          : "flex-1 items-center p-4 lg:p-8"
+      )}>
         {/* View Mode Controls - Desktop Only */}
         <div className="hidden lg:flex absolute top-4 lg:top-8 left-4 lg:left-8 z-20 flex-col gap-3">
           <AnimatePresence>
@@ -861,7 +871,11 @@ export const SkyMap: React.FC<SkyMapProps> = ({
         <div 
           ref={containerRef}
           className={cn(
-            "relative w-full max-w-[400px] lg:max-w-[700px] aspect-square flex items-center justify-center transition-all duration-500",
+            "relative mx-auto flex items-center justify-center transition-all duration-500 aspect-square",
+            chartType === 'north-indian'
+              // Largest square that fits the expanded stage (width or stage height).
+              ? "w-[min(100%,100vw)] max-h-full h-auto lg:max-w-[700px]"
+              : "w-full max-w-[400px] lg:max-w-[700px]",
             chartType === 'circle' 
               ? cn("overflow-hidden rounded-full border transition-colors duration-500", theme === 'dark' ? "border-white/5 bg-black/20" : "border-slate-200 bg-white/40 shadow-inner")
               : "overflow-visible"
@@ -1142,6 +1156,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
               setZoom={setZoom}
               pan={pan}
               setPan={setPan}
+              className="w-full h-full max-w-full mx-auto"
             />
           )}
         </div>
@@ -1157,7 +1172,8 @@ export const SkyMap: React.FC<SkyMapProps> = ({
         </div>
       </div>
 
-      {/* Mobile Legend Bar */}
+      {/* Mobile Legend Bar — circle chart only (NI kundali is self-explanatory; saves vertical space) */}
+      {chartType === 'circle' && (
       <div className={cn(
         "lg:hidden min-h-[28px] py-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 border-t border-b flex-shrink-0 transition-colors duration-500",
         theme === 'dark' ? "bg-black/35 border-white/5" : "bg-slate-50 border-slate-200"
@@ -1171,6 +1187,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
           Ecliptic (Sidereal)
         </div>
       </div>
+      )}
 
       {/* Mobile Birth Details Modal */}
       <AnimatePresence>

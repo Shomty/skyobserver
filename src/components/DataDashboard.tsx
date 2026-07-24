@@ -1105,8 +1105,9 @@ Respond ONLY with valid JSON (no markdown, no backticks):
         </div>
       )}
 
-      {/* Dashboard tabs — wrapping rows on desktop/tablet, dropdown on mobile */}
+      {/* Dashboard tabs — desktop/tablet only. Mobile uses the App chrome TabGroup above. */}
       <TabGroup
+        className="hidden md:block"
         activeId={activeTab}
         onChange={(id) => {
           const tabDef = DASHBOARD_TABS.find((t) => t.id === id);
@@ -1130,8 +1131,8 @@ Respond ONLY with valid JSON (no markdown, no backticks):
         }))}
       />
 
-      {/* Mode banner — makes the current Natal/Transit context explicit */}
-      <div className={cn("px-4 py-1.5 border-b", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
+      {/* Mode banner — desktop/tablet only; on mobile the chart + profile selector carry context */}
+      <div className={cn("hidden md:block px-4 py-1.5 border-b", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
         <Label muted>
           {viewMode === 'natal'
             ? `Natal mode — birth chart for ${userProfile?.name || 'you'}`
@@ -1140,7 +1141,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-4">
+      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 pt-2 md:pt-4">
         {dashboardError && (
           <APIErrorMessage 
             error={dashboardError.error}
@@ -1804,12 +1805,12 @@ Respond ONLY with valid JSON (no markdown, no backticks):
         {activeTab === 'natal' && (
           <div className="space-y-6 pb-20">
 
-            {/* ── Profile Selector ──────────────────────────────────── */}
-            <div className="relative" ref={profileDropdownRef}>
+            {/* ── Profile Selector — last on-screen control on mobile (chart panel fills the fold above) ── */}
+            <div className="relative -mx-0" ref={profileDropdownRef}>
               <button
                 onClick={() => setShowProfileDropdown(v => !v)}
                 className={cn(
-                  "w-full p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all duration-200",
+                  "w-full min-h-[52px] px-4 py-3 rounded-2xl border flex items-center justify-between gap-3 transition-all duration-200",
                   activeChildProfileId
                     ? theme === 'dark' ? "bg-jyotish-gold/10 border-jyotish-gold/30 hover:bg-jyotish-gold/15" : "bg-orange-50 border-orange-200 hover:bg-orange-100"
                     : theme === 'dark' ? "bg-white/[0.02] border-white/5 hover:bg-white/[0.04]" : "bg-white border-slate-100 shadow-sm hover:bg-slate-50"

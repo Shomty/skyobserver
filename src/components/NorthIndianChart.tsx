@@ -160,7 +160,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
     <div 
       ref={containerRef}
       className={cn(
-        "relative w-full h-full aspect-square p-4 rounded-3xl border shadow-2xl overflow-hidden transition-colors duration-500",
+        "relative w-full h-full aspect-square p-2 sm:p-4 rounded-3xl border shadow-2xl overflow-hidden transition-colors duration-500 mx-auto",
         theme === 'dark' ? "bg-black/20 border-white/5" : "bg-white border-slate-200",
         className
       )}
@@ -183,7 +183,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
           }));
         }}
       >
-        <svg viewBox="-50 -50 500 500" className="w-full h-full">
+        <svg viewBox="-50 -50 500 500" preserveAspectRatio="xMidYMid meet" className="w-full h-full block mx-auto">
         {/* Markers for Drishti Lines */}
         <defs>
           <marker id="arrow-orange" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
