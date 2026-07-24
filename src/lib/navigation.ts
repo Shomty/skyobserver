@@ -46,7 +46,7 @@ export interface NavItem {
  * tablet, mobile bar and the account/more menus stay in sync instead of
  * drifting into inconsistent item sets.
  *
- * Mobile (V2 shell): exclusive Sky / Kundli / Insights + Journal, with More
+ * Mobile (V2 shell): exclusive Sky / Kundli / Insights + AI Chat, with More
  * for overflow destinations. Desktop keeps Overview as the dual-pane home.
  */
 export const NAV_ITEMS: NavItem[] = [
@@ -54,8 +54,8 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'chart', label: 'Kundli', path: '/kundli', icon: Grid, surfaces: { mobileBar: true } },
   { id: 'overview', label: 'Overview', path: '/overview', icon: LayoutDashboard, surfaces: { desktopNav: true } },
   { id: 'stats', label: 'Insights', path: '/insights', icon: LayoutGrid, surfaces: { mobileBar: true } },
-  { id: 'archives', label: 'Journal', path: '/journal', icon: BookOpen, surfaces: { desktopNav: true, mobileBar: true } },
-  { id: 'chat', label: 'AI Chat', path: '/chat', icon: MessageSquare, surfaces: { desktopNav: true, moreSheet: true } },
+  { id: 'archives', label: 'Journal', path: '/journal', icon: BookOpen, surfaces: { desktopNav: true, moreSheet: true } },
+  { id: 'chat', label: 'AI Chat', path: '/chat', icon: MessageSquare, surfaces: { desktopNav: true, mobileBar: true } },
   { id: 'sudarshana', label: 'Sudarshana Chakra', path: '/sudarshana', icon: CircleDot, surfaces: { desktopNav: true, moreSheet: true } },
   { id: 'report', label: 'Full Report', path: '/report', icon: FileText, surfaces: { desktopNav: true, moreSheet: true, accountMenu: true } },
   { id: 'profiles', label: 'People', path: '/people', icon: Users, surfaces: { moreSheet: true, accountMenu: true } },
@@ -92,4 +92,4 @@ export const MORE_SHEET_IDS = new Set<NavId>(
 );
 
 /** Tabs where the floating celestial controls HUD is eligible on mobile. */
-export const CONTROLS_HUD_IDS = new Set<NavId>(['sky', 'chart']);
+export const CONTROLS_HUD_IDS = new Set<NavId>(['sky']);

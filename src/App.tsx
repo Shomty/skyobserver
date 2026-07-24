@@ -55,7 +55,8 @@ import {
   Flame,
   List,
   Grid,
-  Eye
+  Eye,
+  Layers
 } from 'lucide-react';
 import { Archives } from './components/Archives';
 import { useTheme } from './context/ThemeContext';
@@ -67,6 +68,7 @@ import { cn, getOrdinal } from './lib/utils';
 import { SkyMap } from './components/SkyMap';
 import { CelestialBackground } from './components/CelestialBackground';
 import { DataDashboard } from './components/DataDashboard';
+import DivisionalCharts from './components/DivisionalCharts';
 import { OnboardingFlow } from './components/Onboarding';
 import { PendingApprovalBanner } from './components/PendingApprovalBanner';
 import type { ChildProfile } from './pages/ProfilesPage';
@@ -1779,10 +1781,46 @@ INTERPRETATION GUIDELINES:
       </AnimatePresence>
 
       <main className="relative z-10 flex-1 flex flex-col overflow-hidden custom-scrollbar pb-[calc(56px+env(safe-area-inset-bottom))] lg:pb-0">
-        {/* Primary Views Grid */}
-        {activeTab !== 'archives' && activeTab !== 'profile' && (
+        {/* Kundli: D1 Vargas module (locked, no selector) */}
+        {activeTab === 'chart' && (
+          <div className={cn(
+            "flex-1 overflow-y-auto px-4 pt-4 pb-6 lg:px-8 lg:pt-6",
+            theme === 'dark' ? "bg-white/[0.02]" : "bg-white"
+          )}>
+            <div className="max-w-2xl mx-auto w-full">
+              {birthPositions && birthPositions.length > 0 ? (
+                <DivisionalCharts
+                  birthPositions={birthPositions}
+                  user={user}
+                  userProfile={userProfile}
+                  birthFingerprint={birthFingerprint}
+                  lockedChart="D1"
+                  footerLink={{
+                    label: 'View divisional charts',
+                    onClick: () => {
+                      handleAutoSelectNatal();
+                      setDashboardTab('vargas');
+                      setActiveTab('stats');
+                    },
+                  }}
+                />
+              ) : (
+                <div className={cn(
+                  "flex flex-col items-center justify-center py-24 gap-3",
+                  theme === 'dark' ? "text-white/30" : "text-slate-400"
+                )}>
+                  <Layers className="w-10 h-10 opacity-40" />
+                  <p className="text-sm">Enter birth details to view your kundli</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Primary Views Grid — Sky + Insights (not Kundli) */}
+        {activeTab !== 'archives' && activeTab !== 'profile' && activeTab !== 'chart' && (
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden">
-            {/* Left Panel: Sky Map / Chart — exclusive on mobile for sky/chart */}
+            {/* Left Panel: Sky Map — exclusive on mobile for sky */}
             <SkyMap
               chartType={chartType}
               setChartType={setChartType}
@@ -1818,7 +1856,7 @@ INTERPRETATION GUIDELINES:
             <div className={cn(
               "flex flex-col min-h-0 min-w-0 border-t lg:border-t-0 transition-colors duration-500 lg:col-span-6",
               theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-200",
-              (activeTab === 'sky' || activeTab === 'chart') ? "hidden lg:flex" : "flex"
+              activeTab === 'sky' ? "hidden lg:flex" : "flex"
             )}>
               <DataDashboard
                 activeTab={dashboardTab}

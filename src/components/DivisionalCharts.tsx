@@ -21,6 +21,12 @@ interface DivisionalChartsProps {
   user?: any;
   userProfile?: any;
   birthFingerprint?: string | null;
+  /** Initial chart when unlocked. Defaults to D9 (Vargas page). */
+  initialChart?: DivisionalChartType;
+  /** When set, locks to this chart and hides the Vargas selector. */
+  lockedChart?: DivisionalChartType;
+  /** Sticky short link at the bottom of the viewport (e.g. Kundli → Vargas). */
+  footerLink?: { label: string; onClick: () => void };
 }
 
 const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
@@ -28,10 +34,16 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
   user,
   userProfile,
   birthFingerprint,
+  initialChart = 'D9',
+  lockedChart,
+  footerLink,
 }) => {
   const { theme } = useTheme();
-  const [selected, setSelected] = React.useState<DivisionalChartType>('D1');
+  const [selected, setSelected] = React.useState<DivisionalChartType>(
+    lockedChart ?? initialChart,
+  );
   const [selectedPlanet, setSelectedPlanet] = React.useState<string | null>(null);
+  const isLocked = !!lockedChart;
 
   // AI state
   const [aiData, setAiData] = React.useState<DivisionalNakshatraInterpretations | null>(null);
@@ -105,37 +117,39 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
     : null;
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Header + Dropdown */}
+    <div className={cn('flex flex-col gap-4', footerLink && 'pb-14')}>
+      {/* Header + Dropdown (selector hidden when locked) */}
       <div className={cardBase}>
         <div className={cn(
           'text-[10px] uppercase tracking-widest font-mono mb-3 flex items-center gap-2',
           isDark ? 'text-jyotish-gold/60' : 'text-slate-400',
         )}>
-          ◈ Divisional Charts (Vargas)
+          {isLocked ? `◈ ${selected} — ${info.name}` : '◈ Divisional Charts (Vargas)'}
         </div>
 
-        <select
-          value={selected}
-          onChange={(e) => setSelected(e.target.value as DivisionalChartType)}
-          className={cn(
-            'w-full px-4 py-3 rounded-2xl border text-sm font-mono font-semibold appearance-none cursor-pointer outline-none transition-all focus:ring-2 focus:ring-jyotish-gold/40',
-            isDark
-              ? 'bg-black/40 border-white/10 text-white'
-              : 'bg-slate-50 border-slate-200 text-slate-900',
-          )}
-        >
-          {DIVISIONAL_CHART_TYPES.map((ct) => {
-            const i = DIVISIONAL_CHART_INFO[ct];
-            return (
-              <option key={ct} value={ct}>
-                {ct} — {i.name}{ct === 'D9' ? ' ★' : ''}
-              </option>
-            );
-          })}
-        </select>
+        {!isLocked && (
+          <select
+            value={selected}
+            onChange={(e) => setSelected(e.target.value as DivisionalChartType)}
+            className={cn(
+              'w-full px-4 py-3 rounded-2xl border text-sm font-mono font-semibold appearance-none cursor-pointer outline-none transition-all focus:ring-2 focus:ring-jyotish-gold/40',
+              isDark
+                ? 'bg-black/40 border-white/10 text-white'
+                : 'bg-slate-50 border-slate-200 text-slate-900',
+            )}
+          >
+            {DIVISIONAL_CHART_TYPES.map((ct) => {
+              const i = DIVISIONAL_CHART_INFO[ct];
+              return (
+                <option key={ct} value={ct}>
+                  {ct} — {i.name}{ct === 'D9' ? ' ★' : ''}
+                </option>
+              );
+            })}
+          </select>
+        )}
 
-        <div className="mt-3">
+        <div className={cn(!isLocked && 'mt-3')}>
           <div className={cn(
             'text-base font-semibold leading-tight',
             isDark ? 'text-white' : 'text-slate-900',
@@ -437,6 +451,26 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {footerLink && (
+        <div
+          className={cn(
+            'fixed left-0 right-0 z-40 flex justify-center pointer-events-none',
+            'bottom-[calc(56px+env(safe-area-inset-bottom))] lg:bottom-4',
+          )}
+        >
+          <button
+            type="button"
+            onClick={footerLink.onClick}
+            className={cn(
+              'pointer-events-auto text-xs font-medium underline underline-offset-4 decoration-jyotish-gold/50 hover:decoration-jyotish-gold transition-colors px-3 py-2',
+              isDark ? 'text-jyotish-gold/80 hover:text-jyotish-gold' : 'text-orange-600/80 hover:text-orange-600',
+            )}
+          >
+            {footerLink.label}
+          </button>
         </div>
       )}
     </div>
