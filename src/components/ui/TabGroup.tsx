@@ -4,7 +4,6 @@ import type { LucideIcon } from 'lucide-react';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
-import { Label } from './Label';
 
 export interface TabGroupItem {
   id: string;
@@ -137,11 +136,6 @@ export function TabGroup({ items, activeId, onChange, className }: TabGroupProps
           <div key={gi} className="flex flex-wrap items-center gap-1">
             {gi > 0 && (
               <div className={cn('w-px h-6 mx-1', theme === 'dark' ? 'bg-white/10' : 'bg-slate-200')} />
-            )}
-            {group.name && (
-              <Label className="mr-1 whitespace-nowrap" muted>
-                {group.name}
-              </Label>
             )}
             <div className="flex flex-wrap gap-1">
               {group.tabs.map((tab) => {
