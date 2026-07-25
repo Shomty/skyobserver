@@ -7,6 +7,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { fetchChatMessages } from './chatSessionService';
 
 /**
  * Fetches all Firestore data for a user and returns it as a plain JS object.
@@ -47,14 +48,31 @@ export async function exportUserData(uid: string): Promise<Record<string, any>> 
   result.ai_report_backups = await fetchCollection(`users/${uid}/ai_report_backups`);
   result.interpretations = await fetchCollection(`users/${uid}/interpretations`);
 
-  // Chat sessions (stored in ai_chats with type === 'chat_session', messages embedded)
+  // Chat sessions (metadata in ai_chats; messages in subcollection when migrated)
   try {
     const sessionsSnap = await getDocs(
       query(collection(db, `users/${uid}/ai_chats`), orderBy('updatedAt', 'desc'))
     );
-    result.chat_sessions = sessionsSnap.docs
+    const sessions = sessionsSnap.docs
       .map(d => ({ _id: d.id, ...d.data() }))
-      .filter((d: any) => d.type === 'chat_session');
+      .filter((d) => (d as { type?: string }).type === 'chat_session');
+
+    const EXPORT_CONCURRENCY = 10;
+    const chatSessions: Array<Record<string, unknown>> = [];
+    for (let i = 0; i < sessions.length; i += EXPORT_CONCURRENCY) {
+      const slice = sessions.slice(i, i + EXPORT_CONCURRENCY);
+      const chunk = await Promise.all(
+        slice.map(async (session) => {
+          const sessionId = session._id;
+          const sessionData = session as Record<string, unknown>;
+          const messages = await fetchChatMessages(db, uid, sessionId, sessionData);
+          const { messages: _embedded, ...meta } = sessionData;
+          return { ...meta, _id: sessionId, messages };
+        })
+      );
+      chatSessions.push(...chunk);
+    }
+    result.chat_sessions = chatSessions;
   } catch {
     result.chat_sessions = [];
   }

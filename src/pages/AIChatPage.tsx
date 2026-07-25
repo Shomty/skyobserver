@@ -3,9 +3,20 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, MessageSquare, Plus, Trash2, Sparkles, Menu, ChevronDown, Check, Users, Loader2, Printer, Share2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
-import { db, doc, collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc } from '../firebase';
-import { serverTimestamp, arrayUnion, getDoc, deleteField } from 'firebase/firestore';
+import { db, doc, collection, query, where, orderBy, onSnapshot, addDoc, getDoc, updateDoc } from '../firebase';
+import { serverTimestamp } from 'firebase/firestore';
 import { createSharedChat, revokeSharedChat } from '../services/shareService';
+import {
+  appendChatMessage,
+  createChatSession,
+  deleteChatSession,
+  mapEmbeddedMessages,
+  mapMessageDoc,
+  markChatMessageSaved,
+  messagesPath,
+  touchChatSession,
+} from '../services/chatSessionService';
+import { migrateEmbeddedMessagesToSubcollection } from '../services/chatMessagesMigrationService';
 import ChatPrintView from '../components/chat/ChatPrintView';
 import ShareChatModal from '../components/chat/ShareChatModal';
 import { callGeminiProxy, getErrorMessage } from '../lib/api-utils';
@@ -18,7 +29,12 @@ import TypingIndicator from '../components/chat/TypingIndicator';
 import EmptyState from '../components/chat/EmptyState';
 import ChatInput from '../components/chat/ChatInput';
 import { buildSystemInstruction, ChatContextProps } from '../lib/chatUtils';
+import { migrateLegacyFlatChats } from '../services/chatMigrationService';
+import { debugError, debugLog, debugWarn } from '../lib/debug';
 import type { ChildProfile } from './ProfilesPage';
+
+/** Both flat→session and embedded→subcollection migrations complete. */
+const CHAT_MIGRATION_VERSION = 3;
 
 interface ChatSession {
   id: string;
@@ -72,8 +88,10 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [indexWarning, setIndexWarning] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesFormatRef = useRef<string | undefined>(undefined);
 
   // Profile selector state — null = user's own chart
   const [chatSubjectProfileId, setChatSubjectProfileId] = useState<string | null>(null);
@@ -160,66 +178,186 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
     return () => { cancelled = true; };
   }, [chatSubjectProfileId, childProfiles]);
 
-  // Subscribe to sessions list — uses ai_chats (has deployed rules), filters by type
+  // One-time: promote legacy flat docs, then migrate embedded message arrays.
+  // Gate on users/{uid}.chatMigrationVersion (account-scoped), not localStorage.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const userSnap = await getDoc(doc(db, 'users', user.uid));
+        const version = userSnap.data()?.chatMigrationVersion ?? 0;
+        if (typeof version === 'number' && version >= CHAT_MIGRATION_VERSION) {
+          debugLog('ai-chat', 'Chat migrations already at target version', { version });
+          return;
+        }
+
+        const created = await migrateLegacyFlatChats(db, user.uid);
+        if (cancelled) return;
+        if (created > 0) {
+          debugLog('ai-chat', 'Migrated legacy flat chats into history', { created });
+        }
+
+        const embeddedCount = await migrateEmbeddedMessagesToSubcollection(db, user.uid);
+        if (cancelled) return;
+        if (embeddedCount > 0) {
+          debugLog('ai-chat', 'Migrated embedded messages to subcollections', { embeddedCount });
+        }
+
+        await updateDoc(doc(db, 'users', user.uid), {
+          chatMigrationVersion: CHAT_MIGRATION_VERSION,
+        });
+      } catch (err) {
+        debugError('ai-chat', 'Chat migration error', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user.uid]);
+
+  // Subscribe to sessions list — server-side type filter with client-filter fallback
   useEffect(() => {
     const sessionsRef = collection(db, `users/${user.uid}/ai_chats`);
-    const q = query(sessionsRef, orderBy('updatedAt', 'desc'));
-    const unsubscribe = onSnapshot(
-      q,
+    let unsubscribe: (() => void) | undefined;
+
+    const applyClientFilter = (snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
+      setSessions(
+        snapshot.docs
+          .map((d) => ({ id: d.id, ...d.data() } as ChatSession & { type?: string }))
+          .filter((d) => d.type === 'chat_session')
+      );
+    };
+
+    const filteredQ = query(
+      sessionsRef,
+      where('type', '==', 'chat_session'),
+      orderBy('updatedAt', 'desc')
+    );
+
+    unsubscribe = onSnapshot(
+      filteredQ,
       (snapshot) => {
-        setSessions(
-          snapshot.docs
-            .map(d => ({ id: d.id, ...d.data() } as any))
-            .filter(d => d.type === 'chat_session') as ChatSession[]
-        );
+        setIndexWarning(null);
+        setSessions(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as ChatSession[]);
       },
-      (err) => {
-        console.error('ai_chats subscription error:', err);
+      (err: unknown) => {
+        const code = typeof err === 'object' && err !== null && 'code' in err
+          ? String((err as { code: string }).code)
+          : '';
+        if (code === 'failed-precondition') {
+          const message = typeof err === 'object' && err !== null && 'message' in err
+            ? String((err as { message: string }).message)
+            : '';
+          debugWarn('ai-chat', 'Composite index missing for sessions query — falling back to client filter', {
+            message,
+          });
+          setIndexWarning(
+            'Chat history is using a slow fallback query because the Firestore composite index ' +
+            '(type + updatedAt on ai_chats) is missing or still building. Deploy firestore.indexes.json, ' +
+            'then reload. ' +
+            (message.includes('http') ? message : '')
+          );
+          unsubscribe?.();
+          const fallbackQ = query(sessionsRef, orderBy('updatedAt', 'desc'));
+          unsubscribe = onSnapshot(
+            fallbackQ,
+            applyClientFilter,
+            (fallbackErr) => {
+              debugError('ai-chat', 'ai_chats subscription error', fallbackErr);
+              setChatError('Unable to load chat history. Check your connection.');
+            }
+          );
+          return;
+        }
+        debugError('ai-chat', 'ai_chats subscription error', err);
         setChatError('Unable to load chat history. Check your connection.');
       }
     );
-    return () => unsubscribe();
+
+    return () => unsubscribe?.();
   }, [user.uid]);
 
-  // Subscribe to messages for active session (embedded array in the session doc)
+  // Session metadata (title, subject, shareId) — messages come from subcollection
   useEffect(() => {
     if (!activeSessionId) {
       setMessages([]);
       setActiveSessionTitle('');
       setActiveSessionSubject(null);
       setShareId(null);
+      messagesFormatRef.current = undefined;
       return;
     }
+
+    messagesFormatRef.current = undefined;
     const sessionDocRef = doc(db, `users/${user.uid}/ai_chats`, activeSessionId);
-    const unsubscribe = onSnapshot(
+    const messagesCol = collection(db, messagesPath(user.uid, activeSessionId));
+
+    const unsubSession = onSnapshot(
       sessionDocRef,
       (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.data();
-          setActiveSessionTitle(data.title || 'Chat');
-          setActiveSessionSubject(data.subjectName ?? null);
-          setShareId(data.shareId ?? null);
-          setMessages(
-            (data.messages || []).map((m: any, i: number) => ({
-              id: `msg-${i}-${m.createdAt || i}`,
-              role: m.role,
-              content: m.content,
-              isSaved: m.isSaved || false,
-            }))
-          );
-        } else {
-          setMessages([]);
+        if (!snapshot.exists()) {
           setActiveSessionTitle('');
           setActiveSessionSubject(null);
           setShareId(null);
+          if (messagesFormatRef.current === 'subcollection') setMessages([]);
+          return;
+        }
+        const data = snapshot.data();
+        messagesFormatRef.current = data.messagesFormat as string | undefined;
+        setActiveSessionTitle(data.title || 'Chat');
+        setActiveSessionSubject(data.subjectName ?? null);
+        setShareId(data.shareId ?? null);
+
+        if (data.messagesFormat !== 'subcollection') {
+          const embedded = mapEmbeddedMessages(data.messages);
+          if (embedded.length > 0) setMessages(embedded);
         }
       },
       (err) => {
-        console.error('messages subscription error:', err);
+        debugError('ai-chat', 'session metadata subscription error', err);
+        setChatError('Unable to load chat. Check your connection.');
+      }
+    );
+
+    // Unordered snapshot + client sort: docs missing `seq` still appear (orderBy('seq')
+    // would exclude them). Prefer seq when present on all docs, else createdAt.
+    const unsubMessages = onSnapshot(
+      messagesCol,
+      (snapshot) => {
+        if (snapshot.empty) {
+          if (messagesFormatRef.current === 'subcollection') {
+            setMessages([]);
+          }
+          return;
+        }
+        const withMeta = snapshot.docs
+          .map((d) => {
+            const data = d.data();
+            const mapped = mapMessageDoc(d.id, data);
+            if (!mapped) return null;
+            return {
+              mapped,
+              seq: typeof data.seq === 'number' ? data.seq : null,
+              createdAt: typeof data.createdAt === 'string' ? data.createdAt : '',
+            };
+          })
+          .filter((m): m is NonNullable<typeof m> => m !== null);
+
+        const allHaveSeq = withMeta.every((m) => m.seq !== null);
+        withMeta.sort((a, b) => {
+          if (allHaveSeq && a.seq !== null && b.seq !== null) return a.seq - b.seq;
+          return a.createdAt.localeCompare(b.createdAt);
+        });
+        setMessages(withMeta.map((m) => m.mapped));
+      },
+      (err) => {
+        debugError('ai-chat', 'messages subscription error', err);
         setChatError('Unable to load messages. Check your connection.');
       }
     );
-    return () => unsubscribe();
+
+    return () => {
+      unsubSession();
+      unsubMessages();
+    };
   }, [user.uid, activeSessionId]);
 
   // Auto-scroll to latest message
@@ -255,21 +393,17 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
   );
 
   const createNewSession = async () => {
-    const newDoc = await addDoc(collection(db, `users/${user.uid}/ai_chats`), {
-      type: 'chat_session',
+    const sessionId = await createChatSession(db, user.uid, {
       title: 'New Chat',
       subjectName: resolvedSubjectName ?? null,
-      messages: [],
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
     });
-    setActiveSessionId(newDoc.id);
+    setActiveSessionId(sessionId);
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
   const deleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    await deleteDoc(doc(db, `users/${user.uid}/ai_chats`, sessionId));
+    await deleteChatSession(db, user.uid, sessionId);
     if (activeSessionId === sessionId) setActiveSessionId(null);
   };
 
@@ -286,30 +420,24 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
     try {
       // Create or retrieve the session document
       if (!sessionId) {
-        const newDoc = await addDoc(collection(db, `users/${user.uid}/ai_chats`), {
-          type: 'chat_session',
+        sessionId = await createChatSession(db, user.uid, {
           title: userMessage.slice(0, 60),
           subjectName: resolvedSubjectName ?? null,
-          messages: [],
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         });
-        sessionId = newDoc.id;
         setActiveSessionId(sessionId);
       } else if (messages.length === 0) {
-        await updateDoc(doc(db, `users/${user.uid}/ai_chats`, sessionId), {
+        await touchChatSession(db, user.uid, sessionId, {
           title: userMessage.slice(0, 60),
-          updatedAt: serverTimestamp(),
         });
       }
 
-      // Snapshot messages before Firestore write to avoid onSnapshot race condition
       const historySnapshot = messages.filter(m => m.content);
-
       const now = new Date().toISOString();
-      await updateDoc(doc(db, `users/${user.uid}/ai_chats`, sessionId), {
-        messages: arrayUnion({ role: 'user', content: userMessage, createdAt: now }),
-        updatedAt: serverTimestamp(),
+
+      await appendChatMessage(db, user.uid, sessionId, {
+        role: 'user',
+        content: userMessage,
+        createdAt: now,
       });
 
       const aiResponse = await callGeminiProxy({
@@ -329,19 +457,24 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
         },
       });
 
-      await updateDoc(doc(db, `users/${user.uid}/ai_chats`, sessionId), {
-        messages: arrayUnion({ role: 'assistant', content: aiResponse, createdAt: new Date().toISOString() }),
-        updatedAt: serverTimestamp(),
+      await appendChatMessage(db, user.uid, sessionId, {
+        role: 'assistant',
+        content: aiResponse,
+        createdAt: new Date().toISOString(),
       });
+      debugLog('ai-chat', 'Persisted assistant reply', { sessionId, chars: aiResponse.length });
     } catch (error) {
+      debugError('ai-chat', 'sendMessage failed', { sessionId, error });
       const friendlyMsg = getErrorMessage(error);
       if (sessionId) {
         try {
-          await updateDoc(doc(db, `users/${user.uid}/ai_chats`, sessionId), {
-            messages: arrayUnion({ role: 'assistant', content: `I encountered an error: ${friendlyMsg}. Please try again.`, createdAt: new Date().toISOString() }),
-            updatedAt: serverTimestamp(),
+          await appendChatMessage(db, user.uid, sessionId, {
+            role: 'assistant',
+            content: `I encountered an error: ${friendlyMsg}. Please try again.`,
+            createdAt: new Date().toISOString(),
           });
-        } catch {
+        } catch (persistErr) {
+          debugError('ai-chat', 'Failed to persist error message', persistErr);
           setChatError(friendlyMsg);
         }
       } else {
@@ -363,21 +496,11 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
         type: 'general',
         createdAt: serverTimestamp(),
       });
-      // Mark saved in session doc
-      if (activeSessionId) {
-        const sessionRef = doc(db, `users/${user.uid}/ai_chats`, activeSessionId);
-        const snap = await getDoc(sessionRef);
-        if (snap.exists()) {
-          const msgs: any[] = snap.data().messages || [];
-          const msgIndex = parseInt(messageId.split('-')[1]);
-          if (!isNaN(msgIndex) && msgs[msgIndex]) {
-            msgs[msgIndex] = { ...msgs[msgIndex], isSaved: true };
-            await updateDoc(sessionRef, { messages: msgs });
-          }
-        }
+      if (activeSessionId && !messageId.startsWith('embedded-')) {
+        await markChatMessageSaved(db, user.uid, activeSessionId, messageId);
       }
     } catch (error) {
-      console.error('Error saving interpretation:', error);
+      debugError('ai-chat', 'Error saving interpretation', error);
     } finally {
       setSavingId(null);
     }
@@ -403,7 +526,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
         subjectName: activeSessionSubject,
         messages: messages.map(m => ({ role: m.role, content: m.content })),
       });
-      await updateDoc(doc(db, `users/${user.uid}/ai_chats`, activeSessionId), { shareId: newShareId });
+      await touchChatSession(db, user.uid, activeSessionId, { shareId: newShareId });
       setShareId(newShareId);
     } catch (error) {
       setShareError(getErrorMessage(error));
@@ -418,7 +541,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
     setIsRevokingShare(true);
     try {
       await revokeSharedChat(shareId, user.uid);
-      await updateDoc(doc(db, `users/${user.uid}/ai_chats`, activeSessionId), { shareId: deleteField() });
+      await touchChatSession(db, user.uid, activeSessionId, { shareId: null });
       setShareId(null);
     } catch (error) {
       setShareError(getErrorMessage(error));
@@ -636,6 +759,16 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
 
         {/* Chat Area */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {/* Config warning — missing composite index (expensive fallback path) */}
+          {indexWarning && (
+            <div className={cn(
+              "flex items-center gap-3 px-4 py-2.5 text-xs border-b flex-shrink-0",
+              isDark ? "bg-amber-500/10 border-amber-500/20 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-800"
+            )}>
+              <span className="flex-1 break-words">{indexWarning}</span>
+              <button onClick={() => setIndexWarning(null)} className="opacity-60 hover:opacity-100 font-bold">✕</button>
+            </div>
+          )}
           {/* Error Banner */}
           {chatError && (
             <div className={cn(

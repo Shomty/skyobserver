@@ -62,26 +62,38 @@ export async function withRetry<T>(
  */
 export function getErrorMessage(error: any): string {
   if (!error) return "An unknown error occurred.";
-  
+
+  const code = typeof error?.code === 'string' ? error.code : '';
+  const status = typeof error?.status === 'number' ? error.status : undefined;
   const msg = String(error?.message || error).toLowerCase();
-  
-  if (msg.includes("quota exceeded") || msg.includes("rate limit") || error.status === 429) {
+
+  if (code === 'permission-denied' || code === 'PERMISSION_DENIED') {
+    return "Access denied by security rules. You are signed in, but this action is not allowed. If this persists after a deploy, check Firestore rules for the path being written.";
+  }
+
+  if (msg.includes("quota exceeded") || msg.includes("rate limit") || status === 429) {
     return "API limit reached. Please wait a moment before trying again.";
   }
-  
+
   if (msg.includes("network") || msg.includes("failed to fetch")) {
     return "Network error. Please check your internet connection.";
   }
-  
-  if (msg.includes("unavailable") || error.status >= 500) {
+
+  if (code === 'unavailable' || msg.includes("unavailable") || (status !== undefined && status >= 500)) {
     return "Service temporarily unavailable. Our celestial servers are recalibrating.";
   }
 
-  if (msg.includes("permission") || msg.includes("insufficient")) {
+  // Auth-related permission failures (not Firestore rules authz)
+  if (code === 'unauthenticated' || msg.includes("insufficient")) {
     return "Permissions error. Please make sure you are logged in correctly.";
   }
 
-  if (msg.includes("invalid_argument") || msg.includes("contents is not specified") || error.status === 400) {
+  if (
+    code === 'invalid-argument' ||
+    msg.includes("invalid_argument") ||
+    msg.includes("contents is not specified") ||
+    status === 400
+  ) {
     return "There was a problem with the request format. Please try again.";
   }
 
