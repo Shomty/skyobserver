@@ -56,7 +56,9 @@ import {
   List,
   Grid,
   Eye,
-  Layers
+  Layers,
+  AlertCircle,
+  RotateCw
 } from 'lucide-react';
 import { Archives } from './components/Archives';
 import { useTheme } from './context/ThemeContext';
@@ -519,6 +521,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [authProfileError, setAuthProfileError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<NavId>(() => {
     // Initialize from URL so the activeTab→URL effect doesn't redirect on first render
     return pathToNavId(window.location.pathname) ?? DEFAULT_NAV_ID;
@@ -585,6 +588,7 @@ export default function App() {
         isAnonymous: currentUser.isAnonymous,
       } : { authenticated: false });
       setUser(currentUser);
+      setAuthProfileError(null);
       if (currentUser) {
         // Load user settings with retry
         try {
@@ -652,7 +656,8 @@ export default function App() {
             }
           }
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
+          debugError('auth', 'Unable to load user profile', error);
+          setAuthProfileError('We signed you in, but could not load your profile. Check your connection and try again.');
         }
       } else {
         setUserProfile(null);
@@ -671,7 +676,8 @@ export default function App() {
         time: onboardingData.birthTime,
         lat: onboardingData.lat,
         lon: onboardingData.lon,
-        city: onboardingData.birthCity
+        city: onboardingData.birthCity,
+        timezone: onboardingData.timezone || null
       };
 
       const initialChart = {
@@ -681,6 +687,7 @@ export default function App() {
         lat: onboardingData.lat,
         lon: onboardingData.lon,
         city: onboardingData.birthCity,
+        timezone: onboardingData.timezone || null,
         createdAt: Timestamp.now()
       };
 
@@ -1592,8 +1599,29 @@ INTERPRETATION GUIDELINES:
   if (isAuthReady && !user) {
     return (
       <React.Suspense fallback={<div className="min-h-screen universe-bg dark" />}>
-        <LandingPage onSignIn={() => signInWithGoogle().then(() => {})} />
+        <LandingPage />
       </React.Suspense>
+    );
+  }
+
+  if (authProfileError) {
+    return (
+      <main className="min-h-screen bg-[#08060d] px-6 text-white">
+        <div className="mx-auto flex min-h-screen max-w-lg items-center justify-center">
+          <div className="w-full rounded-3xl border border-red-400/20 bg-white/[0.03] p-8 text-center">
+            <AlertCircle className="mx-auto h-9 w-9 text-red-300" />
+            <h1 className="mt-5 font-serif text-3xl font-medium italic">Your profile is temporarily out of reach.</h1>
+            <p className="mt-3 text-sm leading-6 text-white/55">{authProfileError}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-7 inline-flex items-center gap-2 rounded-full bg-jyotish-gold px-6 py-3 text-sm font-semibold text-black"
+            >
+              <RotateCw className="h-4 w-4" /> Try again
+            </button>
+          </div>
+        </div>
+      </main>
     );
   }
 

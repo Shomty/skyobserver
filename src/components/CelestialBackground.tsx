@@ -1,6 +1,4 @@
 import React, { useMemo } from 'react';
-import { cn } from '../lib/utils';
-import { useTheme } from '../context/ThemeContext';
 
 interface CelestialBackgroundProps {}
 
@@ -12,19 +10,15 @@ const DRIFT_PARTICLES = [
 ];
 
 export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
-  const { theme } = useTheme();
-  // Generate random stats for stars
   const stars = useMemo(() => {
-    return Array.from({ length: 150 }).map((_, i) => ({
+    return Array.from({ length: 72 }).map((_, i) => ({
       id: i,
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      size: Math.random() * 1.5 + 0.5,
-      // Larger stars twinkle more
-      duration: Math.random() * 3 + 2,
-      delay: Math.random() * 5,
-      // Some stars are colored
-      color: Math.random() > 0.9 ? (Math.random() > 0.5 ? '#d4af37' : '#9333ea') : '#ffffff'
+      left: `${(i * 37.17) % 100}%`,
+      top: `${(i * 61.83) % 100}%`,
+      size: (i % 5) * 0.24 + 0.5,
+      duration: (i % 4) + 3,
+      delay: (i % 7) * 0.55,
+      color: i % 13 === 0 ? '#9d7cff' : '#ede8f5'
     }));
   }, []);
 
@@ -56,28 +50,19 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
       `}</style>
 
       {/* Deep Space Base Gradients */}
-      <div className={cn(
-        "absolute inset-0 transition-opacity duration-1000",
-        theme === 'dark' ? "opacity-100" : "opacity-0"
-      )}>
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0a051d] via-[#1a0b2e] to-black" />
+      <div className="absolute inset-0 opacity-100">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#08050d] via-[#140a20] to-[#050407]" />
       </div>
 
       {/* Atmospheric Nebula Effects */}
       <div
         style={{ animation: 'nebula-drift-1 60s linear infinite' }}
-        className={cn(
-          "absolute top-[-20%] left-[-10%] w-[80%] h-[80%] blur-[120px] rounded-full transition-colors duration-1000 opacity-[0.15]",
-          theme === 'dark' ? "bg-mystic-purple" : "bg-orange-500/5"
-        )}
+        className="absolute left-[-10%] top-[-20%] h-[80%] w-[80%] rounded-full bg-mystic-purple opacity-[0.15] blur-[120px]"
       />
 
       <div
         style={{ animation: 'nebula-drift-2 90s linear infinite' }}
-        className={cn(
-          "absolute bottom-[-20%] right-[-10%] w-[90%] h-[90%] blur-[150px] rounded-full transition-colors duration-1000 opacity-[0.1]",
-          theme === 'dark' ? "bg-jyotish-gold" : "bg-blue-500/5"
-        )}
+        className="absolute bottom-[-20%] right-[-10%] h-[90%] w-[90%] rounded-full bg-violet-700 opacity-[0.12] blur-[150px]"
       />
 
       {/* Twinkling Stars */}
@@ -91,7 +76,7 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
               top: star.top,
               width: star.size,
               height: star.size,
-              backgroundColor: theme === 'dark' ? star.color : '#cbd5e1',
+              backgroundColor: star.color,
               boxShadow: star.size > 1 ? `0 0 ${star.size * 2}px ${star.color}` : 'none',
               animation: `star-twinkle ${star.duration}s ease-in-out ${star.delay}s infinite`,
             }}
@@ -104,10 +89,7 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
         {DRIFT_PARTICLES.map((p, i) => (
           <div
             key={`drift-${i}`}
-            className={cn(
-              "absolute blur-[1px] opacity-20",
-              theme === 'dark' ? "bg-white/10" : "bg-black/5"
-            )}
+            className="absolute bg-white/10 opacity-20 blur-[1px]"
             style={{
               width: p.width,
               height: p.height,
@@ -121,12 +103,7 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
       </div>
 
       {/* Vignette */}
-      <div className={cn(
-        "absolute inset-0 transition-opacity duration-1000",
-        theme === 'dark'
-          ? "bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)] opacity-100"
-          : "bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.05)_100%)] opacity-100"
-      )} />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.48)_100%)]" />
     </div>
   );
 };

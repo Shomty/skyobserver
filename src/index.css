@@ -1,7 +1,7 @@
 @import "@fontsource-variable/cormorant-garamond";
 @import "@fontsource-variable/cormorant-garamond/wght-italic.css";
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource/ibm-plex-mono";
 @import "tailwindcss";
 
 @theme {
@@ -9,11 +9,15 @@
   --color-cosmic-indigo: #0f051d;
   --color-jyotish-gold: #d4af37;
   --color-celestial-gold: #f9e29b;
+  --color-cosmic-accent: #9d7cff;
+  --color-cosmic-glow: #c4b5fd;
+  --color-cosmic-bright: #e9d5ff;
+  --color-cosmic-deep: #5b21b6;
 
   /* Typography: readable body face + expressive display serif */
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-serif: 'Cormorant Garamond Variable', Georgia, 'Times New Roman', serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
   /* Semantic type scale — 12px floor, fluid on larger viewports */
   --text-caption: 0.75rem;
@@ -88,7 +92,11 @@
   }
 
   .universe-bg.dark {
-    background: radial-gradient(circle at center, #1a0b2e 0%, #0f051d 100%);
+    background:
+      radial-gradient(circle at 78% 8%, rgba(157, 124, 255, 0.14), transparent 28rem),
+      radial-gradient(circle at 10% 42%, rgba(91, 33, 182, 0.28), transparent 36rem),
+      radial-gradient(circle at 50% 100%, rgba(49, 16, 88, 0.35), transparent 40rem),
+      linear-gradient(145deg, #07040f 0%, #120820 52%, #040208 100%);
   }
 
   .universe-bg.light {
@@ -124,12 +132,60 @@
     @apply bg-gradient-to-r from-jyotish-gold to-celestial-gold bg-clip-text text-transparent font-serif italic;
   }
 
+  .landing-shell {
+    --landing-ink: #ede8f5;
+    --landing-muted: #a89bb8;
+    --landing-line: rgba(157, 124, 255, 0.2);
+    color: var(--landing-ink);
+    background:
+      linear-gradient(rgba(157, 124, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(157, 124, 255, 0.04) 1px, transparent 1px);
+    background-size: 72px 72px;
+  }
+
+  .landing-kicker {
+    @apply font-mono text-[0.68rem] font-medium uppercase tracking-[0.24em] text-cosmic-accent;
+  }
+
+  .landing-panel {
+    border: 1px solid var(--landing-line);
+    background: linear-gradient(145deg, rgba(22, 10, 38, 0.92), rgba(8, 4, 16, 0.85));
+    box-shadow: inset 0 1px rgba(196, 181, 253, 0.06), 0 30px 80px rgba(49, 16, 88, 0.25);
+  }
+
+  .landing-btn-primary {
+    @apply rounded-full bg-cosmic-accent px-7 py-4 font-semibold text-white transition hover:bg-cosmic-glow hover:text-cosmic-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-bright;
+  }
+
+  .landing-btn-secondary {
+    @apply rounded-full border border-white/15 px-7 py-4 font-medium text-white/80 transition hover:border-cosmic-accent/40 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-accent;
+  }
+
+  .landing-accent-text {
+    @apply text-cosmic-accent;
+  }
+
+  .landing-accent-border {
+    @apply border-cosmic-accent/25;
+  }
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

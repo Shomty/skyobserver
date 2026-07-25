@@ -10,6 +10,20 @@ import {lazyWithReload} from './lib/lazyWithReload.ts';
 import {debugLog, installDebugConsole, isDebugEnabled} from './lib/debug.ts';
 
 const SharedChatPage = lazyWithReload(() => import('./pages/SharedChatPage.tsx'));
+const GiftChooserPage = lazyWithReload(
+  () => import('./features/gift/pages/GiftChooserPage.tsx')
+);
+const GiftWizardPage = lazyWithReload(
+  () => import('./features/gift/pages/GiftWizardPage.tsx')
+);
+const GiftSentRedirect = lazyWithReload(
+  () => import('./features/gift/pages/GiftSentRedirect.tsx')
+);
+const GiftVerifyPage = lazyWithReload(
+  () => import('./features/gift/pages/GiftVerifyPage.tsx')
+);
+const PrivacyPolicyPage = lazyWithReload(() => import('./pages/legal/PrivacyPolicyPage.tsx'));
+const TermsPage = lazyWithReload(() => import('./pages/legal/TermsPage.tsx'));
 
 // Suppress benign Vite HMR noise only in development.
 if (typeof window !== 'undefined') {
@@ -65,6 +79,54 @@ function RoutedApp() {
           element={
             <Suspense fallback={null}>
               <SharedChatPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/gift"
+          element={
+            <Suspense fallback={null}>
+              <GiftChooserPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/gift/verify"
+          element={
+            <Suspense fallback={null}>
+              <GiftVerifyPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/gift/:slug/sent"
+          element={
+            <Suspense fallback={null}>
+              <GiftSentRedirect />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/gift/:slug"
+          element={
+            <Suspense fallback={null}>
+              <GiftWizardPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/privacy"
+          element={
+            <Suspense fallback={null}>
+              <PrivacyPolicyPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/terms"
+          element={
+            <Suspense fallback={null}>
+              <TermsPage />
             </Suspense>
           }
         />

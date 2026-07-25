@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
+import { ArrowDownRight, Orbit } from 'lucide-react';
 import { CelestialBackground } from '../../components/CelestialBackground';
 
 interface LandingHeroProps {
-  onSignIn: () => Promise<void>;
+  onOpenAuth: (mode: 'signin' | 'signup') => void;
+  children?: React.ReactNode;
 }
-
-const HEADLINE_WORDS = ['The', 'Sky', 'Has', 'Always', 'Known'];
 
 function LiveClock() {
   const [time, setTime] = useState(() => new Date());
@@ -20,81 +20,78 @@ function LiveClock() {
   const utc = `${pad(time.getUTCHours())}:${pad(time.getUTCMinutes())}:${pad(time.getUTCSeconds())}`;
 
   return (
-    <p className="font-mono text-xs text-white/30 tracking-widest mt-3 uppercase">
-      UTC {utc}
+    <p className="font-mono text-[10px] text-white/50 tracking-[0.22em] uppercase tabular">
+      Live cosmos · UTC {utc}
     </p>
   );
 }
 
-export const LandingHero: React.FC<LandingHeroProps> = ({ onSignIn }) => {
+export const LandingHero: React.FC<LandingHeroProps> = ({ onOpenAuth, children }) => {
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6">
+    <section id="top" className="relative min-h-screen overflow-hidden px-5 pb-20 pt-32 md:px-8 md:pt-40">
       <CelestialBackground />
 
-      <div className="relative z-10 flex flex-col items-center">
-        {/* Headline — staggered word entrance */}
-        <h1 className="text-5xl md:text-7xl font-serif italic font-bold leading-tight mb-2">
-          {HEADLINE_WORDS.map((word, i) => (
-            <motion.span
-              key={word}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1, duration: 0.6, ease: 'easeOut' }}
-              className="gold-gradient-text inline-block mr-[0.25em] last:mr-0"
-            >
-              {word}
-            </motion.span>
-          ))}
-        </h1>
+      <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[0.82fr_1.18fr]">
+        <div>
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-center gap-4">
+            <span className="grid h-10 w-10 place-items-center rounded-full border border-cosmic-accent/30 bg-cosmic-accent/10">
+              <Orbit className="h-4 w-4 text-cosmic-accent" />
+            </span>
+            <div>
+              <p className="landing-kicker">Your personal pattern studio</p>
+              <LiveClock />
+            </div>
+          </motion.div>
 
-        <LiveClock />
-
-        {/* Sub-headline */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.7, duration: 0.8 }}
-          className="text-sm md:text-base font-mono text-white/50 uppercase tracking-widest mt-6 max-w-xl"
-        >
-          Real-time Sidereal Vedic astrology. AI-powered interpretations. Swiss Ephemeris precision.
-        </motion.p>
-
-        {/* Trust tags */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.9, duration: 0.6 }}
-          className="flex items-center gap-3 mt-4 flex-wrap justify-center"
-        >
-          {['Lahiri Ayanamsa', 'Swiss Ephemeris', 'Gemini AI'].map((tag, i) => (
-            <React.Fragment key={tag}>
-              <span className="text-[10px] uppercase tracking-[0.2em] font-mono text-jyotish-gold/60">
-                {tag}
-              </span>
-              {i < 2 && <span className="text-jyotish-gold/20 text-xs">·</span>}
-            </React.Fragment>
-          ))}
-        </motion.div>
-
-        {/* CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.1, duration: 0.6 }}
-          className="flex flex-col items-center gap-3 mt-10"
-        >
-          <button
-            onClick={onSignIn}
-            className="bg-jyotish-gold text-black rounded-2xl px-8 py-4 text-base font-semibold hover:bg-celestial-gold transition-colors shadow-lg shadow-jyotish-gold/20"
+          <motion.h1
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.75, ease: 'easeOut' }}
+            className="max-w-3xl font-serif text-[clamp(4rem,9vw,7.7rem)] font-medium italic leading-[0.82] tracking-[-0.045em] text-[#ede8f5]"
           >
-            Begin Your Chart
-          </button>
-          <button
-            onClick={onSignIn}
-            className="text-white/40 text-xs hover:text-white/60 transition-colors underline underline-offset-2"
+            See the pattern behind your time.
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.35, duration: 0.7 }}
+            className="mt-8 max-w-xl text-base leading-7 text-white/65 md:text-lg"
           >
-            Already have an account? Sign in
-          </button>
+            Map your personality blueprint, life chapters, and daily emotional weather
+            in one calm, precise workspace — grounded in psychology and real astronomy.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.48 }}
+            className="mt-9 flex flex-col gap-3 sm:flex-row"
+          >
+            <button onClick={() => onOpenAuth('signup')} className="landing-btn-primary group inline-flex items-center justify-center gap-3">
+              Create your profile
+              <ArrowDownRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:translate-y-0.5" />
+            </button>
+            <button onClick={() => onOpenAuth('signin')} className="landing-btn-secondary">
+              I already have an account
+            </button>
+          </motion.div>
+
+          <div className="mt-10 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[9px] uppercase tracking-[0.18em] text-white/45">
+            <span>Precision astronomy</span>
+            <span>Private by default</span>
+            <span>Reflective AI guidance</span>
+          </div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, rotate: 1 }}
+          animate={{ opacity: 1, scale: 1, rotate: 0 }}
+          transition={{ delay: 0.22, duration: 0.8 }}
+          className="relative"
+        >
+          <div className="pointer-events-none absolute -inset-16 rounded-full bg-cosmic-accent/10 blur-3xl" />
+          {children}
         </motion.div>
       </div>
     </section>

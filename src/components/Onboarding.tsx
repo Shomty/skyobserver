@@ -1,606 +1,418 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  User, 
-  Calendar, 
-  MapPin, 
-  CheckCircle2, 
-  ChevronRight, 
-  ChevronLeft, 
-  Sparkles, 
-  Loader2,
+import React, { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import {
+  AlertCircle,
+  Calendar,
+  Check,
+  ChevronLeft,
+  ChevronRight,
   Clock,
-  Info,
-  Lock,
-  Mail,
-  LogIn,
-  UserPlus,
-  AlertCircle
+  Loader2,
+  MapPin,
+  Sparkles,
+  User,
 } from 'lucide-react';
-import { cn } from '../lib/utils';
 import { format } from 'date-fns';
-import { signInWithGoogle, loginWithEmail, registerWithEmail } from '../firebase';
-import { withRetry, getErrorMessage } from '../lib/api-utils';
-import { APIErrorMessage } from './APIErrorMessage';
+import { cn } from '../lib/utils';
+import { withRetry } from '../lib/api-utils';
+import { resolveBirthInstant } from '../features/gift/lib/birthInstant';
 
 interface OnboardingFlowProps {
   theme: 'light' | 'dark';
-  onComplete: (data: any) => Promise<void>;
-  user: any;
+  onComplete: (data: OnboardingData) => Promise<void>;
+  user: unknown;
 }
 
-export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ theme, onComplete, user }) => {
-  const [step, setStep] = useState(user ? 2 : 1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [citySuggestions, setCitySuggestions] = useState<any[]>([]);
-  const [isCitySearching, setIsCitySearching] = useState(false);
-  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
-  
-  // Auth states
-  const [isLogin, setIsLogin] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [onboardingError, setOnboardingError] = useState<{ error: any; title: string; retry?: () => void } | null>(null);
+interface Place {
+  label: string;
+  lat: number;
+  lon: number;
+  timezone?: string;
+}
 
-  const [formData, setFormData] = useState({
+interface GeocodeResult {
+  name: string;
+  admin1?: string;
+  country?: string;
+  latitude: number;
+  longitude: number;
+  timezone?: string;
+}
+
+export interface OnboardingData {
+  firstName: string;
+  lastName: string;
+  gender: string;
+  birthTime: string;
+  birthCity: string;
+  lat: number;
+  lon: number;
+  timezone?: string;
+}
+
+const STEPS = [
+  { id: 1, label: 'Personal', icon: User },
+  { id: 2, label: 'Birth', icon: Calendar },
+  { id: 3, label: 'Review', icon: Check },
+];
+
+function localDateTimeToIso(localDateTime: string, timeZone?: string): string {
+  if (!timeZone) return new Date(localDateTime).toISOString();
+  const [datePart, timePart] = localDateTime.split('T');
+  return resolveBirthInstant(datePart, timePart, timeZone)?.iso ?? new Date(localDateTime).toISOString();
+}
+
+export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ theme, onComplete }) => {
+  const [step, setStep] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
+  const [query, setQuery] = useState('');
+  const [place, setPlace] = useState<Place | null>(null);
+  const [suggestions, setSuggestions] = useState<GeocodeResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [touched, setTouched] = useState(false);
+  const [form, setForm] = useState({
     firstName: '',
     lastName: '',
     gender: 'male',
     birthTime: '',
-    birthCity: '',
-    lat: 0,
-    lon: 0
   });
 
-  const steps = [
-    { id: 1, title: 'Account', icon: Lock },
-    { id: 2, title: 'Personal', icon: User },
-    { id: 3, title: 'Birth', icon: Calendar },
-    { id: 4, title: 'Confirm', icon: CheckCircle2 }
-  ];
+  const isDark = theme === 'dark';
+  const maxBirthTime = useMemo(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  }, []);
 
   useEffect(() => {
-    if (user && step === 1) {
-      setStep(2);
-    }
-  }, [user, step]);
-
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setAuthError(null);
-    try {
-      if (isLogin) {
-        await loginWithEmail(email, password);
-      } else {
-        await registerWithEmail(email, password);
-      }
-      // Step will advance via useEffect
-    } catch (err: any) {
-      setAuthError(err.message || 'Authentication failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    setAuthError(null);
-    try {
-      await signInWithGoogle();
-    } catch (err: any) {
-      setAuthError(err.message || 'Google sign-in failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCitySearch = async (query: string) => {
-    setFormData(prev => ({ ...prev, birthCity: query }));
-    if (query.length < 2) {
-      setCitySuggestions([]);
+    if (place?.label === query || query.trim().length < 2) {
+      setSuggestions([]);
       return;
     }
 
-    setIsCitySearching(true);
-    setOnboardingError(null);
-    try {
-      // 1. Try proxy first
-      let res = await withRetry(() => fetch(`/api/geocode?name=${encodeURIComponent(query)}`));
-      
-      // 2. Fallback to direct if proxy fails
-      if (!res.ok) {
-        res = await withRetry(() => fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=en&format=json`));
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setIsSearching(true);
+      setSearchError('');
+      try {
+        let response = await withRetry(() =>
+          fetch(`/api/geocode?name=${encodeURIComponent(query.trim())}`, { signal: controller.signal })
+        );
+        if (!response.ok) {
+          response = await withRetry(() =>
+            fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query.trim())}&count=5&language=en&format=json`, {
+              signal: controller.signal,
+            })
+          );
+        }
+        if (!response.ok) throw new Error('City search is unavailable.');
+        const data = await response.json();
+        setSuggestions(data.results || []);
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          setSearchError('We could not search places. Check your connection and try again.');
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsSearching(false);
       }
+    }, 350);
 
-      if (res.ok) {
-        const data = await res.json();
-        setCitySuggestions(data.results || []);
-        setShowCitySuggestions(true);
-      } else {
-        throw new Error("Geocoding service returned an error");
-      }
-    } catch (e) {
-      console.error("Geocoding error:", e);
-      setOnboardingError({
-        error: e,
-        title: "City Search Failed",
-        retry: () => handleCitySearch(query)
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [query, place]);
+
+  const selectPlace = (result: GeocodeResult) => {
+    const label = [result.name, result.admin1, result.country].filter(Boolean).join(', ');
+    setPlace({
+      label,
+      lat: result.latitude,
+      lon: result.longitude,
+      timezone: result.timezone,
+    });
+    setQuery(label);
+    setSuggestions([]);
+    setSearchError('');
+  };
+
+  const personalValid = form.firstName.trim().length > 0 && form.lastName.trim().length > 0;
+  const birthDate = form.birthTime ? new Date(form.birthTime) : null;
+  const birthValid = Boolean(
+    birthDate &&
+    !Number.isNaN(birthDate.getTime()) &&
+    birthDate.getTime() <= Date.now() &&
+    place &&
+    Number.isFinite(place.lat) &&
+    Number.isFinite(place.lon)
+  );
+  const stepValid = step === 1 ? personalValid : step === 2 ? birthValid : true;
+
+  const continueStep = () => {
+    setTouched(true);
+    if (!stepValid) return;
+    setTouched(false);
+    setStep(current => Math.min(3, current + 1));
+  };
+
+  const complete = async () => {
+    if (!place || !birthValid) return;
+    setIsSaving(true);
+    setSaveError('');
+    try {
+      await onComplete({
+        ...form,
+        birthTime: localDateTimeToIso(form.birthTime, place.timezone),
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        birthCity: place.label,
+        lat: place.lat,
+        lon: place.lon,
+        timezone: place.timezone,
       });
+    } catch {
+      setSaveError('Your profile could not be saved. Nothing was lost—please try again.');
     } finally {
-      setIsCitySearching(false);
+      setIsSaving(false);
     }
   };
 
-  const selectCity = (city: any) => {
-    setFormData(prev => ({
-      ...prev,
-      birthCity: `${city.name}, ${city.admin1 || ''} ${city.country}`,
-      lat: city.latitude,
-      lon: city.longitude
-    }));
-    setCitySuggestions([]);
-    setShowCitySuggestions(false);
-  };
-
-  const handleComplete = async () => {
-    setIsLoading(true);
-    try {
-      await onComplete(formData);
-    } catch (error) {
-      console.error("Onboarding completion error:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isStepValid = () => {
-    if (step === 1) return user !== null;
-    if (step === 2) return formData.firstName.trim().length > 0 && formData.lastName.trim().length > 0;
-    if (step === 3) return formData.birthTime && formData.birthCity && formData.lat !== 0;
-    return true;
-  };
+  const fieldClass = cn(
+    'w-full rounded-xl border px-4 py-3.5 text-sm outline-none transition focus:border-jyotish-gold focus:ring-2 focus:ring-jyotish-gold/15',
+    isDark ? 'border-white/10 bg-white/[0.04] text-white placeholder:text-white/30' : 'border-slate-200 bg-slate-50 text-slate-900'
+  );
 
   return (
-    <div className={cn(
-      "min-h-screen flex items-center justify-center p-4 transition-colors duration-500",
-      theme === 'dark' ? "bg-[#050505] text-white" : "bg-slate-50 text-slate-900"
-    )}>
-      {/* Progress Header */}
-      <div className="fixed top-0 left-0 w-full p-6 flex justify-center z-50">
-        <div className="flex items-center gap-4">
-          {steps.map((s, i) => {
-            const isCompleted = step > s.id || (s.id === 1 && user);
-            const isActive = step === s.id;
-            
+    <main className={cn('min-h-screen px-4 py-10 md:py-16', isDark ? 'bg-[#08060d] text-white' : 'bg-[#f4f0e8] text-slate-900')}>
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-10 flex items-center justify-between">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-jyotish-gold">Create your observatory</p>
+            <h1 className="mt-2 font-serif text-3xl font-medium italic md:text-4xl">Begin with accurate coordinates.</h1>
+          </div>
+          <span className={cn('hidden text-sm md:block', isDark ? 'text-white/45' : 'text-slate-500')}>About 2 minutes</span>
+        </header>
+
+        <div className="mb-8 grid grid-cols-3 gap-2" aria-label="Onboarding progress">
+          {STEPS.map(item => {
+            const Icon = item.icon;
+            const active = step === item.id;
+            const completeStep = step > item.id;
             return (
-              <React.Fragment key={s.id}>
-                <div className="flex flex-col items-center gap-2">
-                  <div className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-500",
-                    isCompleted || isActive
-                      ? "bg-jyotish-gold border-jyotish-gold text-black shadow-lg shadow-jyotish-gold/20" 
-                      : theme === 'dark' ? "bg-white/5 border-white/10 text-white/20" : "bg-white border-slate-200 text-slate-300"
-                  )}>
-                    {isCompleted && !isActive ? <CheckCircle2 className="w-5 h-5" /> : <s.icon className="w-5 h-5" />}
-                  </div>
-                  <span className={cn(
-                    "text-[8px] font-mono uppercase tracking-widest transition-colors duration-500",
-                    isCompleted || isActive ? "text-jyotish-gold" : theme === 'dark' ? "text-white/20" : "text-slate-300"
-                  )}>
-                    {s.title}
-                  </span>
-                </div>
-                {i < steps.length - 1 && (
-                  <div className={cn(
-                    "w-12 h-[1px] mb-6 transition-colors duration-500",
-                    isCompleted ? "bg-jyotish-gold" : theme === 'dark' ? "bg-white/10" : "bg-slate-200"
-                  )} />
+              <div
+                key={item.id}
+                className={cn(
+                  'flex items-center gap-3 rounded-xl border px-3 py-3 transition',
+                  active || completeStep
+                    ? 'border-jyotish-gold/35 bg-jyotish-gold/[0.07]'
+                    : isDark ? 'border-white/[0.07] text-white/35' : 'border-slate-200 text-slate-400'
                 )}
-              </React.Fragment>
+                aria-current={active ? 'step' : undefined}
+              >
+                <span className={cn('grid h-7 w-7 place-items-center rounded-full text-xs', active || completeStep ? 'bg-jyotish-gold text-black' : 'bg-current/10')}>
+                  {completeStep ? <Check className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
+                </span>
+                <span className="hidden text-xs font-medium sm:block">{item.label}</span>
+              </div>
             );
           })}
         </div>
+
+        <section className={cn('overflow-hidden rounded-[2rem] border shadow-2xl', isDark ? 'border-white/10 bg-[#100c17]' : 'border-slate-200 bg-white')}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -16 }}
+              transition={{ duration: 0.22 }}
+              className="grid min-h-[31rem] md:grid-cols-[0.42fr_0.58fr]"
+            >
+              <div className={cn('relative hidden overflow-hidden p-9 md:block', isDark ? 'bg-jyotish-gold text-[#150e08]' : 'bg-[#17101f] text-white')}>
+                <div className="relative z-10">
+                  <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] opacity-60">Step {step} of 3</p>
+                  <h2 className="mt-5 font-serif text-4xl font-medium italic leading-none">
+                    {step === 1 && 'Who is this chart for?'}
+                    {step === 2 && 'Where and when did the sky begin?'}
+                    {step === 3 && 'Check the chart foundation.'}
+                  </h2>
+                  <p className="mt-5 text-sm leading-6 opacity-70">
+                    {step === 1 && 'Your profile keeps this chart distinct from any family or research profiles you add later.'}
+                    {step === 2 && 'A few minutes or kilometres can change the ascendant and house structure.'}
+                    {step === 3 && 'You can update these details later, but precision now gives you a better starting point.'}
+                  </p>
+                </div>
+                <div className="absolute -bottom-24 -right-24 h-72 w-72 rounded-full border border-current/15" />
+                <div className="absolute -bottom-10 -right-10 h-48 w-48 rounded-full border border-current/15" />
+              </div>
+
+              <div className="p-6 md:p-10">
+                {step === 1 && (
+                  <div className="space-y-6">
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-jyotish-gold">Personal details</p>
+                      <h2 className="mt-2 font-serif text-3xl font-medium italic">Name your chart</h2>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="space-y-2 text-sm">
+                        <span>First name</span>
+                        <input className={fieldClass} autoComplete="given-name" value={form.firstName} onChange={event => setForm(value => ({ ...value, firstName: event.target.value }))} />
+                        {touched && !form.firstName.trim() && <span className="block text-xs text-red-400">Enter a first name.</span>}
+                      </label>
+                      <label className="space-y-2 text-sm">
+                        <span>Last name</span>
+                        <input className={fieldClass} autoComplete="family-name" value={form.lastName} onChange={event => setForm(value => ({ ...value, lastName: event.target.value }))} />
+                        {touched && !form.lastName.trim() && <span className="block text-xs text-red-400">Enter a last name.</span>}
+                      </label>
+                    </div>
+                    <fieldset>
+                      <legend className="mb-3 text-sm">Gender</legend>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['male', 'female', 'other'].map(gender => (
+                          <button
+                            key={gender}
+                            type="button"
+                            onClick={() => setForm(value => ({ ...value, gender }))}
+                            className={cn('rounded-xl border px-3 py-3 text-xs capitalize transition', form.gender === gender ? 'border-jyotish-gold bg-jyotish-gold text-black' : isDark ? 'border-white/10 text-white/60' : 'border-slate-200')}
+                            aria-pressed={form.gender === gender}
+                          >
+                            {gender}
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
+                  </div>
+                )}
+
+                {step === 2 && (
+                  <div className="space-y-6">
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-jyotish-gold">Birth details</p>
+                      <h2 className="mt-2 font-serif text-3xl font-medium italic">Set the chart coordinates</h2>
+                    </div>
+                    <label className="block space-y-2 text-sm">
+                      <span>Date and local time of birth</span>
+                      <div className="relative">
+                        <Clock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-jyotish-gold" />
+                        <input
+                          type="datetime-local"
+                          max={maxBirthTime}
+                          className={cn(fieldClass, 'pl-11')}
+                          value={form.birthTime}
+                          onChange={event => setForm(value => ({ ...value, birthTime: event.target.value }))}
+                        />
+                      </div>
+                      {touched && !birthDate && <span className="block text-xs text-red-400">Enter a birth date and time.</span>}
+                      {birthDate && birthDate.getTime() > Date.now() && <span className="block text-xs text-red-400">Birth time cannot be in the future.</span>}
+                    </label>
+                    <div className="relative space-y-2 text-sm">
+                      <label htmlFor="birth-place">Place of birth</label>
+                      <div className="relative">
+                        <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-jyotish-gold" />
+                        <input
+                          id="birth-place"
+                          className={cn(fieldClass, 'pl-11 pr-11')}
+                          value={query}
+                          onChange={event => {
+                            setQuery(event.target.value);
+                            setPlace(null);
+                          }}
+                          placeholder="Search city or town"
+                          autoComplete="off"
+                          role="combobox"
+                          aria-expanded={suggestions.length > 0}
+                        />
+                        {isSearching && <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-jyotish-gold" />}
+                      </div>
+                      {place && (
+                        <p className="flex items-center gap-2 text-xs text-emerald-400">
+                          <Check className="h-3.5 w-3.5" />
+                          Coordinates selected · {place.lat.toFixed(3)}, {place.lon.toFixed(3)}
+                        </p>
+                      )}
+                      {touched && !place && <span className="block text-xs text-red-400">Choose a place from the results.</span>}
+                      {searchError && <p className="text-xs text-red-400">{searchError}</p>}
+                      {suggestions.length > 0 && (
+                        <div className={cn('absolute z-20 mt-1 w-full overflow-hidden rounded-xl border shadow-2xl', isDark ? 'border-white/10 bg-[#16101f]' : 'border-slate-200 bg-white')}>
+                          {suggestions.map(result => (
+                            <button
+                              key={`${result.name}-${result.latitude}-${result.longitude}`}
+                              type="button"
+                              onClick={() => selectPlace(result)}
+                              className={cn('block w-full border-b px-4 py-3 text-left text-sm last:border-0', isDark ? 'border-white/[0.06] hover:bg-white/5' : 'border-slate-100 hover:bg-slate-50')}
+                            >
+                              <span className="block font-medium">{result.name}</span>
+                              <span className={cn('text-xs', isDark ? 'text-white/45' : 'text-slate-500')}>{[result.admin1, result.country].filter(Boolean).join(', ')}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {step === 3 && place && (
+                  <div className="space-y-6">
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-jyotish-gold">Review</p>
+                      <h2 className="mt-2 font-serif text-3xl font-medium italic">Ready to calculate</h2>
+                    </div>
+                    <dl className={cn('divide-y rounded-2xl border', isDark ? 'divide-white/10 border-white/10' : 'divide-slate-200 border-slate-200')}>
+                      <ReviewRow label="Name" value={`${form.firstName} ${form.lastName}`} />
+                      <ReviewRow label="Gender" value={form.gender} />
+                      <ReviewRow label="Birth time" value={format(new Date(form.birthTime), 'MMM d, yyyy · HH:mm')} />
+                      <ReviewRow label="Birth place" value={place.label} />
+                      <ReviewRow label="Timezone" value={place.timezone || 'Local time entered'} />
+                    </dl>
+                    <p className={cn('text-xs leading-5', isDark ? 'text-white/45' : 'text-slate-500')}>
+                      These details calculate your natal chart and can be updated later from your profile.
+                    </p>
+                    {saveError && (
+                      <div role="alert" className="flex gap-3 rounded-xl border border-red-400/25 bg-red-400/10 p-3 text-sm text-red-300">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        {saveError}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-10 flex gap-3">
+                  {step > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => { setTouched(false); setStep(value => value - 1); }}
+                      disabled={isSaving}
+                      className={cn('inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm transition', isDark ? 'border-white/15 text-white/65 hover:text-white' : 'border-slate-300 text-slate-600')}
+                    >
+                      <ChevronLeft className="h-4 w-4" /> Back
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={step === 3 ? complete : continueStep}
+                    disabled={isSaving}
+                    className="ml-auto inline-flex min-w-40 items-center justify-center gap-2 rounded-full bg-jyotish-gold px-6 py-3 text-sm font-semibold text-black transition hover:bg-celestial-gold disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : step === 3 ? <Sparkles className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    {isSaving ? 'Saving…' : step === 3 ? 'Create my chart' : 'Continue'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </section>
       </div>
-
-      <motion.div
-        key={step}
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -20 }}
-        className={cn(
-          "w-full max-w-lg p-8 rounded-3xl border relative z-10 backdrop-blur-xl shadow-2xl transition-colors duration-500",
-          theme === 'dark' ? "bg-white/[0.02] border-white/10" : "bg-white border-slate-200"
-        )}
-      >
-        <AnimatePresence mode="wait">
-          {step === 1 && (
-            <motion.div
-              key="step1"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-6"
-            >
-              <div className="text-center mb-8">
-                <h2 className={cn("text-2xl font-bold font-serif italic mb-2", theme === 'dark' ? "text-jyotish-gold" : "text-slate-900")}>
-                  {user ? 'Account Verified' : (isLogin ? 'Welcome Back' : 'Create Account')}
-                </h2>
-                <p className={cn("text-xs font-mono uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
-                  {user ? 'You are successfully logged in' : (isLogin ? 'Sign in to your cosmic profile' : 'Begin your journey with us')}
-                </p>
-              </div>
-
-              {user ? (
-                <div className="flex flex-col items-center gap-6 py-8">
-                  <div className="w-20 h-20 rounded-full bg-jyotish-gold/20 flex items-center justify-center border border-jyotish-gold/30">
-                    <CheckCircle2 className="w-10 h-10 text-jyotish-gold" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-bold mb-1">{user.email}</p>
-                    <p className="text-[10px] text-white/40 uppercase tracking-widest">Ready to continue</p>
-                  </div>
-                  <button
-                    onClick={() => setStep(2)}
-                    className="w-full bg-jyotish-gold hover:bg-jyotish-gold/90 text-black font-bold py-4 rounded-xl shadow-lg shadow-jyotish-gold/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                  >
-                    <span className="uppercase tracking-widest text-[10px]">Continue to Onboarding</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {authError && (
-                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] flex items-center gap-2">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      {authError}
-                    </div>
-                  )}
-
-                  <form onSubmit={handleAuth} className="space-y-4">
-                    <div className="space-y-2">
-                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Email</label>
-                      <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-jyotish-gold/50" />
-                        <input
-                          type="email"
-                          required
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className={cn(
-                            "w-full pl-12 pr-4 py-3 rounded-xl border text-sm transition-all outline-none",
-                            theme === 'dark' ? "bg-white/5 border-white/10 text-white focus:border-jyotish-gold/50" : "bg-slate-50 border-slate-200 text-slate-900 focus:border-jyotish-gold/50"
-                          )}
-                          placeholder="seeker@cosmos.com"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Password</label>
-                      <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-jyotish-gold/50" />
-                        <input
-                          type="password"
-                          required
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className={cn(
-                            "w-full pl-12 pr-4 py-3 rounded-xl border text-sm transition-all outline-none",
-                            theme === 'dark' ? "bg-white/5 border-white/10 text-white focus:border-jyotish-gold/50" : "bg-slate-50 border-slate-200 text-slate-900 focus:border-jyotish-gold/50"
-                          )}
-                          placeholder="••••••••"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full bg-jyotish-gold hover:bg-jyotish-gold/90 text-black font-bold py-4 rounded-xl shadow-lg shadow-jyotish-gold/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 mt-4"
-                    >
-                      {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (isLogin ? <LogIn className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />)}
-                      <span className="uppercase tracking-widest text-[10px]">
-                        {isLogin ? 'Sign In' : 'Register Account'}
-                      </span>
-                    </button>
-                  </form>
-
-                  <div className="relative my-6">
-                    <div className={cn("absolute inset-0 flex items-center", theme === 'dark' ? "opacity-10" : "opacity-20")}>
-                      <div className="w-full border-t border-current"></div>
-                    </div>
-                    <div className="relative flex justify-center text-[8px] uppercase tracking-widest font-mono">
-                      <span className={cn("px-4", theme === 'dark' ? "bg-[#0a0a0a] text-white/40" : "bg-white text-slate-400")}>Or</span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleGoogleSignIn}
-                    disabled={isLoading}
-                    className={cn(
-                      "w-full py-3 rounded-xl border flex items-center justify-center gap-3 transition-all active:scale-[0.98]",
-                      theme === 'dark' ? "bg-white/5 border-white/10 hover:bg-white/10 text-white" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-900 shadow-sm"
-                    )}
-                  >
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/button/google.svg" alt="Google" className="w-4 h-4" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Continue with Google</span>
-                  </button>
-
-                  <div className="text-center mt-4">
-                    <button
-                      onClick={() => setIsLogin(!isLogin)}
-                      className={cn(
-                        "text-[10px] uppercase tracking-widest font-mono transition-colors",
-                        theme === 'dark' ? "text-white/40 hover:text-jyotish-gold" : "text-slate-400 hover:text-jyotish-gold"
-                      )}
-                    >
-                      {isLogin ? "New here? Register an account" : "Already have an account? Sign In"}
-                    </button>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          )}
-
-          {step === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-6"
-            >
-              <div className="text-center mb-8">
-                <h2 className={cn("text-2xl font-bold font-serif italic mb-2", theme === 'dark' ? "text-jyotish-gold" : "text-slate-900")}>
-                  Personal Details
-                </h2>
-                <p className={cn("text-xs font-mono uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
-                  Tell us about yourself
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>First Name</label>
-                  <input
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                    className={cn(
-                      "w-full px-4 py-3 rounded-xl border text-sm transition-all outline-none",
-                      theme === 'dark' ? "bg-white/5 border-white/10 text-white focus:border-jyotish-gold/50" : "bg-slate-50 border-slate-200 text-slate-900 focus:border-jyotish-gold/50"
-                    )}
-                    placeholder="Arjuna"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Last Name</label>
-                  <input
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                    className={cn(
-                      "w-full px-4 py-3 rounded-xl border text-sm transition-all outline-none",
-                      theme === 'dark' ? "bg-white/5 border-white/10 text-white focus:border-jyotish-gold/50" : "bg-slate-50 border-slate-200 text-slate-900 focus:border-jyotish-gold/50"
-                    )}
-                    placeholder="Pandava"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Gender</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {['male', 'female', 'other'].map((g) => (
-                    <button
-                      key={g}
-                      onClick={() => setFormData(prev => ({ ...prev, gender: g }))}
-                      className={cn(
-                        "py-3 rounded-xl border text-[10px] font-mono uppercase tracking-widest transition-all",
-                        formData.gender === g 
-                          ? "bg-jyotish-gold border-jyotish-gold text-black font-bold shadow-lg shadow-jyotish-gold/20" 
-                          : theme === 'dark' ? "bg-white/5 border-white/10 text-white/40 hover:bg-white/10" : "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100"
-                      )}
-                    >
-                      {g}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 3 && (
-            <motion.div
-              key="step3"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-6"
-            >
-              <div className="text-center mb-8">
-                <h2 className={cn("text-2xl font-bold font-serif italic mb-2", theme === 'dark' ? "text-jyotish-gold" : "text-slate-900")}>
-                  Birth Details
-                </h2>
-                <p className={cn("text-xs font-mono uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
-                  The stars alignment at your arrival
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Date & Time of Birth</label>
-                <div className="relative">
-                  <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-jyotish-gold/50" />
-                  <input
-                    type="datetime-local"
-                    value={formData.birthTime}
-                    onChange={(e) => setFormData(prev => ({ ...prev, birthTime: e.target.value }))}
-                    className={cn(
-                      "w-full pl-12 pr-4 py-3 rounded-xl border text-sm transition-all outline-none",
-                      theme === 'dark' ? "bg-white/5 border-white/10 text-white focus:border-jyotish-gold/50" : "bg-slate-50 border-slate-200 text-slate-900 focus:border-jyotish-gold/50"
-                    )}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2 relative">
-                <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Place of Birth</label>
-                <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-jyotish-gold/50" />
-                  <input
-                    type="text"
-                    value={formData.birthCity}
-                    onChange={(e) => handleCitySearch(e.target.value)}
-                    onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
-                    className={cn(
-                      "w-full pl-12 pr-4 py-3 rounded-xl border text-sm transition-all outline-none",
-                      theme === 'dark' ? "bg-white/5 border-white/10 text-white focus:border-jyotish-gold/50" : "bg-slate-50 border-slate-200 text-slate-900 focus:border-jyotish-gold/50"
-                    )}
-                    placeholder="Search city..."
-                  />
-                  {isCitySearching && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                      <Loader2 className="w-4 h-4 animate-spin text-jyotish-gold" />
-                    </div>
-                  )}
-                </div>
-
-                <AnimatePresence>
-                  {onboardingError && (
-                    <APIErrorMessage 
-                      error={onboardingError.error}
-                      title={onboardingError.title}
-                      onRetry={() => {
-                        const retryFn = onboardingError.retry;
-                        setOnboardingError(null);
-                        retryFn?.();
-                      }}
-                      onClear={() => setOnboardingError(null)}
-                      className="mt-2 text-xs"
-                    />
-                  )}
-                  {showCitySuggestions && citySuggestions.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className={cn(
-                        "absolute z-50 left-0 right-0 mt-2 rounded-xl border shadow-xl overflow-hidden",
-                        theme === 'dark' ? "bg-[#0a0a0a] border-white/10" : "bg-white border-slate-200"
-                      )}
-                    >
-                      {citySuggestions.map((city, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => selectCity(city)}
-                          className={cn(
-                            "w-full p-3 text-left text-xs transition-colors border-b last:border-0",
-                            theme === 'dark' ? "hover:bg-white/5 border-white/5 text-white/80" : "hover:bg-slate-50 border-slate-100 text-slate-700"
-                          )}
-                        >
-                          <div className="font-bold">{city.name}</div>
-                          <div className="text-[10px] opacity-60">{city.admin1 || ''}, {city.country}</div>
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 4 && (
-            <motion.div
-              key="step4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-6"
-            >
-              <div className="text-center mb-8">
-                <h2 className={cn("text-2xl font-bold font-serif italic mb-2", theme === 'dark' ? "text-jyotish-gold" : "text-slate-900")}>
-                  Final Confirmation
-                </h2>
-                <p className={cn("text-xs font-mono uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
-                  Verify your cosmic coordinates
-                </p>
-              </div>
-
-              <div className={cn(
-                "p-6 rounded-2xl border space-y-4",
-                theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-slate-50 border-slate-100"
-              )}>
-                <div className="flex justify-between items-center">
-                  <span className={cn("text-[10px] font-mono uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Name</span>
-                  <span className="text-sm font-bold">{formData.firstName} {formData.lastName}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className={cn("text-[10px] font-mono uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Gender</span>
-                  <span className="text-sm font-bold capitalize">{formData.gender}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className={cn("text-[10px] font-mono uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Birth Time</span>
-                  <span className="text-sm font-bold">{formData.birthTime ? format(new Date(formData.birthTime), 'MMM d, yyyy HH:mm') : '-'}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className={cn("text-[10px] font-mono uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Birth Place</span>
-                  <span className="text-sm font-bold text-right max-w-[200px]">{formData.birthCity}</span>
-                </div>
-              </div>
-
-              <div className={cn("p-4 rounded-xl flex items-start gap-3", theme === 'dark' ? "bg-jyotish-gold/5 border border-jyotish-gold/10" : "bg-orange-50 border border-orange-100")}>
-                <Info className="w-4 h-4 text-jyotish-gold shrink-0 mt-0.5" />
-                <p className={cn("text-[10px] leading-relaxed", theme === 'dark' ? "text-white/60" : "text-slate-600")}>
-                  Your birth details are used to calculate your unique natal chart and provide personalized astrological insights. You can always update these later in your profile.
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="flex gap-3 mt-10">
-          {step > 1 && (
-            <button
-              onClick={() => setStep(prev => prev - 1)}
-              disabled={isLoading}
-              className={cn(
-                "flex-1 py-4 rounded-xl border flex items-center justify-center gap-2 transition-all active:scale-[0.98]",
-                theme === 'dark' ? "bg-white/5 border-white/10 text-white/60 hover:bg-white/10" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm"
-              )}
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <span className="text-[10px] font-mono uppercase tracking-widest">Back</span>
-            </button>
-          )}
-          
-          {step > 1 && (
-            <button
-              onClick={() => step < 4 ? setStep(prev => prev + 1) : handleComplete()}
-              disabled={isLoading || !isStepValid()}
-              className={cn(
-                "flex-[2] py-4 rounded-xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2",
-                isStepValid() 
-                  ? "bg-jyotish-gold text-black shadow-lg shadow-jyotish-gold/20 hover:bg-jyotish-gold/90" 
-                  : theme === 'dark' ? "bg-white/5 text-white/20 cursor-not-allowed" : "bg-slate-100 text-slate-300 cursor-not-allowed"
-              )}
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  <span className="text-[10px] font-mono uppercase tracking-widest">
-                    {step === 4 ? 'Complete Setup' : 'Continue'}
-                  </span>
-                  {step < 4 && <ChevronRight className="w-4 h-4" />}
-                  {step === 4 && <Sparkles className="w-4 h-4" />}
-                </>
-              )}
-            </button>
-          )}
-        </div>
-      </motion.div>
-    </div>
+    </main>
   );
 };
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[7rem_1fr] gap-4 px-4 py-4">
+      <dt className="font-mono text-[10px] uppercase tracking-[0.14em] opacity-45">{label}</dt>
+      <dd className="text-right text-sm font-medium capitalize">{value}</dd>
+    </div>
+  );
+}

@@ -52,6 +52,7 @@ export async function fetchWithRetry<T>(
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const registerWithEmail = (email: string, pass: string) => createUserWithEmailAndPassword(auth, email, pass);
 export const loginWithEmail = (email: string, pass: string) => signInWithEmailAndPassword(auth, email, pass);
+export const resetPassword = (email: string) => sendPasswordResetEmail(auth, email);
 export const logout = () => signOut(auth);
 
 /**

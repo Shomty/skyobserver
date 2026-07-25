@@ -217,6 +217,90 @@ async function startServer() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // Gift funnel stubs — demo fixtures, NOT a backend. They persist nothing and
+  // send no email, so they must never answer production traffic: a stubbed
+  // `{status:'ok'}` tells a real visitor their report is coming when no lead was
+  // stored anywhere. Replace this block when the real lead/report pipeline exists.
+  const GIFT_STUBS_ENABLED = process.env.NODE_ENV !== 'production';
+
+  if (GIFT_STUBS_ENABLED) {
+    // Supports ?mock=ok|duplicate|daily_cap|paused|invalid|network|expired for demos.
+    const giftMockDelay = (ms = 600) => new Promise((r) => setTimeout(r, ms));
+    const giftMaskEmail = (email: string) => {
+      const normalized = String(email || 'user@example.com').trim().toLowerCase();
+      const [local, domain] = normalized.split('@');
+      if (!local || !domain) return '***@***';
+      return `${local.slice(0, 1)}***@${domain}`;
+    };
+    const giftMockVariant = (req: express.Request) =>
+      (typeof req.query.mock === 'string' && req.query.mock) || 'ok';
+
+    app.get('/api/gift/capacity', rateLimit, async (req, res) => {
+      await giftMockDelay();
+      if (giftMockVariant(req) === 'paused' || giftMockVariant(req) === 'network') {
+        if (giftMockVariant(req) === 'network') {
+          return res.status(503).json({ error: 'Network error (stub)' });
+        }
+        return res.json({
+          open: false,
+          paused: true,
+          resumeDate: '2026-08-01',
+          message: 'Registrations are paused while we catch up.',
+        });
+      }
+      res.json({ open: true, paused: false });
+    });
+
+    app.post('/api/gift/submit', rateLimit, async (req, res) => {
+      await giftMockDelay();
+      const variant = giftMockVariant(req);
+      if (variant === 'network') return res.status(503).json({ error: 'Network error (stub)' });
+      const email = req.body?.values?.email ?? 'user@example.com';
+      const maskedEmail = giftMaskEmail(email);
+      if (variant === 'duplicate') return res.json({ status: 'duplicate', maskedEmail });
+      if (variant === 'daily_cap') return res.json({ status: 'daily_cap' });
+      if (variant === 'paused') return res.json({ status: 'paused', resumeDate: '2026-08-01' });
+      if (variant === 'invalid') return res.json({ status: 'invalid', fieldErrors: { email: 'errors.email' } });
+      res.json({ status: 'ok', maskedEmail });
+    });
+
+    app.post('/api/gift/suggestion', rateLimit, async (req, res) => {
+      await giftMockDelay();
+      if (giftMockVariant(req) === 'network') return res.status(503).json({ error: 'Network error (stub)' });
+      void req.body;
+      res.json({ status: 'ok' });
+    });
+
+    app.get('/api/gift/verify', rateLimit, async (req, res) => {
+      await giftMockDelay();
+      const variant = giftMockVariant(req);
+      const token = typeof req.query.token === 'string' ? req.query.token : '';
+      if (variant === 'network') return res.status(503).json({ error: 'Network error (stub)' });
+      if (variant === 'expired' || token === 'expired') return res.json({ status: 'expired' });
+      if (variant === 'invalid' || !token || token === 'invalid') return res.json({ status: 'invalid' });
+      res.json({ status: 'ok' });
+    });
+  } else {
+    serverLog('warn', 'gift', 'Gift stubs disabled in production — funnel reports as paused');
+
+    // Closed rather than broken: the wizard checks capacity on mount, so visitors
+    // see the CapacityPaused screen instead of filling a form that cannot deliver.
+    app.get('/api/gift/capacity', rateLimit, (_req, res) => {
+      res.json({
+        open: false,
+        paused: true,
+        message: 'Free readings are not open yet. Leave your email on the app and we will tell you when they are.',
+      });
+    });
+
+    const giftUnavailable = (_req: express.Request, res: express.Response) => {
+      res.status(503).json({ error: 'Gift funnel backend is not configured.' });
+    };
+    app.post('/api/gift/submit', rateLimit, giftUnavailable);
+    app.post('/api/gift/suggestion', rateLimit, giftUnavailable);
+    app.get('/api/gift/verify', rateLimit, giftUnavailable);
+  }
+
   // Proxy for Geocoding (Open-Meteo)
   app.get('/api/geocode', rateLimit, async (req, res) => {
     const { name } = req.query;
