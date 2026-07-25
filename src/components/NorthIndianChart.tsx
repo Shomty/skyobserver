@@ -558,7 +558,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
             )}
             style={{ left: `${percentX}%`, top: `${percentY}%`, transform: 'translate(-50%, -50%)' }}
           >
-            <div className="text-[11px] font-bold uppercase tracking-wide text-orange-500">{seg.name}</div>
+            <div className="text-[13px] font-bold uppercase tracking-wide text-orange-500">{seg.name}</div>
             <div className={cn("mt-1 space-y-0.5 text-[9px] font-mono", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
               <div><span className="opacity-60">Lord:</span> {data.lord}</div>
               <div><span className="opacity-60">Deity:</span> {data.deity}</div>

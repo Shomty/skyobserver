@@ -22,8 +22,8 @@
   --font-serif: 'Cormorant Garamond Variable', Georgia, 'Times New Roman', serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  /* Semantic type scale — 12px floor, fluid on larger viewports */
-  --text-caption: 0.75rem;
+  /* Semantic type scale — 13px floor, fluid on larger viewports */
+  --text-caption: 0.8125rem;
   --text-caption--line-height: 1.35;
   --text-label: 0.8125rem;
   --text-label--line-height: 1.4;

@@ -195,7 +195,7 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
         )}>
           Planetary Positions — {selected}
         </div>
-        <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        <div className="grid grid-cols-2 gap-1.5 text-[13px]">
           {divisionalPositions
             .filter(p => p.name !== 'Ascendant')
             .map(p => (
@@ -263,7 +263,7 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
                   Pada {selectedPosition.pada}
                 </span>
               </div>
-              <div className={cn('text-[11px] mt-2', isDark ? 'text-white/50' : 'text-slate-500')}>
+              <div className={cn('text-[13px] mt-2', isDark ? 'text-white/50' : 'text-slate-500')}>
                 <span className="mr-3">
                   Lord: <span className={cn('font-medium', isDark ? 'text-white/70' : 'text-slate-700')}>{selectedNakData.lord}</span>
                 </span>
@@ -274,7 +274,7 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
                   Symbol: <span className={cn('font-medium', isDark ? 'text-white/70' : 'text-slate-700')}>{selectedNakData.symbol}</span>
                 </span>
               </div>
-              <p className={cn('text-[11px] mt-2 italic leading-relaxed', isDark ? 'text-white/40' : 'text-slate-500')}>
+              <p className={cn('text-[13px] mt-2 italic leading-relaxed', isDark ? 'text-white/40' : 'text-slate-500')}>
                 {selectedNakData.characteristics}
               </p>
             </div>
@@ -420,7 +420,7 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
                               {p.nakshatra} P{p.pada}
                             </span>
                           </div>
-                          <p className={cn('text-[11px] leading-relaxed', isDark ? 'text-white/55' : 'text-slate-600')}>
+                          <p className={cn('text-[13px] leading-relaxed', isDark ? 'text-white/55' : 'text-slate-600')}>
                             {aiData.planets[p.name]}
                           </p>
                         </div>
@@ -441,7 +441,7 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
                         <div className={cn('text-xs font-bold mb-2', isDark ? 'text-white/70' : 'text-slate-700')}>
                           {rasi}
                         </div>
-                        <p className={cn('text-[11px] leading-relaxed', isDark ? 'text-white/55' : 'text-slate-600')}>
+                        <p className={cn('text-[13px] leading-relaxed', isDark ? 'text-white/55' : 'text-slate-600')}>
                           {text}
                         </p>
                       </div>

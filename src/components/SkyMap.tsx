@@ -803,11 +803,11 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                           <div className={cn("p-2.5 rounded-xl border bg-white/5 border-white/10 space-y-2")}>
                             <div className="flex items-center justify-between">
                               <span className="text-[9px] uppercase tracking-widest text-white/40">House</span>
-                              <span className="text-[11px] font-bold text-jyotish-gold">{getOrdinal(houseNum)} House</span>
+                              <span className="text-[13px] font-bold text-jyotish-gold">{getOrdinal(houseNum)} House</span>
                             </div>
                             <div className="flex items-center justify-between">
                               <span className="text-[9px] uppercase tracking-widest text-white/40">Sign Lord</span>
-                              <span className="text-[11px] font-bold text-white">{lord}</span>
+                              <span className="text-[13px] font-bold text-white">{lord}</span>
                             </div>
                           </div>
 

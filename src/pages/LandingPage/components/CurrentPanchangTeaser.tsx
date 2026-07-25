@@ -22,7 +22,7 @@ const MoodDatum: React.FC<{ label: string; value: string; detail?: string }> = (
   <div className="dashboard-stat">
     <dt className="dashboard-stat-label">{label}</dt>
     <dd className="dashboard-stat-value">{value}</dd>
-    {detail && <dd className="mt-1 text-[11px] leading-5 text-white/35">{detail}</dd>}
+    {detail && <dd className="mt-1 text-[13px] leading-5 text-white/35">{detail}</dd>}
   </div>
 );
 

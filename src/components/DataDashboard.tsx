@@ -24,6 +24,7 @@ import { getCachedReport, saveAIReport, getPerAccountReport, savePerAccountRepor
 import { callGeminiProxy, getErrorMessage, withRetry } from '../lib/api-utils';
 import { APIErrorMessage } from './APIErrorMessage';
 import DivisionalCharts from './DivisionalCharts';
+import { DashaTimelineLoader } from './DashaTimeline';
 import { 
   PlanetPosition, TransitEvent, TransitPrediction, NatalComparisonResult, 
   PanchangData, findMuhurtaWindows, EventCategory, MuhurtaWindow, MuhurtaSearchResult, MUHURTA_GLOBAL_MAX,
@@ -223,7 +224,7 @@ const BhriguBinduAnalysis: React.FC<{
           <div className="text-[10px] uppercase tracking-widest font-mono opacity-40 mb-3 flex items-center gap-1.5">
             <Brain className="w-3 h-3" /> Soul Interpretation
           </div>
-          <p className={cn("text-[11px] leading-relaxed italic font-serif", theme === 'dark' ? "text-white/80" : "text-slate-700")}>
+          <p className={cn("text-[13px] leading-relaxed italic font-serif", theme === 'dark' ? "text-white/80" : "text-slate-700")}>
             "Bhrigu Bindu marks the specific zodiacal degree where your emotional self (Moon) perfectly balances with your soul's karmic evolution (Rahu). Transits over this point essentially act as 'destiny switches'—opening doors to events that feel fated or profoundly purposeful."
           </p>
         </div>
@@ -251,7 +252,7 @@ const BhriguBinduAnalysis: React.FC<{
                       <span className="animate-pulse text-jyotish-gold">●</span> TRANSIT
                     </div>
                   </div>
-                  <p className={cn("text-[11px] leading-relaxed", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
+                  <p className={cn("text-[13px] leading-relaxed", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
                     {getInterpretation(p)}
                   </p>
                 </div>
@@ -366,13 +367,35 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
   const [muhurtaDays, setMuhurtaDays] = React.useState<number>(30);
   const [isMuhurtaCalculating, setIsMuhurtaCalculating] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [dashaSelectedDate, setDashaSelectedDate] = React.useState<Date>(() => currentTime);
+
+  React.useEffect(() => {
+    if (activeTab === 'dashas' && isLive) {
+      setDashaSelectedDate(currentTime);
+    }
+  }, [activeTab, isLive, currentTime]);
+
+  const birthCoords = React.useMemo(() => {
+    const bd = userProfile?.birthDetails;
+    if (bd?.lat != null && bd?.lon != null) {
+      return { lat: bd.lat, lon: bd.lon, timezone: bd.timezone ?? null };
+    }
+    const activeChart = userProfile?.savedCharts?.find((c: any) => c.id === userProfile?.activeChartId)
+      ?? userProfile?.savedCharts?.[0];
+    if (activeChart?.lat != null && activeChart?.lon != null) {
+      return { lat: activeChart.lat, lon: activeChart.lon, timezone: activeChart.timezone ?? null };
+    }
+    return null;
+  }, [userProfile]);
+
+  const dashaReferenceDate = activeTab === 'dashas' ? dashaSelectedDate : currentTime;
 
   const currentDashas = React.useMemo(() => {
     if (!birthTime || !birthPositions) return null;
     const moon = birthPositions.find(p => p.name === 'Moon');
     if (!moon) return null;
-    return calculateDashaLevels(birthTime, moon.siderealLongitude, currentTime);
-  }, [birthTime, birthPositions, currentTime]);
+    return calculateDashaLevels(birthTime, moon.siderealLongitude, dashaReferenceDate);
+  }, [birthTime, birthPositions, dashaReferenceDate]);
 
   const currentTarabala = React.useMemo(() => {
     if (!birthPositions || !panchang) return null;
@@ -1237,7 +1260,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                                               : <Compass className="w-3 h-3 opacity-50" />
                                           )}
                                         </div>
-                                        <p className={cn("text-[11px] leading-snug mt-1", theme === 'dark' ? "text-white/50" : "text-slate-500")}>
+                                        <p className={cn("text-[13px] leading-snug mt-1", theme === 'dark' ? "text-white/50" : "text-slate-500")}>
                                           {offMode ? `Switches to ${tab.requiredMode} mode` : tab.group}
                                         </p>
                                       </div>
@@ -1351,7 +1374,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                           </div>
                           <div className="space-y-1">
                             <h4 className={cn("text-xs font-bold uppercase tracking-wider", insight.color)}>{insight.topic}</h4>
-                            <p className={cn("text-[11px] leading-relaxed", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
+                            <p className={cn("text-sm leading-relaxed", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
                               {insight.content}
                             </p>
                           </div>
@@ -1424,7 +1447,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                             <PlanetGlyph name={transit.planet} className="scale-110" />
                           </div>
                           <div className="space-y-0.5">
-                            <div className="text-[11px] font-bold flex items-center gap-1.5">
+                            <div className="text-[13px] font-bold flex items-center gap-1.5">
                               {transit.planet} 
                               <span className={theme === 'dark' ? "text-white/40" : "text-slate-400 font-normal"}>
                                 {transit.type === 'Natal Conjunction' ? '→ natal' : transit.type === 'Natal Aspect' ? 'aspecting' : 'entering'}
@@ -1535,7 +1558,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                                       </span>
                                       <div className="h-px flex-1 mx-3 bg-jyotish-gold/10" />
                                     </div>
-                                    <p className={cn("text-[11px] leading-relaxed italic", theme === 'dark' ? "text-white/80" : "text-slate-700")}>
+                                    <p className={cn("text-[13px] leading-relaxed italic", theme === 'dark' ? "text-white/80" : "text-slate-700")}>
                                       {ah.interpretation}
                                     </p>
                                   </div>
@@ -1628,7 +1651,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                     </div>
                   </div>
                 </div>
-                <div className="space-y-2 text-[11px] leading-relaxed">
+                <div className="space-y-2 text-[13px] leading-relaxed">
                   <p className={theme === 'dark' ? "text-white/60" : "text-slate-600"}>
                     <span className={cn("font-bold", item.color)}>Element: {item.element}.</span>
                   </p>
@@ -2062,36 +2085,90 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                     return (
                       <>
                         {/* Mobile: stacked cards (no horizontal scroll) */}
-                        <div className="md:hidden space-y-2">
-                          {birthPositions.map((p, i) => (
-                            <div key={i} className={cn("rounded-xl border p-3 flex flex-col gap-2 min-w-0", theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-100")}>
-                              <div className="flex items-center justify-between gap-2 min-w-0">
-                                <span className="flex items-center gap-1.5 min-w-0">
-                                  <span className="text-sm shrink-0">{PLANET_GLYPHS[p.name] || ''}</span>
-                                  <span className={cn("font-medium truncate", theme === 'dark' ? "text-white/80" : "text-slate-700")}>{p.name}</span>
-                                </span>
-                                <span className={cn("text-[10px] font-bold shrink-0", statusColorOf(p))}>{statusOf(p) || '—'}</span>
+                        <div className="md:hidden space-y-3">
+                          {birthPositions.map((p, i) => {
+                            const nak = NAKSHATRA_DATA[p.nakshatra as keyof typeof NAKSHATRA_DATA];
+                            const status = statusOf(p);
+                            const detailRows = [
+                              { label: 'Rashi', value: p.rashi },
+                              { label: 'House', value: p.house ? `House ${p.house}` : '—' },
+                              { label: 'Nakshatra', value: `${p.nakshatra} · Pada ${p.pada}` },
+                              ...(nak?.lord ? [{ label: 'Nakshatra Lord', value: nak.lord as string }] : []),
+                              { label: 'Sidereal Degree', value: `${p.degree}° ${p.minute}'` },
+                              ...(status ? [{ label: 'Dignity', value: status }] : []),
+                            ];
+
+                            return (
+                              <div
+                                key={i}
+                                className={cn(
+                                  "w-full rounded-2xl border p-4 flex flex-col items-stretch",
+                                  theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-100 shadow-sm",
+                                )}
+                              >
+                                <div className={cn(
+                                  "flex flex-col items-center text-center pb-4 mb-3 border-b",
+                                  theme === 'dark' ? "border-white/5" : "border-slate-100",
+                                )}>
+                                  <div
+                                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0"
+                                    style={{ backgroundColor: p.color, color: '#000' }}
+                                  >
+                                    {p.symbol || PLANET_GLYPHS[p.name] || ''}
+                                  </div>
+                                  <p className={cn("mt-2.5 text-base font-bold", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                    {p.name}
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                                    {p.isRetrograde && !['Rahu', 'Ketu'].includes(p.name) && (
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25 font-bold uppercase tracking-wider">
+                                        Retrograde
+                                      </span>
+                                    )}
+                                    {p.isCombust && (
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25 font-bold uppercase tracking-wider">
+                                        Combust
+                                      </span>
+                                    )}
+                                    {status && (
+                                      <span className={cn(
+                                        "text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider",
+                                        statusColorOf(p),
+                                        theme === 'dark' ? "border-white/10 bg-white/[0.04]" : "border-slate-200 bg-slate-50",
+                                      )}>
+                                        {status}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2 w-full">
+                                  {detailRows.map((row) => (
+                                    <div
+                                      key={row.label}
+                                      className={cn(
+                                        "flex items-start justify-between gap-4 rounded-xl px-3 py-2.5",
+                                        theme === 'dark' ? "bg-white/[0.03]" : "bg-slate-50",
+                                      )}
+                                    >
+                                      <span className={cn(
+                                        "text-[11px] uppercase tracking-wider font-mono shrink-0 pt-0.5",
+                                        theme === 'dark' ? "text-white/35" : "text-slate-400",
+                                      )}>
+                                        {row.label}
+                                      </span>
+                                      <span className={cn(
+                                        "text-[13px] font-medium text-right leading-snug",
+                                        row.label === 'Dignity' ? statusColorOf(p) : theme === 'dark' ? "text-white/85" : "text-slate-700",
+                                      )}>
+                                        {row.value}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] min-w-0">
-                                <div className="flex justify-between gap-2 min-w-0">
-                                  <span className={theme === 'dark' ? "text-white/30" : "text-slate-400"}>Rashi</span>
-                                  <span className={cn("truncate text-right", theme === 'dark' ? "text-white/70" : "text-slate-600")}>{p.rashi}</span>
-                                </div>
-                                <div className="flex justify-between gap-2 min-w-0">
-                                  <span className={theme === 'dark' ? "text-white/30" : "text-slate-400"}>House</span>
-                                  <span className={cn("font-mono", theme === 'dark' ? "text-white/60" : "text-slate-500")}>{p.house}</span>
-                                </div>
-                                <div className="flex justify-between gap-2 min-w-0 col-span-2">
-                                  <span className={theme === 'dark' ? "text-white/30" : "text-slate-400"}>Nakshatra</span>
-                                  <span className={cn("truncate text-right", theme === 'dark' ? "text-white/50" : "text-slate-500")}>{p.nakshatra} <span className={theme === 'dark' ? "text-jyotish-gold/40" : "text-orange-400"}>P{p.pada}</span></span>
-                                </div>
-                                <div className="flex justify-between gap-2 min-w-0">
-                                  <span className={theme === 'dark' ? "text-white/30" : "text-slate-400"}>Degree</span>
-                                  <span className={cn("font-mono", theme === 'dark' ? "text-white/50" : "text-slate-400")}>{p.degree}°{p.minute}'</span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
 
                         {/* Desktop: table */}
@@ -2156,7 +2233,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                       {moonNak && <p className={cn("text-xs leading-relaxed", theme === 'dark' ? "text-white/60" : "text-slate-600")}>
                         Lord: <span className="text-jyotish-gold font-medium">{moonNak.lord}</span> · Deity: {moonNak.deity} · Symbol: {moonNak.symbol}
                       </p>}
-                      {moonNak?.characteristics && <p className={cn("text-[11px] leading-relaxed mt-2 italic", theme === 'dark' ? "text-white/50" : "text-slate-500")}>{moonNak.characteristics}</p>}
+                      {moonNak?.characteristics && <p className={cn("text-[13px] leading-relaxed mt-2 italic", theme === 'dark' ? "text-white/50" : "text-slate-500")}>{moonNak.characteristics}</p>}
                     </div>
 
                     {/* All planets nakshatra grid */}
@@ -2297,7 +2374,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                     {!soulProfile && !isSoulProfileLoading && (
                       <button
                         onClick={generateSoulProfile}
-                        className="mt-4 w-full py-3.5 rounded-2xl bg-jyotish-gold text-black text-[11px] font-bold uppercase tracking-widest hover:bg-celestial-gold transition-all shadow-lg shadow-jyotish-gold/20 flex items-center justify-center gap-2 active:scale-95"
+                        className="mt-4 w-full py-3.5 rounded-2xl bg-jyotish-gold text-black text-[13px] font-bold uppercase tracking-widest hover:bg-celestial-gold transition-all shadow-lg shadow-jyotish-gold/20 flex items-center justify-center gap-2 active:scale-95"
                       >
                         <Sparkles className="w-4 h-4" /> Generate Soul Profile
                       </button>
@@ -2306,7 +2383,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                     {isSoulProfileLoading && (
                       <div className="mt-4 flex flex-col items-center gap-3 py-6">
                         <div className="w-10 h-10 rounded-full border-2 border-jyotish-gold/30 border-t-jyotish-gold animate-spin" />
-                        <p className={cn("text-[11px] font-mono uppercase tracking-widest animate-pulse", theme === 'dark' ? "text-jyotish-gold/60" : "text-orange-500")}>
+                        <p className={cn("text-[13px] font-mono uppercase tracking-widest animate-pulse", theme === 'dark' ? "text-jyotish-gold/60" : "text-orange-500")}>
                           Reading your cosmic blueprint...
                         </p>
                       </div>
@@ -2336,7 +2413,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                               <div className={cn("text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5", color)}>
                                 <span>{icon}</span> {label}
                               </div>
-                              <p className={cn("text-[11px] leading-relaxed", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
+                              <p className={cn("text-[13px] leading-relaxed", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
                                 {soulProfile[key]}
                               </p>
                             </div>
@@ -2546,14 +2623,14 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                                         <Sparkles className="w-3 h-3 opacity-60" />
                                         <span className="font-bold uppercase tracking-widest text-[9px] opacity-60">Sage Guidance</span>
                                       </div>
-                                      <p className="text-[11px] font-medium leading-relaxed italic">{comparison.actionableAdvice}</p>
+                                      <p className="text-[13px] font-medium leading-relaxed italic">{comparison.actionableAdvice}</p>
                                     </div>
                                   )}
                                 </div>
                               </div>
                             ))}
                             {major.length === 0 && (
-                              <div className={cn("text-[11px] italic py-8 text-center border-2 border-dashed rounded-3xl opacity-30", theme === 'dark' ? "border-white/10" : "border-slate-200")}>
+                              <div className={cn("text-[13px] italic py-8 text-center border-2 border-dashed rounded-3xl opacity-30", theme === 'dark' ? "border-white/10" : "border-slate-200")}>
                                 No major karmic shifts detected in this category.
                               </div>
                             )}
@@ -2582,7 +2659,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                                   </div>
                                   <div className="w-2 h-2 rounded-full bg-blue-400/30" />
                                 </div>
-                                <div className={cn("text-[11px] font-semibold leading-tight mb-2", theme === 'dark' ? "text-white/80" : "text-slate-700")}>{comparison.description}</div>
+                                <div className={cn("text-[13px] font-semibold leading-tight mb-2", theme === 'dark' ? "text-white/80" : "text-slate-700")}>{comparison.description}</div>
                                 <p className={cn("text-[10px] leading-relaxed mb-3", theme === 'dark' ? "text-white/50 font-light" : "text-slate-600")}>{comparison.interpretation}</p>
                                 
                                 {comparison.startDate && comparison.endDate && (
@@ -2601,7 +2678,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                               </div>
                             ))}
                             {minor.length === 0 && (
-                              <div className={cn("col-span-full text-[11px] italic py-8 text-center border-2 border-dashed rounded-3xl opacity-30", theme === 'dark' ? "border-white/10" : "border-slate-200")}>
+                              <div className={cn("col-span-full text-[13px] italic py-8 text-center border-2 border-dashed rounded-3xl opacity-30", theme === 'dark' ? "border-white/10" : "border-slate-200")}>
                                 The current sky is harmonizing with your secondary placements.
                               </div>
                             )}
@@ -2696,7 +2773,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                   </div>
                   
                   {yoga.implication && (
-                    <div className={cn("text-[11px] mb-4 p-3.5 rounded-2xl border leading-relaxed", theme === 'dark' ? "bg-black/40 border-jyotish-gold/10 text-jyotish-gold/80" : "bg-orange-50/50 border-orange-100 text-slate-700")}>
+                    <div className={cn("text-[13px] mb-4 p-3.5 rounded-2xl border leading-relaxed", theme === 'dark' ? "bg-black/40 border-jyotish-gold/10 text-jyotish-gold/80" : "bg-orange-50/50 border-orange-100 text-slate-700")}>
                       <span className="font-bold uppercase tracking-widest text-[8px] block mb-1.5 opacity-60">Implication</span>
                       {yoga.implication}
                     </div>
@@ -3211,7 +3288,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                         <div className={cn("font-bold text-base", theme === 'dark' ? "text-white" : "text-slate-900")}>
                           {format(result.start, 'EEEE, MMM d')}
                         </div>
-                        <div className={cn("text-[11px] font-mono flex items-center gap-2", theme === 'dark' ? "text-white/40" : "text-slate-500")}>
+                        <div className={cn("text-[13px] font-mono flex items-center gap-2", theme === 'dark' ? "text-white/40" : "text-slate-500")}>
                           <Clock className="w-3 h-3 text-jyotish-gold" />
                           {format(result.start, 'h:mm a')} — {format(result.end, 'h:mm a')}
                         </div>
@@ -3339,7 +3416,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                     onClick={handleCalculateMuhurta}
                     disabled={!birthPositions || !location}
                     className={cn(
-                      "inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all border shadow-lg active:scale-95",
+                      "inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-widest transition-all border shadow-lg active:scale-95",
                       birthPositions && location
                         ? "bg-jyotish-gold text-black border-jyotish-gold hover:bg-jyotish-gold/90 shadow-jyotish-gold/30"
                         : theme === 'dark' ? "bg-white/5 border-white/10 text-white/30 cursor-not-allowed" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
@@ -3400,20 +3477,46 @@ Respond ONLY with valid JSON (no markdown, no backticks):
               </div>
             ) : currentDashas ? (
               <div className="space-y-6">
-                <div className={cn("p-5 rounded-3xl border", theme === 'dark' ? "bg-mystic-purple/40 border-jyotish-gold/20" : "bg-orange-50 border-orange-200")}>
-                  <div className="flex items-center gap-2 mb-6">
-                    <Activity className="w-5 h-5 text-jyotish-gold" />
-                    <h3 className="text-lg font-bold text-jyotish-gold uppercase tracking-tighter">Current Dasha Sequence</h3>
+                {birthTime && birthCoords && (
+                  <DashaTimelineLoader
+                    birthTime={birthTime}
+                    lat={birthCoords.lat}
+                    lon={birthCoords.lon}
+                    timezone={birthCoords.timezone}
+                    selectedDate={dashaSelectedDate}
+                    onSelectedDateChange={setDashaSelectedDate}
+                  />
+                )}
+
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-jyotish-gold" />
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-jyotish-gold">
+                      {activeTab === 'dashas' && dashaSelectedDate.getTime() !== currentTime.getTime()
+                        ? `Dasha at ${format(dashaSelectedDate, 'MMM yyyy')}`
+                        : 'Current Dasha Sequence'}
+                    </h3>
                   </div>
-                  
+                  {activeTab === 'dashas' && dashaSelectedDate.getTime() !== currentTime.getTime() && (
+                    <button
+                      type="button"
+                      onClick={() => setDashaSelectedDate(currentTime)}
+                      className="text-[10px] font-bold uppercase tracking-tighter text-jyotish-gold/60 hover:text-jyotish-gold transition-colors"
+                    >
+                      Jump to Now
+                    </button>
+                  )}
+                </div>
+
+                <div className={cn("p-5 rounded-3xl border", theme === 'dark' ? "bg-mystic-purple/40 border-jyotish-gold/20" : "bg-orange-50 border-orange-200")}>
                   <div className="space-y-4 relative">
                     {/* Vertical Line */}
                     <div className="absolute left-[15px] top-4 bottom-4 w-px bg-jyotish-gold/20" />
                     
                     {currentDashas.map((dasha, idx) => {
-                      const daysRemaining = differenceInDays(dasha.end, currentTime);
+                      const daysRemaining = differenceInDays(dasha.end, dashaReferenceDate);
                       const totalDuration = differenceInDays(dasha.end, dasha.start);
-                      const progress = Math.max(0, Math.min(100, (differenceInDays(currentTime, dasha.start) / totalDuration) * 100));
+                      const progress = Math.max(0, Math.min(100, (differenceInDays(dashaReferenceDate, dasha.start) / totalDuration) * 100));
 
                       return (
                         <div key={idx} className={cn(
@@ -3708,7 +3811,7 @@ const SpecialPointCard: React.FC<{
           {degree.toFixed(2)}°
         </span>
       </div>
-      <p className="text-[11px] text-white/40 leading-relaxed font-sans">{meaning}</p>
+      <p className="text-[13px] text-white/40 leading-relaxed font-sans">{meaning}</p>
     </div>
   );
 };
@@ -3776,7 +3879,7 @@ const RectifySection: React.FC<{
           <div className="space-y-4">
             <div className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Original Birth Time</div>
             <div className="text-xl font-mono font-bold">{format(birthTime, 'HH:mm:ss')}</div>
-            <div className={cn("text-[11px]", theme === 'dark' ? "text-white/20" : "text-slate-400")}>{format(birthTime, 'MMMM d, yyyy')}</div>
+            <div className={cn("text-[13px]", theme === 'dark' ? "text-white/20" : "text-slate-400")}>{format(birthTime, 'MMMM d, yyyy')}</div>
           </div>
           <div className="space-y-4">
             <div className={cn("text-[10px] uppercase tracking-widest font-mono text-orange-400")}>Rectified Estimate</div>

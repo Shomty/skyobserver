@@ -173,7 +173,7 @@ export const Archives: React.FC<ArchivesProps> = ({ uid }) => {
                     {report.cacheKey.split('|').pop()}
                   </h3>
                   
-                  <p className="text-[11px] opacity-40 line-clamp-2 leading-relaxed">
+                  <p className="text-[13px] opacity-40 line-clamp-2 leading-relaxed">
                     {getReportContent(report.data).replace(/[#*`]/g, '').slice(0, 100)}...
                   </p>
 
@@ -235,7 +235,7 @@ export const Archives: React.FC<ArchivesProps> = ({ uid }) => {
                     <h1 className="text-3xl font-serif italic text-jyotish-gold">
                       {selectedReport.cacheKey.split('|').pop()}
                     </h1>
-                    <div className="flex items-center gap-6 text-[11px] font-mono opacity-40">
+                    <div className="flex items-center gap-6 text-[13px] font-mono opacity-40">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3.5 h-3.5" />
                         {selectedReport.createdAt?.toDate ? format(selectedReport.createdAt.toDate(), 'EEEE, MMMM d, yyyy') : 'Unknown Date'}

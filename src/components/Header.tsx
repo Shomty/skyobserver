@@ -84,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={locateMe}
           disabled={isLocating}
           className={cn(
-            "lg:hidden flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono font-bold transition-all active:scale-95 shrink-0",
+            "lg:hidden flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-[13px] font-mono font-bold transition-all active:scale-95 shrink-0",
             theme === 'dark'
               ? "bg-white/5 border-white/10 text-jyotish-gold hover:bg-white/10"
               : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"

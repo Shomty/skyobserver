@@ -468,7 +468,7 @@ export function AuthDialog({
                       </button>
                     </div>
                     {mode === 'signup' && (
-                      <p id={passwordGuidanceId} className="mt-2 text-[11px] leading-4 text-stone-500">
+                      <p id={passwordGuidanceId} className="mt-2 text-[13px] leading-4 text-stone-500">
                         Use at least 6 characters. A longer, unique password is safer.
                       </p>
                     )}
@@ -509,7 +509,7 @@ export function AuthDialog({
                 {mode === 'signup' && (
                   <div className="flex gap-3 rounded-xl border border-cosmic-accent/15 bg-cosmic-accent/[0.06] p-3.5">
                     <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cosmic-accent/70" aria-hidden="true" />
-                    <p className="text-[11px] leading-5 text-stone-400">
+                    <p className="text-[13px] leading-5 text-stone-400">
                       New accounts require administrator approval before full access is granted.
                     </p>
                   </div>

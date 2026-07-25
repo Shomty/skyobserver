@@ -52,7 +52,7 @@ export const APIErrorMessage: React.FC<APIErrorMessageProps> = ({
         )}
       </div>
       
-      <p className="text-[11px] leading-relaxed opacity-80 font-mono">
+      <p className="text-[13px] leading-relaxed opacity-80 font-mono">
         {message}
       </p>
 

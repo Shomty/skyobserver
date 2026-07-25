@@ -42,7 +42,7 @@ const ToggleButton: React.FC<{
     type="button"
     aria-pressed={active}
     onClick={onClick}
-    className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors motion-reduce:transition-none ${
+    className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 text-[13px] font-medium uppercase tracking-[0.14em] transition-colors motion-reduce:transition-none ${
       active
         ? 'bg-jyotish-gold text-[#1a0b2e]'
         : 'text-white/50 hover:bg-white/[0.05] hover:text-white focus-visible:text-white'

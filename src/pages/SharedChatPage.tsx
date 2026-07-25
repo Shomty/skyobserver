@@ -138,7 +138,7 @@ function SharedChatPage() {
             {/* Conversation header */}
             <div className={cn('mb-6 pb-4 border-b', isDark ? 'border-white/10' : 'border-slate-200')}>
               <h2 className="text-lg font-bold">{chat.title}</h2>
-              <div className={cn('flex items-center gap-2 mt-1.5 text-[11px] uppercase tracking-widest', isDark ? 'text-white/40' : 'text-slate-400')}>
+              <div className={cn('flex items-center gap-2 mt-1.5 text-[13px] uppercase tracking-widest', isDark ? 'text-white/40' : 'text-slate-400')}>
                 <Users className="w-3 h-3" />
                 <span>{chat.subjectName ?? 'Chart Reading'}</span>
                 {sharedDate && <span>· {format(sharedDate, 'MMMM d, yyyy')}</span>}

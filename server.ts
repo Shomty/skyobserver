@@ -150,6 +150,87 @@ function mapChartToPositions(chart: VedicChartCalculations, includeAscendant: bo
   return result;
 }
 
+function capitalizePlanet(p: string): string {
+  return p.charAt(0).toUpperCase() + p.slice(1);
+}
+
+function buildBirthInfoFromIso(isoDate: string, lat: number, lon: number, timezone?: string) {
+  const d = new Date(isoDate);
+  if (timezone) {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(d);
+    const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+    return {
+      name: 'native',
+      dateOfBirth: `${get('year')}-${get('month')}-${get('day')}`,
+      timeOfBirth: `${get('hour')}:${get('minute')}`,
+      latitude: lat,
+      longitude: lon,
+      timezone,
+    };
+  }
+
+  return {
+    name: 'native',
+    dateOfBirth: d.toISOString().slice(0, 10),
+    timeOfBirth: d.toISOString().slice(11, 16),
+    latitude: lat,
+    longitude: lon,
+    timezone: 'UTC',
+  };
+}
+
+function mapVimshottariDashas(chart: VedicChartCalculations, targetDate?: Date) {
+  const vimshottari = chart.dashas?.vimshottari;
+  if (!vimshottari?.dashaPeriods) {
+    throw new Error('Vimshottari dasha data unavailable');
+  }
+
+  const dashaPeriods = vimshottari.dashaPeriods.map((md) => ({
+    planet: capitalizePlanet(md.planet),
+    startDate: md.startDate,
+    endDate: md.endDate,
+    subPeriods: (md.subPeriods ?? []).map((ad) => ({
+      planet: capitalizePlanet(ad.planet),
+      startDate: ad.startDate,
+      endDate: ad.endDate,
+    })),
+  }));
+
+  const at = targetDate ?? new Date();
+  const current = vedicCalc.getCurrentDasha(vimshottari, at);
+
+  return {
+    dashaPeriods,
+    current: {
+      mahadasha: current.mahaDasha
+        ? {
+            planet: capitalizePlanet(current.mahaDasha.planet),
+            startDate: current.mahaDasha.startDate,
+            endDate: current.mahaDasha.endDate,
+          }
+        : null,
+      antardasha: current.antarDasha
+        ? {
+            planet: capitalizePlanet(current.antarDasha.planet),
+            startDate: current.antarDasha.startDate,
+            endDate: current.antarDasha.endDate,
+          }
+        : null,
+    },
+    birthNakshatra: normalizeNakshatra(chart.planets.moon.nakshatra as string),
+    birthDashaLord: dashaPeriods[0]?.planet ?? '',
+  };
+}
+
 // Validate required env vars at startup
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) {
@@ -473,6 +554,43 @@ async function startServer() {
     } catch (e: any) {
       serverLog('error', 'planet-positions', 'Position calculation error', e.message);
       res.status(500).json({ error: e.message || 'Position calculation failed' });
+    }
+  });
+
+  // Vimshottari Dasha timeline — full 120-year cycle with antardasha sub-periods
+  app.post('/api/vimshottari-dashas', rateLimit, async (req, res) => {
+    const { isoDate, lat, lon, timezone, targetDate } = req.body as {
+      isoDate?: string;
+      lat?: number;
+      lon?: number;
+      timezone?: string;
+      targetDate?: string;
+    };
+
+    if (!isoDate || typeof isoDate !== 'string') {
+      return res.status(400).json({ error: 'isoDate is required' });
+    }
+    if (typeof lat !== 'number' || typeof lon !== 'number') {
+      return res.status(400).json({ error: 'lat and lon are required' });
+    }
+
+    try {
+      const birthInfo = buildBirthInfoFromIso(isoDate, lat, lon, timezone);
+      const chart = await vedicCalc.calculateChart(birthInfo);
+      const at = targetDate ? new Date(targetDate) : new Date();
+      const payload = mapVimshottariDashas(chart, isNaN(at.getTime()) ? new Date() : at);
+
+      if (DEBUG_SERVER_LOGS) {
+        serverLog('log', 'vimshottari-dashas', 'Dasha timeline calculated', {
+          isoDate,
+          mahadashaCount: payload.dashaPeriods.length,
+        });
+      }
+
+      res.json(payload);
+    } catch (e: any) {
+      serverLog('error', 'vimshottari-dashas', 'Dasha calculation error', e.message);
+      res.status(500).json({ error: e.message || 'Dasha calculation failed' });
     }
   });
 
