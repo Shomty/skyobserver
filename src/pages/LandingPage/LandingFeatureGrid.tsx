@@ -37,7 +37,7 @@ const featureGroups: FeatureGroup[] = [
 
 export const LandingFeatureGrid: React.FC = () => {
   return (
-    <section id="inside" className="relative z-10 px-5 py-28 md:px-8">
+    <section id="inside" className="landing-section-features relative z-10 px-5 py-20 md:px-8 md:py-24">
       <div className="mx-auto max-w-7xl">
         <div className="mb-14 grid gap-5 md:grid-cols-[0.65fr_1fr] md:items-end">
           <div>

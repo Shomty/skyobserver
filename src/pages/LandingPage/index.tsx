@@ -23,7 +23,7 @@ const LandingPage: React.FC = () => {
       <LandingHero onOpenAuth={openAuth}>
         <SampleChartTeaser compact />
       </LandingHero>
-      <div id="observatory" className="dashboard-shell relative z-10 px-5 py-14 sm:px-8 sm:py-16">
+      <div id="observatory" className="dashboard-shell relative z-10 px-5 pb-16 pt-10 sm:px-8 sm:pb-20 sm:pt-12">
         <div className="mx-auto max-w-7xl space-y-4">
           <header className="dashboard-header">
             <div className="flex items-center gap-3">

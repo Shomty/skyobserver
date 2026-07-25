@@ -178,8 +178,57 @@
   }
 
   .dashboard-shell {
-    @apply border-y border-cosmic-accent/12 backdrop-blur-sm;
-    background: linear-gradient(180deg, rgba(26, 11, 46, 0.82) 0%, rgba(8, 4, 16, 0.92) 100%);
+    @apply relative backdrop-blur-sm;
+    background: linear-gradient(
+      180deg,
+      rgba(8, 4, 16, 0.94) 0%,
+      rgba(26, 11, 46, 0.86) 38%,
+      rgba(22, 10, 38, 0.8) 62%,
+      rgba(14, 8, 24, 0.52) 100%
+    );
+  }
+
+  .landing-hero-bottom-fade {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 1;
+    height: min(44vh, 24rem);
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(8, 4, 16, 0.35) 42%,
+      rgba(8, 4, 16, 0.92) 100%
+    );
+  }
+
+  .landing-section-features {
+    background: linear-gradient(
+      180deg,
+      rgba(14, 8, 24, 0.52) 0%,
+      rgba(18, 10, 30, 0.72) 38%,
+      rgba(20, 12, 34, 0.66) 62%,
+      rgba(24, 14, 42, 0.46) 100%
+    );
+  }
+
+  .landing-section-cta {
+    background: linear-gradient(
+      180deg,
+      rgba(24, 14, 42, 0.46) 0%,
+      rgba(30, 16, 52, 0.4) 45%,
+      rgba(18, 10, 28, 0.56) 100%
+    );
+  }
+
+  .landing-section-footer {
+    background: linear-gradient(
+      180deg,
+      rgba(18, 10, 28, 0.56) 0%,
+      rgba(10, 6, 18, 0.82) 55%,
+      rgba(6, 4, 12, 0.94) 100%
+    );
   }
 
   .dashboard-header {

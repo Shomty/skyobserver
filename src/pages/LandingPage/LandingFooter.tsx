@@ -4,7 +4,7 @@ import { Compass } from 'lucide-react';
 
 export const LandingFooter: React.FC = () => {
   return (
-    <footer className="border-t border-cosmic-accent/10 px-5 py-10 md:px-8">
+    <footer className="landing-section-footer px-5 py-10 md:px-8">
       <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 md:flex-row md:items-center">
         <div className="flex items-center gap-2">
           <span className="grid h-8 w-8 place-items-center rounded-full border border-cosmic-accent/25">

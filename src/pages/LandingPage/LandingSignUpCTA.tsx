@@ -8,7 +8,7 @@ interface LandingSignUpCTAProps {
 
 export const LandingSignUpCTA: React.FC<LandingSignUpCTAProps> = ({ onOpenAuth }) => {
   return (
-    <section className="relative z-10 px-5 py-24 md:px-8">
+    <section className="landing-section-cta relative z-10 px-5 py-20 md:px-8 md:py-24">
       <div className="mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: 30 }}

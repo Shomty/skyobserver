@@ -28,8 +28,9 @@ function LiveClock() {
 
 export const LandingHero: React.FC<LandingHeroProps> = ({ onOpenAuth, children }) => {
   return (
-    <section id="top" className="relative min-h-screen overflow-hidden px-5 pb-20 pt-32 md:px-8 md:pt-40">
+    <section id="top" className="relative min-h-screen overflow-hidden px-5 pb-16 pt-32 md:px-8 md:pb-20 md:pt-40">
       <CelestialBackground />
+      <div aria-hidden="true" className="landing-hero-bottom-fade" />
 
       <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[0.82fr_1.18fr]">
         <div>
