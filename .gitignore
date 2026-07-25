@@ -41,3 +41,7 @@ graphify-out/
 coverage/
 backups/
 .env.admin
+
+# Second-app prototype + scratch artifacts
+v2/
+testv2.pdf

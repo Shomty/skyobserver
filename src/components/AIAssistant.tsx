@@ -6,12 +6,21 @@ import { cn } from '../lib/utils';
 import { db } from '../firebase';
 import { useTheme } from '../context/ThemeContext';
 import {
-  collection, addDoc, serverTimestamp, doc, updateDoc, onSnapshot,
-  query, orderBy, limit, getDoc
+  collection, addDoc, serverTimestamp, doc, onSnapshot,
+  query, orderBy, limit,
 } from 'firebase/firestore';
-import { arrayUnion } from 'firebase/firestore';
 import { callGeminiProxy, getErrorMessage } from '../lib/api-utils';
 import { buildSystemInstruction, ChatContextProps } from '../lib/chatUtils';
+import {
+  appendChatMessage,
+  createChatSession,
+  mapEmbeddedMessages,
+  mapMessageDoc,
+  markChatMessageSaved,
+  messagesPath,
+  touchChatSession,
+} from '../services/chatSessionService';
+import { debugError } from '../lib/debug';
 import MessageBubble, { ChatMessageData } from './chat/MessageBubble';
 import TypingIndicator from './chat/TypingIndicator';
 import EmptyState from './chat/EmptyState';
@@ -55,21 +64,17 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const [chatError, setChatError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll on new messages
   useEffect(() => {
     if (isOpen) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading, isOpen]);
 
-  // Load most recent session when opened
   useEffect(() => {
     if (!isOpen || !user) return;
 
     const sessionsRef = collection(db, `users/${user.uid}/ai_chats`);
-    const q = query(sessionsRef, orderBy('updatedAt', 'desc'), limit(1));
+    const q = query(sessionsRef, orderBy('updatedAt', 'desc'), limit(5));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const sessions = snapshot.docs
-        .map(d => ({ id: d.id, ...d.data() } as any))
-        .filter(d => d.type === 'chat_session');
+      const sessions = snapshot.docs.filter((d) => d.data().type === 'chat_session');
       if (sessions.length > 0 && !activeSessionId) {
         setActiveSessionId(sessions[0].id);
       }
@@ -78,29 +83,46 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, user?.uid]);
 
-  // Subscribe to messages for active session
   useEffect(() => {
     if (!activeSessionId || !user) {
       setMessages([]);
       return;
     }
+
     const sessionDocRef = doc(db, `users/${user.uid}/ai_chats`, activeSessionId);
-    const unsubscribe = onSnapshot(sessionDocRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        setMessages(
-          (data.messages || []).map((m: any, i: number) => ({
-            id: `msg-${i}-${m.createdAt || i}`,
-            role: m.role,
-            content: m.content,
-            isSaved: m.isSaved || false,
-          }))
-        );
-      } else {
-        setMessages([]);
+    const messagesQ = query(
+      collection(db, messagesPath(user.uid, activeSessionId)),
+      orderBy('createdAt', 'asc')
+    );
+
+    let hasSubcollectionMessages = false;
+
+    const unsubSession = onSnapshot(sessionDocRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        if (!hasSubcollectionMessages) setMessages([]);
+        return;
+      }
+      const data = snapshot.data();
+      if (!hasSubcollectionMessages && data.messagesFormat !== 'subcollection') {
+        const embedded = mapEmbeddedMessages(data.messages);
+        if (embedded.length > 0) setMessages(embedded);
       }
     });
-    return () => unsubscribe();
+
+    const unsubMessages = onSnapshot(messagesQ, (snapshot) => {
+      hasSubcollectionMessages = !snapshot.empty;
+      if (snapshot.empty) return;
+      setMessages(
+        snapshot.docs
+          .map((d) => mapMessageDoc(d.id, d.data()))
+          .filter((m): m is ChatMessageData => m !== null)
+      );
+    });
+
+    return () => {
+      unsubSession();
+      unsubMessages();
+    };
   }, [user?.uid, activeSessionId]);
 
   const chatCtx: ChatContextProps = {
@@ -132,21 +154,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
         type: 'general',
         createdAt: serverTimestamp(),
       });
-      // Mark saved in session doc
-      if (activeSessionId) {
-        const sessionRef = doc(db, `users/${user.uid}/ai_chats`, activeSessionId);
-        const snap = await getDoc(sessionRef);
-        if (snap.exists()) {
-          const msgs: any[] = snap.data().messages || [];
-          const msgIndex = parseInt(messageId.split('-')[1]);
-          if (!isNaN(msgIndex) && msgs[msgIndex]) {
-            msgs[msgIndex] = { ...msgs[msgIndex], isSaved: true };
-            await updateDoc(sessionRef, { messages: msgs });
-          }
-        }
+      if (activeSessionId && !messageId.startsWith('embedded-')) {
+        await markChatMessageSaved(db, user.uid, activeSessionId, messageId);
       }
     } catch (error) {
-      console.error('Error saving interpretation:', error);
+      debugError('ai-assistant', 'Error saving interpretation', error);
     } finally {
       setSavingId(null);
     }
@@ -164,29 +176,24 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
     try {
       if (!sessionId) {
-        const newDoc = await addDoc(collection(db, `users/${user.uid}/ai_chats`), {
-          type: 'chat_session',
+        sessionId = await createChatSession(db, user.uid, {
           title: userMessage.slice(0, 60),
-          messages: [],
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+          subjectName: null,
         });
-        sessionId = newDoc.id;
         setActiveSessionId(sessionId);
       } else if (messages.length === 0) {
-        await updateDoc(doc(db, `users/${user.uid}/ai_chats`, sessionId), {
+        await touchChatSession(db, user.uid, sessionId, {
           title: userMessage.slice(0, 60),
-          updatedAt: serverTimestamp(),
         });
       }
 
-      // Snapshot messages before Firestore write to avoid onSnapshot race condition
       const historySnapshot = messages.filter(m => m.content);
-
       const now = new Date().toISOString();
-      await updateDoc(doc(db, `users/${user.uid}/ai_chats`, sessionId), {
-        messages: arrayUnion({ role: 'user', content: userMessage, createdAt: now }),
-        updatedAt: serverTimestamp(),
+
+      await appendChatMessage(db, user.uid, sessionId, {
+        role: 'user',
+        content: userMessage,
+        createdAt: now,
       });
 
       const aiResponse = await callGeminiProxy({
@@ -206,17 +213,19 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
         },
       });
 
-      await updateDoc(doc(db, `users/${user.uid}/ai_chats`, sessionId), {
-        messages: arrayUnion({ role: 'assistant', content: aiResponse, createdAt: new Date().toISOString() }),
-        updatedAt: serverTimestamp(),
+      await appendChatMessage(db, user.uid, sessionId, {
+        role: 'assistant',
+        content: aiResponse,
+        createdAt: new Date().toISOString(),
       });
     } catch (error) {
       const friendlyMsg = getErrorMessage(error);
       if (sessionId) {
         try {
-          await updateDoc(doc(db, `users/${user.uid}/ai_chats`, sessionId), {
-            messages: arrayUnion({ role: 'assistant', content: `I encountered an error: ${friendlyMsg}. Please try again.`, createdAt: new Date().toISOString() }),
-            updatedAt: serverTimestamp(),
+          await appendChatMessage(db, user.uid, sessionId, {
+            role: 'assistant',
+            content: `I encountered an error: ${friendlyMsg}. Please try again.`,
+            createdAt: new Date().toISOString(),
           });
         } catch {
           setChatError(friendlyMsg);
@@ -232,7 +241,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
   return (
     <>
-      {/* Floating Toggle Button — clears bottom nav + floating controls pill */}
       <motion.button
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.92 }}
@@ -247,7 +255,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
         {isOpen ? <X className="w-6 h-6" /> : <Bot className="w-6 h-6" />}
       </motion.button>
 
-      {/* Chat Panel — full mobile sheet / floating window on desktop */}
       <AnimatePresence>
         {isOpen && (
           <>
@@ -277,7 +284,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
                 onClick={() => setIsOpen(false)}
               />
 
-              {/* Header */}
               <div className={cn(
                 'px-5 py-3.5 border-b flex items-center gap-2 flex-shrink-0 transition-colors duration-500',
                 isDark ? 'border-white/10 bg-white/5' : 'border-slate-100 bg-slate-50'
@@ -315,7 +321,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
                 </button>
               </div>
 
-            {/* Error banner */}
             {chatError && (
               <div className={cn(
                 'flex items-center gap-3 px-4 py-2 text-xs border-b flex-shrink-0',
@@ -326,7 +331,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
               </div>
             )}
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               {messages.length === 0 && !isLoading ? (
                 <EmptyState theme={theme} onSelectPrompt={(p) => sendMessage(p)} />
@@ -347,7 +351,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
               )}
             </div>
 
-            {/* Input */}
             <div className={cn(
               'flex-shrink-0 p-4 border-t transition-colors duration-500 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:pb-4',
               isDark ? 'border-white/5 bg-black/20' : 'border-slate-100 bg-slate-50'

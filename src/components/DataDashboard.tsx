@@ -26,7 +26,7 @@ import { APIErrorMessage } from './APIErrorMessage';
 import DivisionalCharts from './DivisionalCharts';
 import { 
   PlanetPosition, TransitEvent, TransitPrediction, NatalComparisonResult, 
-  PanchangData, findMuhurtaWindows, EventCategory, MuhurtaWindow, 
+  PanchangData, findMuhurtaWindows, EventCategory, MuhurtaWindow, MuhurtaSearchResult, MUHURTA_GLOBAL_MAX,
   Ashtakavarga, getTarabala, TarabalaResult, calculateDashaLevels, 
   getDeeptadiAwastha, getShayanadiAwastha, DashaPeriod, detectYogas, isConjunct,
   getDashaWarning, SpecialPointsResultV2, BhriguBinduResult, getDignityInterpretation,
@@ -847,18 +847,19 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 
   const currentAshtakavarga = ashtakavargaMode === 'natal' && natalAshtakavarga ? natalAshtakavarga : ashtakavarga;
 
-  const [muhurtaResults, setMuhurtaResults] = React.useState<MuhurtaWindow[] | null>(null);
+  const [muhurtaSearch, setMuhurtaSearch] = React.useState<MuhurtaSearchResult | null>(null);
+  const muhurtaResults: MuhurtaWindow[] | null = muhurtaSearch ? muhurtaSearch.windows : null;
 
   // Reset results whenever the user changes search parameters so stale data is not shown
   React.useEffect(() => {
-    setMuhurtaResults(null);
+    setMuhurtaSearch(null);
     setIsMuhurtaCalculating(false);
   }, [muhurtaDays, muhurtaEventType, dateRange]);
 
   const handleCalculateMuhurta = React.useCallback(() => {
     if (!birthPositions || !location || !currentDashas) return;
     setIsMuhurtaCalculating(true);
-    setMuhurtaResults(null);
+    setMuhurtaSearch(null);
     // Defer one tick so the spinner renders before the synchronous calculation blocks the thread
     setTimeout(() => {
       try {
@@ -867,8 +868,9 @@ Respond ONLY with valid JSON (no markdown, no backticks):
           ? dateRange.to
           : new Date(currentTime.getTime() + muhurtaDays * 24 * 60 * 60 * 1000);
         const dashaStr = currentDashas.length > 0 ? `${currentDashas[0].lord}/${currentDashas[1].lord}` : "";
-        const results = findMuhurtaWindows(birthPositions, start, end, muhurtaEventType, location.lat, location.lon, dashaStr);
-        setMuhurtaResults(results);
+        setMuhurtaSearch(
+          findMuhurtaWindows(birthPositions, start, end, muhurtaEventType, location.lat, location.lon, dashaStr)
+        );
       } finally {
         setIsMuhurtaCalculating(false);
       }
@@ -3169,6 +3171,17 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                 {muhurtaResults && muhurtaResults.length > 0 && <span className="text-[9px] font-mono text-jyotish-gold/60">{muhurtaResults.length} windows found</span>}
               </div>
 
+              {muhurtaSearch && (
+                <div className="flex items-center justify-between px-1 text-[9px] font-mono text-white/30">
+                  <span>Scanned at {muhurtaSearch.stepMinutes}-minute resolution</span>
+                  {muhurtaSearch.truncated && (
+                    <span className="text-amber-400/70">
+                      Range too long — searched through {format(muhurtaSearch.scannedThrough, 'd MMM yyyy')}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {currentDashas && currentDashas[0] && (
                 <div className={cn("p-4 rounded-2xl border flex items-start gap-3", theme === 'dark' ? "bg-jyotish-gold/5 border-jyotish-gold/20" : "bg-orange-50 border-orange-200")}>
                   <Info className="w-4 h-4 text-jyotish-gold shrink-0 mt-0.5" />
@@ -3226,7 +3239,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                           <motion.div 
                             initial={{ width: 0 }}
-                            animate={{ width: `${(result.globalScore / 40) * 100}%` }}
+                            animate={{ width: `${Math.min(100, (result.globalScore / MUHURTA_GLOBAL_MAX) * 100)}%` }}
                             className="h-full bg-blue-400"
                           />
                        </div>
@@ -3242,7 +3255,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                           <motion.div 
                             initial={{ width: 0 }}
-                            animate={{ width: `${(result.individualScore / 100) * 100}%` }}
+                            animate={{ width: `${Math.max(0, Math.min(100, (result.individualScore / (result.maxScore - MUHURTA_GLOBAL_MAX)) * 100))}%` }}
                             className="h-full bg-jyotish-gold"
                           />
                        </div>

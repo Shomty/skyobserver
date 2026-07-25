@@ -1947,14 +1947,30 @@ export type EventCategory = 'CAREER' | 'MARRIAGE' | 'PROPERTY' | 'GENERAL';
 export interface MuhurtaWindow {
   start: Date;
   end: Date;
+  /** Normalised 0-100. Safe to render as a percentage. */
   score: number;
+  /** Unnormalised globalScore + individualScore. */
+  rawScore: number;
   globalScore: number;
   individualScore: number;
+  /** Category-specific maximum `rawScore` was normalised against. */
+  maxScore: number;
   reasons: string[];
   vargottamaLagna: boolean;
   vargottamaMoon: boolean;
   dashaContext?: string;
   panchang: PanchangData;
+}
+
+/** Outcome of a Muhurta search, including how much of the requested range was actually covered. */
+export interface MuhurtaSearchResult {
+  windows: MuhurtaWindow[];
+  /** Sampling granularity used, in minutes. Coarsens automatically for long ranges. */
+  stepMinutes: number;
+  /** Last instant actually examined. Equals the requested end unless `truncated`. */
+  scannedThrough: Date;
+  /** True when the sample budget ran out before reaching the requested end date. */
+  truncated: boolean;
 }
 
 export const calculatePanchang = (date: Date, positions: PlanetPosition[]): PanchangData => {
@@ -2015,26 +2031,6 @@ export const calculatePanchang = (date: Date, positions: PlanetPosition[]): Panc
   };
 };
 
-export type MuhurtaEventType = 'general' | 'marriage' | 'business' | 'travel';
-
-export interface MuhurtaTimeWindow {
-  startTime: Date;
-  endTime: Date;
-  lagna: string;
-  score: number;
-  goodFactors: string[];
-  badFactors: string[];
-}
-
-export interface MuhurtaResult {
-  date: Date;
-  score: number;
-  panchang: PanchangData;
-  goodFactors: string[];
-  badFactors: string[];
-  timeWindows: MuhurtaTimeWindow[];
-}
-
 export interface TarabalaResult {
   tara: number;
   name: string;
@@ -2082,193 +2078,6 @@ export const getChandrabala = (birthRashi: string, transitRashi: string): { scor
   } else {
     return { score: 0, description: "Unfavorable" };
   }
-};
-
-export const findMuhurta = (
-  startDate: Date, 
-  days: number, 
-  type: MuhurtaEventType,
-  natalPositions?: PlanetPosition[],
-  lat?: number,
-  lon?: number
-): MuhurtaResult[] => {
-  const results: MuhurtaResult[] = [];
-  
-  for (let i = 0; i < days; i++) {
-    const checkDate = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
-    const positions = calculatePositions(checkDate, lat, lon);
-    const panchang = calculatePanchang(checkDate, positions);
-    
-    const goodFactors: string[] = [];
-    const badFactors: string[] = [];
-    let score = 50;
-    
-    // Tithi check
-    if (["Chaturthi", "Navami", "Chaturdashi"].includes(panchang.tithi.name)) {
-      badFactors.push(`Rikta Tithi (${panchang.tithi.name})`);
-      score -= 20;
-    } else if (["Pratipada", "Shashti", "Ekadashi"].includes(panchang.tithi.name)) {
-      goodFactors.push(`Nanda Tithi (${panchang.tithi.name})`);
-      score += 10;
-    }
-
-    // Event-specific Tithi logic
-    if (type === 'marriage') {
-      if (["Dwitiya", "Tritiya", "Panchami", "Saptami", "Dashami", "Trayodashi"].includes(panchang.tithi.name)) {
-        goodFactors.push(`Excellent Tithi for Marriage: ${panchang.tithi.name}`);
-        score += 15;
-      }
-    } else if (type === 'business') {
-      if (["Dashami", "Ekadashi", "Purnima"].includes(panchang.tithi.name)) {
-        goodFactors.push(`Stable Tithi for Commerce: ${panchang.tithi.name}`);
-        score += 10;
-      }
-    }
-    
-    // Vara check
-    if (["Thursday", "Friday"].includes(panchang.vara)) {
-      goodFactors.push(`Benefic Vara (${panchang.vara})`);
-      score += 10;
-      if (type === 'marriage') score += 10;
-    } else if (["Tuesday", "Saturday"].includes(panchang.vara)) {
-      badFactors.push(`Malefic Vara (${panchang.vara})`);
-      score -= 10;
-      if (type === 'business') score -= 10;
-    }
-
-    if (type === 'business' && panchang.vara === 'Wednesday') {
-      goodFactors.push("Mercury's Day excellent for Business");
-      score += 15;
-    }
-    
-    // Personal compatibility
-    if (natalPositions) {
-      const birthMoon = natalPositions.find(p => p.name === "Moon");
-      if (birthMoon) {
-        const tara = getTarabala(birthMoon.nakshatra, panchang.nakshatra.name);
-        const chandra = getChandrabala(birthMoon.rashi, panchang.moonRashi);
-        
-        if (tara.score >= 80) goodFactors.push(`Good Tarabala: ${tara.name}`);
-        else if (tara.score === 0) badFactors.push(`Bad Tarabala: ${tara.name}`);
-        
-        if (chandra.score === 100) goodFactors.push("Good Chandrabala");
-        else badFactors.push("Bad Chandrabala");
-        
-        score += (tara.score + chandra.score) / 4;
-      }
-    }
-
-    // Transit Planets check for Muhurta
-    const venueStrength = positions.find(p => p.name === 'Venus');
-    const jupiterStrength = positions.find(p => p.name === 'Jupiter');
-    const mercuryStrength = positions.find(p => p.name === 'Mercury');
-
-    if (type === 'marriage' && venueStrength && jupiterStrength) {
-      if (venueStrength.isRetrograde) {
-        badFactors.push("Venus Retrograde: Unfavorable for Marriage");
-        score -= 20;
-      }
-      if (jupiterStrength.isRetrograde) {
-        badFactors.push("Jupiter Retrograde: Delays in Blessings");
-        score -= 10;
-      }
-    }
-
-    if (type === 'business' && mercuryStrength) {
-      if (mercuryStrength.isRetrograde) {
-        badFactors.push("Mercury Retrograde: High Risk for Contracts");
-        score -= 25;
-      }
-    }
-
-    if (type === 'travel') {
-      const nakPath = panchang.nakshatra.name;
-      if (['Ashwini', 'Pushya', 'Punavasu', 'Hast', 'Anuradha', 'Shravana', 'Revati'].includes(nakPath)) {
-        goodFactors.push("Excellent Nakshatra for Journey");
-        score += 20;
-      }
-    }
-
-    // Clamp score
-    score = Math.max(0, Math.min(100, score));
-    
-    // Time Windows (Lagna)
-    const timeWindows: MuhurtaTimeWindow[] = [];
-    if (lat !== undefined && lon !== undefined) {
-      // Check every 2 hours for Lagna changes
-      for (let hour = 0; hour < 24; hour += 2) {
-        const windowStart = new Date(checkDate);
-        windowStart.setHours(hour, 0, 0, 0);
-        const windowEnd = new Date(windowStart.getTime() + 2 * 60 * 60 * 1000);
-        
-        const windowPositions = calculatePositions(windowStart, lat, lon);
-        const asc = windowPositions.find(p => p.name === "Ascendant");
-        
-        if (asc) {
-          const twGood: string[] = [];
-          const twBad: string[] = [];
-          let twScore = score;
-          
-          const ascRashiIdx = RASHIS.indexOf(asc.rashi);
-          const ascRashiData = RASHI_DATA[ascRashiIdx];
-          const lagnaLord = ascRashiData.lord;
-          
-          // Basic Lagna rules
-          const benefics = ["Jupiter", "Venus", "Mercury", "Moon"];
-          const malefics = ["Mars", "Saturn", "Sun", "Rahu", "Ketu"];
-          
-          // Lagna Lord strength
-          const lordPos = windowPositions.find(p => p.name === lagnaLord);
-          if (lordPos && lordPos.house && [1, 4, 5, 7, 9, 10].includes(lordPos.house)) {
-            twGood.push(`Lagna Lord (${lagnaLord}) in Good House (${lordPos.house})`);
-            twScore += 10;
-          } else if (lordPos && lordPos.house && [6, 8, 12].includes(lordPos.house)) {
-            twBad.push(`Lagna Lord (${lagnaLord}) in Dusthana (${lordPos.house})`);
-            twScore -= 10;
-          }
-
-          // Benefic in Kendra (1, 4, 7, 10)
-          windowPositions.forEach(p => {
-            if (p.house && [1, 4, 7, 10].includes(p.house)) {
-              if (benefics.includes(p.name)) {
-                twGood.push(`${p.name} in Kendra`);
-                twScore += 5;
-              }
-            }
-            if (p.house === 8 && malefics.includes(p.name)) {
-              twBad.push(`${p.name} in 8th House`);
-              twScore -= 10;
-            }
-          });
-          
-          if (!twBad.some(b => b.includes("in 8th House"))) {
-            twGood.push("No Malefic in 8th");
-            twScore += 5;
-          }
-
-          timeWindows.push({
-            startTime: windowStart,
-            endTime: windowEnd,
-            lagna: asc.rashi,
-            score: Math.min(100, Math.max(0, twScore)),
-            goodFactors: twGood,
-            badFactors: twBad
-          });
-        }
-      }
-    }
-    
-    results.push({
-      date: checkDate,
-      score: Math.min(100, Math.max(0, score)),
-      panchang,
-      goodFactors,
-      badFactors,
-      timeWindows: timeWindows.sort((a, b) => b.score - a.score)
-    });
-  }
-  
-  return results.sort((a, b) => b.score - a.score);
 };
 
 export function detectNabhashaYogas(
@@ -3490,30 +3299,63 @@ const getDashamshaSign = (longitude: number): string => {
   return RASHIS[resultIdx];
 };
 
+/**
+ * Maximum attainable Panchang (global) score: Auspicious Tithi (10) + Supportive Vara (10).
+ * Used to normalise the headline score onto a 0-100 scale.
+ */
+export const MUHURTA_GLOBAL_MAX = 20;
+
+/**
+ * Maximum attainable individual (Janma Kundali) score per event category.
+ *
+ * Shared base = Ascendant lord well placed (20) + three benefics in a transit kendra (45)
+ *             + Vargottama Ascendant (30) + Vargottama Moon (20) = 115.
+ * CAREER adds  = D10 kendra (20) + Jupiter/Venus aspecting the Amatyakaraka (20 + 20) = 60.
+ * MARRIAGE adds= Jupiter/Venus in the D9 kendra (20 + 20) + Jupiter aspecting the Upapada (25) = 65.
+ *
+ * NOTE: PROPERTY and GENERAL currently have no category-specific rules, so they share the base.
+ */
+const MUHURTA_INDIVIDUAL_MAX: Record<EventCategory, number> = {
+  CAREER: 175,
+  MARRIAGE: 180,
+  PROPERTY: 115,
+  GENERAL: 115,
+};
+
+export interface MuhurtaScore {
+  /** Normalised 0-100 score, safe for percentage display. */
+  score: number;
+  /** Unnormalised globalScore + individualScore. Retained for thresholding and debugging. */
+  rawScore: number;
+  globalScore: number;
+  individualScore: number;
+  /** Category-specific maximum the raw score was normalised against. */
+  maxScore: number;
+  reasons: string[];
+  vargottamaLagna: boolean;
+  vargottamaMoon: boolean;
+}
+
 const scoreMuhurtaTime = (
   transitPositions: PlanetPosition[],
   natalData: MuhurtaBaseData,
-  category: EventCategory
-): { 
-  score: number, 
-  globalScore: number, 
-  individualScore: number, 
-  reasons: string[], 
-  vargottamaLagna: boolean, 
-  vargottamaMoon: boolean 
-} => {
+  category: EventCategory,
+  /** Panchang for THIS candidate instant. Must be computed by the caller from the
+   *  candidate time — `vara` is date-derived and cannot be recovered from positions. */
+  pan: PanchangData
+): MuhurtaScore => {
+  const maxScore = MUHURTA_GLOBAL_MAX + MUHURTA_INDIVIDUAL_MAX[category];
   let globalScore = 0;
   let individualScore = 0;
   const reasons: string[] = [];
-  
+
   const tAsc = transitPositions.find(p => p.name === "Ascendant");
   const tMoon = transitPositions.find(p => p.name === "Moon");
-  
-  if (!tAsc || !tMoon) return { score: -100, globalScore: -100, individualScore: 0, reasons: ["Missing transit data"], vargottamaLagna: false, vargottamaMoon: false };
+
+  if (!tAsc || !tMoon) return { score: 0, rawScore: -100, globalScore: -100, individualScore: 0, maxScore, reasons: ["Missing transit data"], vargottamaLagna: false, vargottamaMoon: false };
 
   // 1. Global Foundation (Panchang)
-  const pan = calculatePanchang(new Date(), transitPositions); // Date is handled for vara in findMuhurtaWindows wrapper
-  
+
   // Tithi quality
   if ([1, 2, 3, 5, 6, 7, 8, 10, 11, 12, 13, 15].includes(pan.tithi.number % 15 || 15)) {
     globalScore += 10;
@@ -3644,13 +3486,17 @@ const scoreMuhurtaTime = (
     }
   }
 
-  return { 
-    score: globalScore + individualScore, 
-    globalScore, 
-    individualScore, 
-    reasons, 
-    vargottamaLagna, 
-    vargottamaMoon 
+  const rawScore = globalScore + individualScore;
+
+  return {
+    score: Math.max(0, Math.min(100, Math.round((rawScore / maxScore) * 100))),
+    rawScore,
+    globalScore,
+    individualScore,
+    maxScore,
+    reasons,
+    vargottamaLagna,
+    vargottamaMoon
   };
 };
 
@@ -4141,6 +3987,28 @@ export function calculateSpecialPointsV2(
   };
 }
 
+/**
+ * Compute budget for a single search, in samples. Each sample runs a full
+ * `calculatePositionsLite`, so this bounds how long the main thread blocks.
+ * A 30-day range at the finest (5-minute) granularity needs 8641 samples
+ * (inclusive of both endpoints); the headroom here keeps that an exact fit.
+ */
+const MUHURTA_MAX_SAMPLES = 8700;
+
+/** Granularities the search may fall back to, coarsest-last. */
+const MUHURTA_STEP_LADDER_MINUTES = [5, 10, 15, 30, 60];
+
+/**
+ * Pick the finest granularity that covers `rangeMs` within the sample budget.
+ * Guarantees the whole requested range is examined rather than silently cutting it short.
+ */
+const chooseMuhurtaStepMinutes = (rangeMs: number): number => {
+  for (const minutes of MUHURTA_STEP_LADDER_MINUTES) {
+    if (Math.ceil(rangeMs / (minutes * 60 * 1000)) <= MUHURTA_MAX_SAMPLES) return minutes;
+  }
+  return MUHURTA_STEP_LADDER_MINUTES[MUHURTA_STEP_LADDER_MINUTES.length - 1];
+};
+
 export const findMuhurtaWindows = (
   natalPositions: PlanetPosition[],
   startDate: Date,
@@ -4149,27 +4017,38 @@ export const findMuhurtaWindows = (
   lat: number,
   lon: number,
   currentDasha: string
-): MuhurtaWindow[] => {
+): MuhurtaSearchResult => {
+  const natalAscendant = natalPositions.find(p => p.name === "Ascendant");
+  const natalMoon = natalPositions.find(p => p.name === "Moon");
+
+  // Both are required by every veto below; bail out cleanly instead of throwing on `undefined.rashi`.
+  if (!natalAscendant || !natalMoon) {
+    return { windows: [], stepMinutes: 0, scannedThrough: new Date(startDate), truncated: false };
+  }
+
   const natalData: MuhurtaBaseData = {
-    natalAscendant: natalPositions.find(p => p.name === "Ascendant")!,
-    natalMoon: natalPositions.find(p => p.name === "Moon")!,
+    natalAscendant,
+    natalMoon,
     natalUL: calculateUL(natalPositions),
     natalAmK: calculateAmK(natalPositions),
     currentDasha
   };
 
-  const stepMs = 5 * 60 * 1000;
+  const stepMinutes = chooseMuhurtaStepMinutes(endDate.getTime() - startDate.getTime());
+  const stepMs = stepMinutes * 60 * 1000;
   const windows: MuhurtaWindow[] = [];
 
   let current = new Date(startDate);
   let sunriseSunset: { sunrise: Date, sunset: Date } | null = null;
   let lastDay = -1;
 
-  // Maximum search limit to prevent hang
-  const maxSteps = 4000;
+  // Hard safety cap. The step ladder above sizes `stepMs` so this is normally not reached;
+  // it only bites on extreme custom ranges (beyond ~360 days).
   let steps = 0;
+  let scannedThrough = new Date(startDate);
 
-  while (current <= endDate && steps < maxSteps) {
+  while (current <= endDate && steps < MUHURTA_MAX_SAMPLES) {
+    scannedThrough = new Date(current);
     if (current.getDate() !== lastDay) {
       sunriseSunset = getRiseSetInfo(current, lat, lon);
       lastDay = current.getDate();
@@ -4231,14 +4110,18 @@ export const findMuhurtaWindows = (
         continue;
     }
 
-    const res = scoreMuhurtaTime(tPos, natalData, category);
-    if (res.score > 20) {
+    // `pan` is derived from `current`, so Vara is the candidate's weekday — not today's.
+    const res = scoreMuhurtaTime(tPos, natalData, category, pan);
+    // Gate on the unnormalised score so the candidate set matches the pre-normalisation behaviour.
+    if (res.rawScore > 20) {
       windows.push({
         start: new Date(current),
         end: new Date(current.getTime() + stepMs),
         score: res.score,
+        rawScore: res.rawScore,
         globalScore: res.globalScore,
         individualScore: res.individualScore,
+        maxScore: res.maxScore,
         reasons: res.reasons,
         vargottamaLagna: res.vargottamaLagna,
         vargottamaMoon: res.vargottamaMoon,
@@ -4259,6 +4142,7 @@ export const findMuhurtaWindows = (
         if (w.start.getTime() === currentBlock.end.getTime() && Math.abs(w.score - currentBlock.score) < 10) {
             currentBlock.end = w.end;
             currentBlock.score = Math.max(currentBlock.score, w.score);
+            currentBlock.rawScore = Math.max(currentBlock.rawScore, w.rawScore);
             currentBlock.globalScore = Math.max(currentBlock.globalScore, w.globalScore);
             currentBlock.individualScore = Math.max(currentBlock.individualScore, w.individualScore);
             currentBlock.reasons = Array.from(new Set([...currentBlock.reasons, ...w.reasons]));
@@ -4270,7 +4154,13 @@ export const findMuhurtaWindows = (
     consolidated.push(currentBlock);
   }
 
-  return consolidated.sort((a, b) => b.score - a.score).slice(0, 5);
+  return {
+    windows: consolidated.sort((a, b) => b.score - a.score).slice(0, 5),
+    stepMinutes,
+    scannedThrough,
+    // Strict `<`: a run that stops with `current` exactly on `endDate` covered the whole range.
+    truncated: steps >= MUHURTA_MAX_SAMPLES && current.getTime() < endDate.getTime(),
+  };
 }
 
 export const getDashaWarning = (dasha: string): string => {
