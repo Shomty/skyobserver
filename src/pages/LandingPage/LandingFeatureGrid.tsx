@@ -52,7 +52,7 @@ export const LandingFeatureGrid: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-[2rem] border border-cosmic-accent/15 bg-cosmic-accent/10 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-cosmic-accent/15 bg-cosmic-accent/8 lg:grid-cols-3">
           {featureGroups.map((group, i) => {
             const Icon = group.icon;
             return (
@@ -62,12 +62,12 @@ export const LandingFeatureGrid: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08, duration: 0.5, ease: 'easeOut' }}
-                className="bg-[#0b0711]/95 p-7 md:p-9"
+                className="dashboard-panel !rounded-none border-0 bg-[#0b0711]/95 p-7 md:p-9"
               >
                 <div className="mb-10 flex items-center justify-between">
                   <span className="landing-kicker">{group.eyebrow}</span>
-                  <span className="grid h-10 w-10 place-items-center rounded-full border border-cosmic-accent/25">
-                    <Icon className="h-4 w-4 text-cosmic-accent" />
+                  <span className="grid h-10 w-10 place-items-center rounded-lg border border-jyotish-gold/25 bg-jyotish-gold/10">
+                    <Icon className="h-4 w-4 text-jyotish-gold" />
                   </span>
                 </div>
                 <h3 className="max-w-sm font-serif text-3xl font-medium italic leading-tight text-white">{group.title}</h3>
@@ -75,7 +75,7 @@ export const LandingFeatureGrid: React.FC = () => {
                 <ul className="mt-8 border-t border-white/10 pt-5">
                   {group.features.map(feature => (
                     <li key={feature} className="flex items-center gap-3 border-b border-white/[0.06] py-3 text-sm text-white/72 last:border-0">
-                      <span className="h-1 w-1 rounded-full bg-cosmic-accent" />
+                      <span className="h-1.5 w-1.5 rounded-sm bg-jyotish-gold" />
                       {feature}
                     </li>
                   ))}

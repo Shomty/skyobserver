@@ -13,6 +13,9 @@
   --color-cosmic-glow: #c4b5fd;
   --color-cosmic-bright: #e9d5ff;
   --color-cosmic-deep: #5b21b6;
+  --color-cosmic-ember: #f97316;
+  --color-cosmic-amber: #fdba74;
+  --color-cosmic-flame: #ea580c;
 
   /* Typography: readable body face + expressive display serif */
   --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -94,6 +97,7 @@
   .universe-bg.dark {
     background:
       radial-gradient(circle at 78% 8%, rgba(157, 124, 255, 0.14), transparent 28rem),
+      radial-gradient(circle at 12% 18%, rgba(212, 175, 55, 0.07), transparent 20rem),
       radial-gradient(circle at 10% 42%, rgba(91, 33, 182, 0.28), transparent 36rem),
       radial-gradient(circle at 50% 100%, rgba(49, 16, 88, 0.35), transparent 40rem),
       linear-gradient(145deg, #07040f 0%, #120820 52%, #040208 100%);
@@ -135,26 +139,30 @@
   .landing-shell {
     --landing-ink: #ede8f5;
     --landing-muted: #a89bb8;
-    --landing-line: rgba(157, 124, 255, 0.2);
+    --landing-line: rgba(157, 124, 255, 0.07);
+    --landing-accent: rgba(212, 175, 55, 0.35);
     color: var(--landing-ink);
     background:
-      linear-gradient(rgba(157, 124, 255, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(157, 124, 255, 0.04) 1px, transparent 1px);
-    background-size: 72px 72px;
+      linear-gradient(var(--landing-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--landing-line) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
 
   .landing-kicker {
-    @apply font-mono text-[0.68rem] font-medium uppercase tracking-[0.24em] text-cosmic-accent;
+    @apply font-mono text-[0.68rem] font-medium uppercase tracking-[0.24em] text-jyotish-gold/85;
   }
 
   .landing-panel {
-    border: 1px solid var(--landing-line);
-    background: linear-gradient(145deg, rgba(22, 10, 38, 0.92), rgba(8, 4, 16, 0.85));
-    box-shadow: inset 0 1px rgba(196, 181, 253, 0.06), 0 30px 80px rgba(49, 16, 88, 0.25);
+    border: 1px solid rgba(157, 124, 255, 0.14);
+    background: linear-gradient(160deg, rgba(22, 10, 38, 0.94), rgba(8, 4, 16, 0.9));
+    box-shadow:
+      inset 0 1px rgba(212, 175, 55, 0.06),
+      inset 0 0 0 1px rgba(157, 124, 255, 0.05),
+      0 24px 60px rgba(49, 16, 88, 0.28);
   }
 
   .landing-btn-primary {
-    @apply rounded-full bg-cosmic-accent px-7 py-4 font-semibold text-white transition hover:bg-cosmic-glow hover:text-cosmic-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-bright;
+    @apply rounded-full bg-jyotish-gold px-7 py-4 font-semibold text-[#1a0b2e] transition hover:bg-celestial-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jyotish-gold/60;
   }
 
   .landing-btn-secondary {
@@ -162,11 +170,47 @@
   }
 
   .landing-accent-text {
-    @apply text-cosmic-accent;
+    @apply text-jyotish-gold;
   }
 
   .landing-accent-border {
-    @apply border-cosmic-accent/25;
+    @apply border-jyotish-gold/30;
+  }
+
+  .dashboard-shell {
+    @apply border-y border-cosmic-accent/12 backdrop-blur-sm;
+    background: linear-gradient(180deg, rgba(26, 11, 46, 0.82) 0%, rgba(8, 4, 16, 0.92) 100%);
+  }
+
+  .dashboard-header {
+    @apply flex flex-col gap-4 rounded-2xl border border-cosmic-accent/18 px-5 py-4 sm:flex-row sm:items-center sm:justify-between;
+    background: linear-gradient(135deg, rgba(157, 124, 255, 0.07), rgba(22, 10, 38, 0.5));
+    box-shadow: inset 0 1px rgba(157, 124, 255, 0.1);
+  }
+
+  .dashboard-panel {
+    @apply overflow-hidden rounded-2xl border border-cosmic-accent/14 backdrop-blur-sm;
+    background: linear-gradient(160deg, rgba(22, 10, 38, 0.94), rgba(10, 6, 18, 0.9));
+    box-shadow:
+      inset 0 1px rgba(157, 124, 255, 0.08),
+      0 8px 32px rgba(49, 16, 88, 0.22);
+  }
+
+  .dashboard-stat {
+    @apply rounded-xl border border-cosmic-accent/10 bg-white/[0.03] p-4 transition-colors hover:border-jyotish-gold/25;
+  }
+
+  .dashboard-stat-label {
+    @apply font-mono text-[9px] uppercase tracking-[0.2em] text-jyotish-gold/75;
+  }
+
+  .dashboard-stat-value {
+    @apply mt-1.5 font-serif text-xl text-white/90;
+  }
+
+  .dashboard-live-dot {
+    @apply h-2 w-2 shrink-0 rounded-full bg-jyotish-gold;
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.55);
   }
 
   .no-scrollbar::-webkit-scrollbar {

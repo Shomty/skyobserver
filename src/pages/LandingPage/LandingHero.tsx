@@ -34,8 +34,8 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onOpenAuth, children }
       <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[0.82fr_1.18fr]">
         <div>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-center gap-4">
-            <span className="grid h-10 w-10 place-items-center rounded-full border border-cosmic-accent/30 bg-cosmic-accent/10">
-              <Orbit className="h-4 w-4 text-cosmic-accent" />
+            <span className="grid h-10 w-10 place-items-center rounded-xl border border-jyotish-gold/30 bg-jyotish-gold/10">
+              <Orbit className="h-4 w-4 text-jyotish-gold" />
             </span>
             <div>
               <p className="landing-kicker">Your personal pattern studio</p>

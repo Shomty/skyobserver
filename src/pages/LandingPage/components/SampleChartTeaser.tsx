@@ -42,11 +42,11 @@ const ToggleButton: React.FC<{
     type="button"
     aria-pressed={active}
     onClick={onClick}
-    className={`inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors motion-reduce:transition-none ${
+    className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors motion-reduce:transition-none ${
       active
-        ? 'bg-cosmic-accent text-white'
+        ? 'bg-jyotish-gold text-[#1a0b2e]'
         : 'text-white/50 hover:bg-white/[0.05] hover:text-white focus-visible:text-white'
-    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-accent/70`}
+    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jyotish-gold/70`}
   >
     {icon}
     {label}
@@ -70,19 +70,19 @@ export const SampleChartTeaser: React.FC<SampleChartTeaserProps> = ({ compact = 
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(157,124,255,0.1),transparent_34%)]" />
       <div className={compact ? 'relative' : 'relative mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center'}>
         <header className={compact ? 'sr-only' : 'max-w-xl'}>
-          <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.24em] text-cosmic-accent/70">Sample personality map</p>
+          <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.24em] text-jyotish-gold/70">Sample personality map</p>
           <h2 id="sample-chart-title" className="font-serif text-4xl font-semibold leading-[0.95] text-white sm:text-5xl">
             One inner world.
-            <span className="block italic text-cosmic-accent">Two ways to explore it.</span>
+            <span className="block italic text-jyotish-gold">Two ways to explore it.</span>
           </h2>
           <p className="mt-6 max-w-md text-sm leading-7 text-white/50">
             Switch between a circular view and a life-area grid. Tap any marker to see its emotional tone.
           </p>
 
-          <dl aria-live="polite" className="mt-9 border-l border-cosmic-accent/40 pl-5">
+          <dl aria-live="polite" className="mt-9 border-l-2 border-jyotish-gold/40 pl-5">
             <div className="flex items-baseline justify-between gap-4 border-b border-white/10 pb-3">
               <dt className="font-serif text-2xl text-white">{selected.symbol} {selected.name}</dt>
-              <dd className="font-mono text-xs text-cosmic-accent">{selected.degree}</dd>
+              <dd className="font-mono text-xs text-jyotish-gold">{selected.degree}</dd>
             </div>
             <div className="grid grid-cols-2 gap-4 py-4 text-xs">
               <div>
@@ -98,9 +98,9 @@ export const SampleChartTeaser: React.FC<SampleChartTeaserProps> = ({ compact = 
           </dl>
         </header>
 
-        <div className={compact ? 'landing-panel rounded-[2rem] p-3 backdrop-blur-md sm:p-6' : 'rounded-[2rem] border border-white/10 bg-slate-950/65 p-3 shadow-2xl shadow-black/30 backdrop-blur-md sm:p-6'}>
+        <div className={compact ? 'landing-panel rounded-2xl p-3 backdrop-blur-md sm:p-6' : 'dashboard-panel p-3 sm:p-6'}>
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex rounded-full border border-white/10 bg-black/20 p-1" aria-label="Map view">
+            <div className="inline-flex rounded-lg border border-white/10 bg-black/20 p-1" aria-label="Map view">
               <ToggleButton active={mode === 'circular'} icon={<CircleDot size={14} aria-hidden="true" />} label="Wheel" onClick={() => setMode('circular')} />
               <ToggleButton active={mode === 'north'} icon={<Diamond size={14} aria-hidden="true" />} label="Grid" onClick={() => setMode('north')} />
             </div>
@@ -109,10 +109,10 @@ export const SampleChartTeaser: React.FC<SampleChartTeaserProps> = ({ compact = 
 
           <div className="relative mx-auto aspect-square w-full max-w-[31rem]" aria-label={`${mode === 'circular' ? 'Circular' : 'Grid'} sample personality map`}>
             {mode === 'circular' ? (
-              <div className="absolute inset-[5%] rounded-full border border-cosmic-accent/35 bg-[repeating-conic-gradient(from_0deg,rgba(255,255,255,0.08)_0deg,rgba(255,255,255,0.08)_0.5deg,transparent_0.5deg,transparent_30deg)]">
+              <div className="absolute inset-[5%] rounded-full border border-jyotish-gold/35 bg-[repeating-conic-gradient(from_0deg,rgba(255,255,255,0.08)_0deg,rgba(255,255,255,0.08)_0.5deg,transparent_0.5deg,transparent_30deg)]">
                 <div className="absolute inset-[13%] rounded-full border border-white/15" />
-                <div className="absolute inset-[31%] grid place-items-center rounded-full border border-cosmic-accent/25 bg-slate-950">
-                  <span className="text-center font-serif text-lg italic leading-tight text-cosmic-accent/80">Sample<br />profile</span>
+                <div className="absolute inset-[31%] grid place-items-center rounded-full border border-jyotish-gold/25 bg-slate-950">
+                  <span className="text-center font-serif text-lg italic leading-tight text-jyotish-gold/80">Sample<br />profile</span>
                 </div>
                 {SAMPLE_PLANETS.map((planet) => {
                   const radius = 39;
@@ -126,10 +126,10 @@ export const SampleChartTeaser: React.FC<SampleChartTeaserProps> = ({ compact = 
                       aria-pressed={selectedName === planet.name}
                       onClick={() => setSelectedName(planet.name)}
                       style={{ left: `${left}%`, top: `${top}%` }}
-                      className={`absolute grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border font-serif text-lg transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-accent ${
+                      className={`absolute grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border font-serif text-lg transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jyotish-gold ${
                         selectedName === planet.name
-                          ? 'border-cosmic-accent bg-cosmic-accent text-white'
-                          : 'border-white/15 bg-slate-950 text-white/75 hover:border-cosmic-accent/60 hover:text-cosmic-accent'
+                          ? 'border-jyotish-gold bg-jyotish-gold text-[#1a0b2e]'
+                          : 'border-white/15 bg-slate-950 text-white/75 hover:border-jyotish-gold/60 hover:text-jyotish-gold'
                       }`}
                     >
                       {planet.symbol}
@@ -139,7 +139,7 @@ export const SampleChartTeaser: React.FC<SampleChartTeaserProps> = ({ compact = 
               </div>
             ) : (
               <div className="absolute inset-[7%]">
-                <svg viewBox="0 0 100 100" role="presentation" className="h-full w-full text-cosmic-accent/40">
+                <svg viewBox="0 0 100 100" role="presentation" className="h-full w-full text-jyotish-gold/40">
                   <rect x="1" y="1" width="98" height="98" fill="rgba(2,6,23,.58)" stroke="currentColor" strokeWidth=".8" />
                   <path d="M1 1 99 99M99 1 1 99M1 50 50 1 99 50 50 99Z" fill="none" stroke="currentColor" strokeWidth=".55" />
                   <path d="M1 1 50 50 99 1M1 99 50 50 99 99" fill="none" stroke="currentColor" strokeWidth=".35" opacity=".45" />
@@ -156,10 +156,10 @@ export const SampleChartTeaser: React.FC<SampleChartTeaserProps> = ({ compact = 
                     aria-label={`Select ${planet.name} in life area ${planet.house}`}
                     aria-pressed={selectedName === planet.name}
                     onClick={() => setSelectedName(planet.name)}
-                    className={`absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border font-serif transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-accent ${HOUSE_POSITIONS[planet.house]} ${
+                    className={`absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border font-serif transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jyotish-gold ${HOUSE_POSITIONS[planet.house]} ${
                       selectedName === planet.name
-                        ? 'border-cosmic-accent bg-cosmic-accent text-white'
-                        : 'border-white/15 bg-slate-950 text-white/75 hover:border-cosmic-accent/60 hover:text-cosmic-accent'
+                        ? 'border-jyotish-gold bg-jyotish-gold text-[#1a0b2e]'
+                        : 'border-white/15 bg-slate-950 text-white/75 hover:border-jyotish-gold/60 hover:text-jyotish-gold'
                     }`}
                   >
                     {planet.symbol}

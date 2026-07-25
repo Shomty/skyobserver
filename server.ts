@@ -180,9 +180,39 @@ function rateLimit(req: express.Request, res: express.Response, next: express.Ne
   next();
 }
 
+function getClientIp(req: express.Request): string {
+  const realIp = req.headers['x-real-ip'];
+  if (typeof realIp === 'string' && realIp.length > 0) {
+    return realIp.trim();
+  }
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.length > 0) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket.remoteAddress ?? '';
+}
+
+function isPrivateOrLocalIp(ip: string): boolean {
+  const normalized = ip.replace(/^::ffff:/, '');
+  if (!normalized || normalized === 'unknown') return true;
+  if (normalized === '127.0.0.1' || normalized === '::1') return true;
+  if (normalized.startsWith('10.') || normalized.startsWith('192.168.') || normalized.startsWith('169.254.')) {
+    return true;
+  }
+  const parts = normalized.split('.');
+  if (parts.length === 4 && parts[0] === '172') {
+    const second = Number(parts[1]);
+    if (second >= 16 && second <= 31) return true;
+  }
+  return false;
+}
+
 async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || '3000', 10);
+
+  // Honor X-Forwarded-For when the app sits behind nginx or another reverse proxy.
+  app.set('trust proxy', true);
 
   app.use(express.json({ limit: '2mb' }));
   app.use((req, res, next) => {
@@ -356,6 +386,56 @@ async function startServer() {
       }
     } catch (e) {
       serverLog('error', 'reverse-geocode', 'Proxy reverse geocoding error', e);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+
+  // Approximate location from client IP (fallback when browser GPS is unavailable on HTTP).
+  app.get('/api/ip-location', rateLimit, async (req, res) => {
+    const clientIp = getClientIp(req);
+    if (isPrivateOrLocalIp(clientIp)) {
+      serverLog('warn', 'ip-location', 'Skipped private or local IP', { clientIp });
+      return res.status(503).json({ error: 'IP geolocation unavailable for local requests' });
+    }
+
+    try {
+      const response = await fetch(
+        `http://ip-api.com/json/${encodeURIComponent(clientIp)}?fields=status,message,lat,lon,city,regionName,country`,
+      );
+      if (!response.ok) {
+        serverLog('warn', 'ip-location', 'IP geolocation request failed', { status: response.status });
+        return res.status(response.status).json({ error: 'Failed to resolve IP location' });
+      }
+
+      const data = await response.json() as {
+        status?: string;
+        message?: string;
+        lat?: number;
+        lon?: number;
+        city?: string;
+        regionName?: string;
+        country?: string;
+      };
+
+      if (data.status !== 'success' || typeof data.lat !== 'number' || typeof data.lon !== 'number') {
+        serverLog('warn', 'ip-location', 'IP geolocation returned no coordinates', { clientIp, message: data.message });
+        return res.status(503).json({ error: data.message || 'IP geolocation returned no coordinates' });
+      }
+
+      const label = [data.city, data.regionName, data.country].filter(Boolean).join(', ');
+
+      if (DEBUG_SERVER_LOGS) {
+        serverLog('log', 'ip-location', 'Resolved approximate location', { clientIp, label });
+      }
+
+      res.json({
+        latitude: data.lat,
+        longitude: data.lon,
+        label: label || 'Approximate location',
+        source: 'ip',
+      });
+    } catch (e) {
+      serverLog('error', 'ip-location', 'Proxy IP geolocation error', e);
       res.status(500).json({ error: 'Internal Server Error' });
     }
   });

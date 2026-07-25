@@ -32,9 +32,9 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onOpenAuth }) => {
       )}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between">
-        <a href="#top" className="flex items-center gap-3 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-accent">
-          <span className="grid h-9 w-9 place-items-center rounded-full border border-cosmic-accent/30 bg-cosmic-accent/10">
-            <Compass className="h-4 w-4 text-cosmic-accent" />
+        <a href="#top" className="flex items-center gap-3 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jyotish-gold">
+          <span className="grid h-9 w-9 place-items-center rounded-xl border border-jyotish-gold/30 bg-jyotish-gold/10">
+            <Compass className="h-4 w-4 text-jyotish-gold" />
           </span>
           <span>
             <span className="block font-serif text-lg font-semibold italic leading-none text-white">Soul Blueprint</span>
@@ -48,7 +48,7 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onOpenAuth }) => {
           <button onClick={() => onOpenAuth('signin')} className="text-sm text-white/70 transition-colors hover:text-white">Sign in</button>
           <button
             onClick={() => onOpenAuth('signup')}
-            className="rounded-full bg-cosmic-accent px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cosmic-glow hover:text-cosmic-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-bright"
+            className="rounded-full bg-jyotish-gold px-5 py-2.5 text-sm font-semibold text-[#1a0b2e] transition hover:bg-celestial-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jyotish-gold/60"
           >
             Create your profile
           </button>
@@ -70,7 +70,7 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onOpenAuth }) => {
           <a href="#observatory" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm text-white/75">Explore</a>
           <a href="#inside" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm text-white/75">Features</a>
           <button onClick={() => { setMenuOpen(false); onOpenAuth('signin'); }} className="rounded-xl px-4 py-3 text-left text-sm text-white/75">Sign in</button>
-          <button onClick={() => { setMenuOpen(false); onOpenAuth('signup'); }} className="rounded-xl bg-cosmic-accent px-4 py-3 text-sm font-semibold text-white">Create your profile</button>
+          <button onClick={() => { setMenuOpen(false); onOpenAuth('signup'); }} className="rounded-xl bg-jyotish-gold px-4 py-3 text-sm font-semibold text-[#1a0b2e]">Create your profile</button>
         </div>
       )}
     </nav>
