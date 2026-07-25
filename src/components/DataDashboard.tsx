@@ -21,6 +21,7 @@ import AIAssistant from './AIAssistant';
 import { DateRangePicker } from './DateRangePicker';
 import { db, updateDoc, doc } from '../firebase';
 import { getCachedReport, saveAIReport, getPerAccountReport, savePerAccountReport } from '../services/aiReportService';
+import { generateNatalPlanetPlacementInsights } from '../services/geminiService';
 import { callGeminiProxy, getErrorMessage, withRetry } from '../lib/api-utils';
 import { APIErrorMessage } from './APIErrorMessage';
 import DivisionalCharts from './DivisionalCharts';
@@ -43,6 +44,11 @@ const AI_FALLBACK_STRINGS = new Set([
 ]);
 const isValidAiResponse = (value: any): boolean =>
   typeof value === 'string' && value.trim().length > 80 && !AI_FALLBACK_STRINGS.has(value.trim());
+
+const isValidPlanetInsights = (value: unknown): value is Record<string, string> =>
+  typeof value === 'object' && value !== null && Object.values(value as Record<string, string>).some(
+    (entry) => typeof entry === 'string' && entry.trim().length > 40 && !AI_FALLBACK_STRINGS.has(entry.trim()),
+  );
 
 interface DataDashboardProps {
   activeTab: 'overview' | 'yogas' | 'transits' | 'natal' | 'upcoming' | 'panchang' | 'ashtakavarga' | 'muhurta' | 'dashas' | 'impacts' | 'blueprint' | 'rectify' | 'vargas';
@@ -416,6 +422,8 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [yogaInterpretations, setYogaInterpretations] = React.useState<Record<string, string>>({});
   const [isYogaAiLoading, setIsYogaAiLoading] = React.useState<string | null>(null);
+  const [planetInterpretations, setPlanetInterpretations] = React.useState<Record<string, string>>({});
+  const [isPlanetInsightsLoading, setIsPlanetInsightsLoading] = React.useState(false);
   const [muhurtaInterpretations, setMuhurtaInterpretations] = React.useState<Record<string, string>>({});
   const [isMuhurtaAiLoading, setIsMuhurtaAiLoading] = React.useState<string | null>(null);
   const [transitImpactInsight, setTransitImpactInsight] = React.useState<string | null>(null);
@@ -693,6 +701,75 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       setIsYogaAiLoading(null);
     }
   };
+
+  const loadNatalPlanetInsights = React.useCallback(async () => {
+    if (!user || !birthPositions?.length || !birthFingerprint || isPlanetInsightsLoading) return;
+
+    const cacheKey = `natal-planet-insights-${birthFingerprint}`;
+    try {
+      const cached = await getCachedReport(user.uid, 'natal-planet-insights', cacheKey);
+      if (cached && isValidPlanetInsights(cached)) {
+        setPlanetInterpretations(cached);
+        return;
+      }
+    } catch (e) {
+      console.warn('Planet insights cache fetch failed', e);
+    }
+
+    setIsPlanetInsightsLoading(true);
+    setDashboardError(null);
+    try {
+      const result = await generateNatalPlanetPlacementInsights(birthPositions, {
+        firstName: userProfile?.firstName,
+        gender: userProfile?.gender,
+      });
+      setPlanetInterpretations(result);
+      if (isValidPlanetInsights(result)) {
+        await saveAIReport(user.uid, 'natal-planet-insights', cacheKey, result, 720);
+      }
+    } catch (error) {
+      console.error('Planet insights AI error:', error);
+      setDashboardError({
+        error,
+        title: 'Planet Interpretation Failed',
+        retry: () => loadNatalPlanetInsights(),
+      });
+    } finally {
+      setIsPlanetInsightsLoading(false);
+    }
+  }, [user, birthPositions, birthFingerprint, isPlanetInsightsLoading, userProfile?.firstName, userProfile?.gender]);
+
+  React.useEffect(() => {
+    if (activeTab !== 'natal' || !isBirthMode || !birthPositions?.length || !user || !birthFingerprint) return;
+    if (Object.keys(planetInterpretations).length > 0 || isPlanetInsightsLoading) return;
+    loadNatalPlanetInsights();
+  }, [activeTab, isBirthMode, birthPositions, user, birthFingerprint, planetInterpretations, isPlanetInsightsLoading, loadNatalPlanetInsights]);
+
+  React.useEffect(() => {
+    setPlanetInterpretations({});
+  }, [birthFingerprint]);
+
+  const renderPlanetInsight = (planetName: string) => (
+    <div className={cn(
+      "rounded-xl border px-3 py-2.5",
+      theme === 'dark' ? "bg-jyotish-gold/[0.04] border-jyotish-gold/15" : "bg-orange-50/80 border-orange-100",
+    )}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Sparkles className="w-3 h-3 text-jyotish-gold shrink-0" />
+        <span className="text-[10px] uppercase tracking-widest font-mono text-jyotish-gold/70">Jyotish Insight</span>
+      </div>
+      {isPlanetInsightsLoading && !planetInterpretations[planetName] ? (
+        <div className={cn("flex items-center gap-2 text-[12px] animate-pulse", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+          <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+          Synthesizing placement & drishti…
+        </div>
+      ) : planetInterpretations[planetName] ? (
+        <p className={cn("text-[13px] leading-relaxed", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
+          {planetInterpretations[planetName]}
+        </p>
+      ) : null}
+    </div>
+  );
 
   const [transitPlanetFilter, setTransitPlanetFilter] = React.useState<string>('All');
   const [transitTypeFilter, setTransitTypeFilter] = React.useState<string>('All');
@@ -2107,19 +2184,22 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                                 )}
                               >
                                 <div className={cn(
-                                  "flex flex-col items-center text-center pb-4 mb-3 border-b",
+                                  "pb-3 mb-3 border-b space-y-2",
                                   theme === 'dark' ? "border-white/5" : "border-slate-100",
                                 )}>
-                                  <div
-                                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0"
-                                    style={{ backgroundColor: p.color, color: '#000' }}
-                                  >
-                                    {p.symbol || PLANET_GLYPHS[p.name] || ''}
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div
+                                      className="w-8 h-8 rounded-lg flex items-center justify-center text-base shadow-inner shrink-0"
+                                      style={{ backgroundColor: p.color, color: '#000' }}
+                                    >
+                                      {p.symbol || PLANET_GLYPHS[p.name] || ''}
+                                    </div>
+                                    <p className={cn("text-lg font-bold truncate", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                      {p.name}
+                                    </p>
                                   </div>
-                                  <p className={cn("mt-2.5 text-base font-bold", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                                    {p.name}
-                                  </p>
-                                  <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                                  {(p.isRetrograde && !['Rahu', 'Ketu'].includes(p.name)) || p.isCombust || status ? (
+                                    <div className="flex flex-wrap items-center gap-1.5">
                                     {p.isRetrograde && !['Rahu', 'Ketu'].includes(p.name) && (
                                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25 font-bold uppercase tracking-wider">
                                         Retrograde
@@ -2139,7 +2219,8 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                                         {status}
                                       </span>
                                     )}
-                                  </div>
+                                    </div>
+                                  ) : null}
                                 </div>
 
                                 <div className="space-y-2 w-full">
@@ -2166,6 +2247,10 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                                     </div>
                                   ))}
                                 </div>
+
+                                <div className="mt-3 w-full">
+                                  {renderPlanetInsight(p.name)}
+                                </div>
                               </div>
                             );
                           })}
@@ -2182,22 +2267,29 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                           </thead>
                           <tbody className="divide-y divide-white/[0.03]">
                             {birthPositions.map((p, i) => (
-                              <tr key={i} className={cn("transition-colors", theme === 'dark' ? "hover:bg-white/[0.02]" : "hover:bg-slate-50")}>
-                                <td className="py-2 pr-3 font-medium">
-                                  <span className="flex items-center gap-1.5">
-                                    <span className="text-sm">{PLANET_GLYPHS[p.name] || ''}</span>
-                                    <span className={theme === 'dark' ? "text-white/80" : "text-slate-700"}>{p.name}</span>
-                                  </span>
-                                </td>
-                                <td className={cn("py-2 pr-3", theme === 'dark' ? "text-white/70" : "text-slate-600")}>{p.rashi}</td>
-                                <td className={cn("py-2 pr-3 text-[10px]", theme === 'dark' ? "text-white/50" : "text-slate-500")}>
-                                  {p.nakshatra}
-                                  <span className={cn("ml-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-orange-400")}>P{p.pada}</span>
-                                </td>
-                                <td className={cn("py-2 pr-3 font-mono", theme === 'dark' ? "text-white/60" : "text-slate-500")}>{p.house}</td>
-                                <td className={cn("py-2 pr-3 font-mono text-[10px]", theme === 'dark' ? "text-white/50" : "text-slate-400")}>{p.degree}°{p.minute}'</td>
-                                <td className={cn("py-2 text-[10px] font-bold", statusColorOf(p))}>{statusOf(p) || '—'}</td>
-                              </tr>
+                              <React.Fragment key={i}>
+                                <tr className={cn("transition-colors", theme === 'dark' ? "hover:bg-white/[0.02]" : "hover:bg-slate-50")}>
+                                  <td className="py-2 pr-3 font-medium">
+                                    <span className="flex items-center gap-1.5">
+                                      <span className="text-sm">{PLANET_GLYPHS[p.name] || ''}</span>
+                                      <span className={theme === 'dark' ? "text-white/80" : "text-slate-700"}>{p.name}</span>
+                                    </span>
+                                  </td>
+                                  <td className={cn("py-2 pr-3", theme === 'dark' ? "text-white/70" : "text-slate-600")}>{p.rashi}</td>
+                                  <td className={cn("py-2 pr-3 text-[10px]", theme === 'dark' ? "text-white/50" : "text-slate-500")}>
+                                    {p.nakshatra}
+                                    <span className={cn("ml-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-orange-400")}>P{p.pada}</span>
+                                  </td>
+                                  <td className={cn("py-2 pr-3 font-mono", theme === 'dark' ? "text-white/60" : "text-slate-500")}>{p.house}</td>
+                                  <td className={cn("py-2 pr-3 font-mono text-[10px]", theme === 'dark' ? "text-white/50" : "text-slate-400")}>{p.degree}°{p.minute}'</td>
+                                  <td className={cn("py-2 text-[10px] font-bold", statusColorOf(p))}>{statusOf(p) || '—'}</td>
+                                </tr>
+                                <tr className={theme === 'dark' ? "bg-white/[0.01]" : "bg-slate-50/50"}>
+                                  <td colSpan={6} className="pb-3 pt-1 px-1">
+                                    {renderPlanetInsight(p.name)}
+                                  </td>
+                                </tr>
+                              </React.Fragment>
                             ))}
                           </tbody>
                         </table>

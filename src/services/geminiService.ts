@@ -1,5 +1,5 @@
 import { Type } from "@google/genai";
-import { PlanetPosition, PanchangData, TransitEvent, NAKSHATRA_DATA, SudarshanaChakraResult, SudarshanaLayer } from "../vedic-utils";
+import { PlanetPosition, PanchangData, TransitEvent, NAKSHATRA_DATA, SudarshanaChakraResult, SudarshanaLayer, calculateDrishti, getPlanetInHouseInterpretation } from "../vedic-utils";
 import { callGeminiProxy } from "../lib/api-utils";
 import { DivisionalChartInfo } from "../lib/divisionalChartUtils";
 
@@ -133,6 +133,79 @@ ${transitEvents.length > 0 ? transitEvents.map(e => `- [${e.type.toUpperCase()}]
     return JSON.parse(text) as AICosmicInterpretations;
   } catch {
     throw new Error('Invalid AI response format — could not parse JSON from Gemini');
+  }
+}
+
+/**
+ * Short per-planet natal insights: house placement, drishti, and life effect.
+ * One Gemini call returns all planets keyed by name (Sun, Moon, …).
+ */
+export async function generateNatalPlanetPlacementInsights(
+  birthPositions: PlanetPosition[],
+  profile?: { firstName?: string; gender?: string },
+): Promise<Record<string, string>> {
+  const planets = birthPositions.filter(
+    (p) => !['Bhrigu Bindu'].includes(p.name),
+  );
+
+  const planetContexts = planets.map((p) => {
+    const drishti = calculateDrishti(p.name, birthPositions);
+    const houseInterp = p.house ? getPlanetInHouseInterpretation(p.name, p.house) : 'House unknown';
+    const aspectsTo = drishti.aspectDetails.length > 0
+      ? drishti.aspectDetails.map((d) => `${d.targetName} (house ${d.house})`).join(', ')
+      : 'none';
+    const aspectedBy = drishti.aspectedByDetails.length > 0
+      ? drishti.aspectedByDetails.map((d) => `${d.sourceName} (house ${d.house})`).join(', ')
+      : 'none';
+    const houseDrishti = drishti.aspectedHouses.length > 0
+      ? drishti.aspectedHouses.map((ah) => `house ${ah.house} (${ah.relativeHouse}th drishti)`).join(', ')
+      : 'none';
+    const nakData = NAKSHATRA_DATA[p.nakshatra as keyof typeof NAKSHATRA_DATA];
+
+    return `${p.name}:
+- ${p.rashi}, house ${p.house ?? 'N/A'}, ${p.nakshatra} pada ${p.pada}
+- Dignity: ${p.dignity || 'neutral'}${p.isRetrograde ? ', retrograde' : ''}${p.isCombust ? ', combust' : ''}
+- Nakshatra lord: ${nakData?.lord ?? 'unknown'}
+- Classical house effect: ${houseInterp}
+- Drishti on planets: ${aspectsTo}
+- Drishti from planets: ${aspectedBy}
+- Houses receiving drishti: ${houseDrishti}`;
+  }).join('\n\n');
+
+  const prompt = `You are an expert Vedic Jyotishi. For EACH body below, write a SHORT personalized interpretation (2–3 sentences max, plain text, no markdown).
+
+Cover in order:
+1. What it means for this native that the planet sits in its house and sign
+2. The most important drishti (aspects) — what they activate or challenge
+3. One practical effect on personality, life area, or karma
+
+Speak directly to the person. Be specific to the data — avoid generic textbook lines.
+
+Native: ${profile?.firstName || 'This person'}${profile?.gender ? ` (${profile.gender})` : ''}
+
+${planetContexts}
+
+Return JSON keyed by exact names: ${planets.map((p) => p.name).join(', ')}.`;
+
+  const text = await callGeminiProxy({
+    model: "gemini-3-flash-preview",
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: Object.fromEntries(
+          planets.map((p) => [p.name, { type: Type.STRING }]),
+        ),
+        required: planets.map((p) => p.name),
+      },
+    },
+  });
+
+  try {
+    return JSON.parse(text) as Record<string, string>;
+  } catch {
+    throw new Error('Invalid AI response format — could not parse planet insights JSON');
   }
 }
 
