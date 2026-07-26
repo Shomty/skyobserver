@@ -19,6 +19,8 @@ import { Label, StatTile } from './ui';
 import { DASHBOARD_TABS } from '../lib/dashboardTabs';
 import AIAssistant from './AIAssistant';
 import { DateRangePicker } from './DateRangePicker';
+import { DateTimePicker } from './DateTimePicker';
+import { toDateTimeLocalValue } from '../lib/dateInputUtils';
 import { db, updateDoc, doc } from '../firebase';
 import { getCachedReport, saveAIReport, getPerAccountReport, savePerAccountReport } from '../services/aiReportService';
 import { generateNatalPlanetPlacementInsights } from '../services/geminiService';
@@ -1178,20 +1180,31 @@ Respond ONLY with valid JSON (no markdown, no backticks):
     <div className="flex flex-col h-full">
       {/* Temporal Controls */}
       {viewMode !== 'natal' && (
-        <div className={cn("p-3 border-b sticky top-0 z-20 backdrop-blur-md", theme === 'dark' ? "border-white/10 bg-black/40" : "border-slate-200 bg-white/80")}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <Clock className="w-4 h-4 text-jyotish-gold shrink-0" />
-              <input 
-                type="datetime-local" 
-                value={format(currentTime, "yyyy-MM-dd'T'HH:mm")}
-                onChange={handleDateChange}
-                className={cn("bg-transparent border-none text-sm font-mono focus:ring-0 p-0 w-full", theme === 'dark' ? "text-white" : "text-slate-900")}
-              />
-            </div>
+        <div className={cn(
+          "p-3 border-b sticky top-0 z-20 backdrop-blur-xl",
+          theme === 'dark' ? "border-white/10 bg-black/50" : "border-slate-200 bg-white/85",
+        )}>
+          <div className="flex items-center gap-2 mb-3">
+            <DateTimePicker
+              value={currentTime}
+              onChange={(date) => {
+                handleDateChange({
+                  target: { value: toDateTimeLocalValue(date) },
+                } as React.ChangeEvent<HTMLInputElement>);
+              }}
+              theme={theme}
+              label="Observation moment"
+            />
             <button 
               onClick={() => setIsLive(!isLive)}
-              className={cn("px-3 py-1.5 rounded-full text-[10px] font-mono uppercase tracking-widest flex items-center gap-1.5 transition-all shrink-0 shadow-sm", isLive ? "bg-jyotish-gold text-black font-bold" : (theme === 'dark' ? "bg-white/10 text-white/60" : "bg-slate-100 text-slate-500"))}
+              className={cn(
+                "px-3 py-2.5 rounded-2xl text-[10px] font-mono uppercase tracking-widest flex items-center gap-1.5 transition-all shrink-0 border backdrop-blur-xl",
+                isLive
+                  ? "bg-jyotish-gold text-black font-bold border-jyotish-gold/50 shadow-lg shadow-jyotish-gold/20"
+                  : theme === 'dark'
+                    ? "bg-white/[0.06] border-white/10 text-white/60 hover:bg-white/10"
+                    : "bg-white/70 border-slate-200 text-slate-500 hover:bg-white shadow-sm",
+              )}
             >
               {isLive ? <Activity className="w-3 h-3 animate-pulse" /> : <Pause className="w-3 h-3" />}
               {isLive ? 'Live' : 'Paused'}
@@ -2309,8 +2322,8 @@ Respond ONLY with valid JSON (no markdown, no backticks):
               return (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
                   <div className={cn("p-5 rounded-3xl border", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-white border-slate-100 shadow-sm")}>
-                    <div className={cn("text-[10px] uppercase tracking-widest font-mono mb-4 flex items-center gap-2", theme === 'dark' ? "text-jyotish-gold/60" : "text-slate-400")}>
-                      <Star className="w-3 h-3" /> Nakshatra Blueprint
+                    <div className={cn("text-xs uppercase tracking-widest font-mono mb-4 flex items-center gap-2", theme === 'dark' ? "text-jyotish-gold/60" : "text-slate-400")}>
+                      <Star className="w-3.5 h-3.5" /> Nakshatra Blueprint
                     </div>
 
                     {/* Moon Nakshatra — primary highlight */}

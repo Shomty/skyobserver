@@ -117,6 +117,43 @@ export async function savePerAccountReport(uid: string, docId: string, data: any
   }
 }
 
+export interface SavedInterpretation {
+  id?: string;
+  uid: string;
+  title: string;
+  content: string;
+  type: string;
+  context?: string;
+  createdAt: any;
+}
+
+export async function getUserInterpretations(uid: string): Promise<SavedInterpretation[]> {
+  try {
+    const q = query(
+      collection(db, `users/${uid}/interpretations`),
+      orderBy('createdAt', 'desc')
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    })) as SavedInterpretation[];
+  } catch (error) {
+    console.error('Error fetching user interpretations:', error);
+    return [];
+  }
+}
+
+export async function deleteInterpretation(uid: string, interpretationId: string) {
+  try {
+    const { deleteDoc, doc } = await import('firebase/firestore');
+    await deleteDoc(doc(db, `users/${uid}/interpretations`, interpretationId));
+  } catch (error) {
+    console.error('Error deleting interpretation:', error);
+  }
+}
+
 export async function getUserReports(uid: string): Promise<AIReport[]> {
   try {
     const q = query(

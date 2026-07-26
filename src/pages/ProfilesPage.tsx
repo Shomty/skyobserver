@@ -18,6 +18,8 @@ import type { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
+import { DateTimePicker } from '../components/DateTimePicker';
+import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../lib/dateInputUtils';
 import { format } from 'date-fns';
 
 export interface ChildProfile {
@@ -317,15 +319,14 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
 
                   {/* Birth Date & Time */}
                   <div className="space-y-1.5">
-                    <label className={cn('block text-[10px] font-mono uppercase tracking-widest', theme === 'dark' ? 'text-white/40' : 'text-slate-400')}>Birth Date &amp; Time</label>
-                    <input
-                      type="datetime-local"
-                      value={formData.birthTime}
-                      onChange={(e) => setFormData(d => ({ ...d, birthTime: e.target.value }))}
-                      className={cn(
-                        'w-full p-3.5 rounded-2xl border text-sm font-mono focus:ring-2 focus:ring-jyotish-gold/50 outline-none transition-all',
-                        theme === 'dark' ? 'bg-black/40 border-white/10 text-white [color-scheme:dark]' : 'bg-slate-50 border-slate-200 text-slate-900 [color-scheme:light]'
-                      )}
+                    <DateTimePicker
+                      label="Date & time of birth"
+                      placeholder="Select birth moment"
+                      value={fromDateTimeLocalValue(formData.birthTime)}
+                      onChange={(date) => setFormData((d) => ({ ...d, birthTime: date ? toDateTimeLocalValue(date) : '' }))}
+                      theme={theme}
+                      maxDate={new Date()}
+                      showNowButton={false}
                     />
                   </div>
 

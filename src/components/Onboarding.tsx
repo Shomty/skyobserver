@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle,
@@ -6,7 +6,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Clock,
   Loader2,
   MapPin,
   Sparkles,
@@ -16,6 +15,8 @@ import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 import { withRetry } from '../lib/api-utils';
 import { resolveBirthInstant } from '../features/gift/lib/birthInstant';
+import { DateTimePicker } from './DateTimePicker';
+import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../lib/dateInputUtils';
 
 interface OnboardingFlowProps {
   theme: 'light' | 'dark';
@@ -80,11 +81,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ theme, onComplet
   });
 
   const isDark = theme === 'dark';
-  const maxBirthTime = useMemo(() => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
-  }, []);
 
   useEffect(() => {
     if (place?.label === query || query.trim().length < 2) {
@@ -292,21 +288,20 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ theme, onComplet
                       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-jyotish-gold">Birth details</p>
                       <h2 className="mt-2 font-serif text-3xl font-medium italic">Set the chart coordinates</h2>
                     </div>
-                    <label className="block space-y-2 text-sm">
-                      <span>Date and local time of birth</span>
-                      <div className="relative">
-                        <Clock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-jyotish-gold" />
-                        <input
-                          type="datetime-local"
-                          max={maxBirthTime}
-                          className={cn(fieldClass, 'pl-11')}
-                          value={form.birthTime}
-                          onChange={event => setForm(value => ({ ...value, birthTime: event.target.value }))}
-                        />
-                      </div>
+                    <div className="space-y-2">
+                      <DateTimePicker
+                        label="Date & time of birth"
+                        placeholder="Select birth moment"
+                        value={fromDateTimeLocalValue(form.birthTime)}
+                        onChange={(date) => setForm((value) => ({ ...value, birthTime: date ? toDateTimeLocalValue(date) : '' }))}
+                        theme={isDark ? 'dark' : 'light'}
+                        maxDate={new Date()}
+                        showNowButton={false}
+                        error={touched && (!birthDate || (birthDate && birthDate.getTime() > Date.now()))}
+                      />
                       {touched && !birthDate && <span className="block text-xs text-red-400">Enter a birth date and time.</span>}
                       {birthDate && birthDate.getTime() > Date.now() && <span className="block text-xs text-red-400">Birth time cannot be in the future.</span>}
-                    </label>
+                    </div>
                     <div className="relative space-y-2 text-sm">
                       <label htmlFor="birth-place">Place of birth</label>
                       <div className="relative">

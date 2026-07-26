@@ -61,6 +61,8 @@ import {
   RotateCw
 } from 'lucide-react';
 import { Archives } from './components/Archives';
+import { DateTimePicker } from './components/DateTimePicker';
+import { toDateTimeLocalValue } from './lib/dateInputUtils';
 import { useTheme } from './context/ThemeContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AIAssistant from './components/AIAssistant';
@@ -1273,11 +1275,6 @@ INTERPRETATION GUIDELINES:
     setCurrentTime(new Date(e.target.value));
   };
 
-  const formatForInput = (d: Date) => {
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-
   // Geocode birth city
   useEffect(() => {
     if (!birthCity || birthCity.length < 3) return;
@@ -2210,27 +2207,23 @@ INTERPRETATION GUIDELINES:
                   "p-4 rounded-xl border flex flex-col gap-4",
                   theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-100 shadow-sm"
                 )}>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-jyotish-gold" />
-                      <span className="text-xs font-bold font-mono tracking-wider">Date & Time</span>
-                    </div>
-                    <input
-                      type="datetime-local"
-                      value={formatForInput(viewMode === 'natal' && birthTime ? birthTime : currentTime)}
-                      onChange={(e) => {
-                        if (viewMode === 'natal') {
-                          setBirthTime(e.target.value ? new Date(e.target.value) : null);
-                        } else {
-                          handleDateChange(e);
-                        }
-                      }}
-                      className={cn(
-                        "bg-transparent border-none text-xs font-bold font-mono focus:ring-0 p-0 text-right w-[160px] sm:w-[180px] [color-scheme:dark]",
-                        theme === 'dark' ? "text-white" : "text-slate-800"
-                      )}
-                    />
-                  </div>
+                  <DateTimePicker
+                    label={viewMode === 'natal' ? 'Date & time of birth' : 'Observation moment'}
+                    placeholder={viewMode === 'natal' ? 'Select birth moment' : 'Select date & time'}
+                    value={viewMode === 'natal' && birthTime ? birthTime : currentTime}
+                    onChange={(date) => {
+                      if (viewMode === 'natal') {
+                        setBirthTime(date);
+                      } else {
+                        handleDateChange({
+                          target: { value: toDateTimeLocalValue(date) },
+                        } as React.ChangeEvent<HTMLInputElement>);
+                      }
+                    }}
+                    theme={theme}
+                    maxDate={viewMode === 'natal' ? new Date() : undefined}
+                    showNowButton={viewMode !== 'natal'}
+                  />
 
                   {viewMode === 'transit' && (
                     <div className={cn(

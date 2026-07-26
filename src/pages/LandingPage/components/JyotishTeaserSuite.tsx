@@ -1,7 +1,7 @@
 import React from 'react';
 import { CurrentPanchangTeaser } from './CurrentPanchangTeaser';
+import { LiveChartTeaser } from './LiveChartTeaser';
 import { SampleAIInterpretation } from './SampleAIInterpretation';
-import { SampleChartTeaser } from './SampleChartTeaser';
 import { TimingTeaser } from './TimingTeaser';
 
 export const JyotishTeaserSuite: React.FC = () => (
@@ -10,7 +10,7 @@ export const JyotishTeaserSuite: React.FC = () => (
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 -z-10 opacity-30 [background-image:linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] [background-size:48px_48px]"
     />
-    <SampleChartTeaser />
+    <LiveChartTeaser />
     <CurrentPanchangTeaser />
     <TimingTeaser />
     <SampleAIInterpretation />

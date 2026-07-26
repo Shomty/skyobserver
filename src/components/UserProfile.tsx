@@ -20,8 +20,11 @@ import {
 } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
+import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
+import { DateTimePicker } from './DateTimePicker';
+import { combineDateAndTime } from '../lib/dateInputUtils';
 import { withRetry, getErrorMessage } from '../lib/api-utils';
 import { APIErrorMessage } from './APIErrorMessage';
 
@@ -479,45 +482,29 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                     </div>
 
                     <div className="space-y-2">
-                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
-                        Birth Date
-                      </label>
-                      <div className="relative group">
-                        <Calendar className={cn("absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors", validationErrors.birthDate ? "text-red-500" : "text-jyotish-gold/50 group-focus-within:text-jyotish-gold")} />
-                        <input 
-                          type="date" 
-                          value={birthDate}
-                          onChange={(e) => setBirthDate(e.target.value)}
-                          className={cn(
-                            "w-full pl-12 pr-4 py-3 rounded-xl border transition-all duration-300 font-mono text-sm focus:ring-2 focus:ring-jyotish-gold/20 outline-none [color-scheme:dark]",
-                            theme === 'dark' 
-                              ? "bg-white/5 border-white/10 text-white [color-scheme:dark]" 
-                              : "bg-slate-50 border-slate-200 text-slate-900 [color-scheme:light]",
-                            validationErrors.birthDate && "border-red-500/50 bg-red-500/5 focus:ring-red-500/20"
-                          )}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
-                        Birth Time
-                      </label>
-                      <div className="relative group">
-                        <Compass className={cn("absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors", validationErrors.birthTime ? "text-red-500" : "text-jyotish-gold/50 group-focus-within:text-jyotish-gold")} />
-                        <input 
-                          type="time" 
-                          value={birthTime}
-                          onChange={(e) => setBirthTime(e.target.value)}
-                          className={cn(
-                            "w-full pl-12 pr-4 py-3 rounded-xl border transition-all duration-300 font-mono text-sm focus:ring-2 focus:ring-jyotish-gold/20 outline-none [color-scheme:dark]",
-                            theme === 'dark' 
-                              ? "bg-white/5 border-white/10 text-white [color-scheme:dark]" 
-                              : "bg-slate-50 border-slate-200 text-slate-900 [color-scheme:light]",
-                            validationErrors.birthTime && "border-red-500/50 bg-red-500/5 focus:ring-red-500/20"
-                          )}
-                        />
-                      </div>
+                      <DateTimePicker
+                        label="Date & time of birth"
+                        placeholder="Select birth moment"
+                        value={combineDateAndTime(birthDate, birthTime)}
+                        onChange={(date) => {
+                          if (!date) {
+                            setBirthDate('');
+                            setBirthTime('');
+                            return;
+                          }
+                          setBirthDate(format(date, 'yyyy-MM-dd'));
+                          setBirthTime(format(date, 'HH:mm'));
+                        }}
+                        theme={theme}
+                        maxDate={new Date()}
+                        showNowButton={false}
+                        error={Boolean(validationErrors.birthDate || validationErrors.birthTime)}
+                      />
+                      {(validationErrors.birthDate || validationErrors.birthTime) && (
+                        <p className="text-[10px] text-red-400 font-mono ml-1">
+                          {validationErrors.birthDate || validationErrors.birthTime}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2 relative">

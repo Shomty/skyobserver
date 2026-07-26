@@ -4,7 +4,7 @@ import { LandingHero } from './LandingHero';
 import { LandingFeatureGrid } from './LandingFeatureGrid';
 import { LandingSignUpCTA } from './LandingSignUpCTA';
 import { LandingFooter } from './LandingFooter';
-import { CurrentPanchangTeaser, SampleAIInterpretation, SampleChartTeaser, TimingTeaser } from './components';
+import { CurrentPanchangTeaser, LiveChartTeaser, SampleAIInterpretation, TimingTeaser } from './components';
 import { AuthDialog, type AuthMode } from '../../features/auth';
 import { loginWithEmail, registerWithEmail, resetPassword, signInWithGoogle } from '../../firebase';
 
@@ -21,7 +21,7 @@ const LandingPage: React.FC = () => {
     <div className="landing-shell universe-bg dark relative min-h-screen text-white">
       <LandingNavbar onOpenAuth={openAuth} />
       <LandingHero onOpenAuth={openAuth}>
-        <SampleChartTeaser compact />
+        <LiveChartTeaser compact />
       </LandingHero>
       <div id="observatory" className="dashboard-shell relative z-10 px-5 pb-16 pt-10 sm:px-8 sm:pb-20 sm:pt-12">
         <div className="mx-auto max-w-7xl space-y-4">
