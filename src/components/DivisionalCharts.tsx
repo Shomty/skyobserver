@@ -10,7 +10,8 @@ import {
   computeDivisionalChart,
 } from '../lib/divisionalChartUtils';
 import NorthIndianChart from './NorthIndianChart';
-import { getPerAccountReport, savePerAccountReport } from '../services/aiReportService';
+import { getPerAccountReport, ensureReport } from '../services/aiReportService';
+import { SavedIndicator } from './SavedIndicator';
 import {
   generateDivisionalNakshatraInterpretations,
   DivisionalNakshatraInterpretations,
@@ -54,6 +55,7 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
   const [isAiLoading, setIsAiLoading] = React.useState(false);
   const [aiError, setAiError] = React.useState<string | null>(null);
   const [aiOutdated, setAiOutdated] = React.useState(false);
+  const [isReportSaved, setIsReportSaved] = React.useState(false);
   const [aiExpanded, setAiExpanded] = React.useState(true);
 
   const { positions: divisionalPositions, hasVargaLagna } = useMemo(
@@ -76,6 +78,7 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
     setAiData(null);
     setAiError(null);
     setAiOutdated(false);
+    setIsReportSaved(false);
 
     if (!user?.uid || !birthFingerprint) return;
 
@@ -84,6 +87,7 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
       if (!cached) return;
       if (cached.fingerprint === birthFingerprint) {
         setAiData(cached.data as DivisionalNakshatraInterpretations);
+        setIsReportSaved(true);
       } else {
         setAiOutdated(true);
       }
@@ -100,16 +104,23 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
         firstName: userProfile?.firstName,
         gender: userProfile?.gender,
       };
-      const result = await generateDivisionalNakshatraInterpretations(
-        selected,
-        info,
-        divisionalPositions,
-        profile,
-      );
-      // Persist permanently — no TTL, one API call ever per chart per birth details
-      await savePerAccountReport(user.uid, cacheDocId, result, birthFingerprint);
+      // Persist permanently — one API call ever per chart per birth details
+      const { data: result, fromCache, saved } = await ensureReport<DivisionalNakshatraInterpretations>({
+        uid: user.uid,
+        docId: cacheDocId,
+        type: 'divisional-nakshatra',
+        fingerprint: birthFingerprint,
+        generate: () => generateDivisionalNakshatraInterpretations(
+          selected,
+          info,
+          divisionalPositions,
+          profile,
+        ),
+      });
       setAiData(result);
+      setIsReportSaved(fromCache || saved);
     } catch (err: any) {
+      setIsReportSaved(false);
       setAiError(err?.message ?? 'Failed to generate interpretation.');
     } finally {
       setIsAiLoading(false);
@@ -319,14 +330,17 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
               )}>
                 <Sparkles className="w-3 h-3" /> AI Nakshatra Reading — {selected}
               </div>
-              {aiData && (
-                <button
-                  onClick={() => setAiExpanded(v => !v)}
-                  className={cn('transition-colors', isDark ? 'text-white/30 hover:text-white/60' : 'text-slate-400 hover:text-slate-600')}
-                >
-                  {aiExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                <SavedIndicator saved={isReportSaved && !!aiData && !isAiLoading} isDark={isDark} />
+                {aiData && (
+                  <button
+                    onClick={() => setAiExpanded(v => !v)}
+                    className={cn('transition-colors', isDark ? 'text-white/30 hover:text-white/60' : 'text-slate-400 hover:text-slate-600')}
+                  >
+                    {aiExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* No cache yet */}

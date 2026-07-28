@@ -22,7 +22,8 @@ import { DateRangePicker } from './DateRangePicker';
 import { DateTimePicker } from './DateTimePicker';
 import { toDateTimeLocalValue } from '../lib/dateInputUtils';
 import { db, updateDoc, doc } from '../firebase';
-import { getCachedReport, saveAIReport, getPerAccountReport, savePerAccountReport } from '../services/aiReportService';
+import { ensureReport, dailyFingerprint, STATIC_FINGERPRINT, getPerAccountReport } from '../services/aiReportService';
+import { SavedIndicator } from './SavedIndicator';
 import { generateNatalPlanetPlacementInsights } from '../services/geminiService';
 import { callGeminiProxy, getErrorMessage, withRetry } from '../lib/api-utils';
 import { APIErrorMessage } from './APIErrorMessage';
@@ -443,6 +444,7 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
   const [isYogaAiLoading, setIsYogaAiLoading] = React.useState<string | null>(null);
   const [planetInterpretations, setPlanetInterpretations] = React.useState<Record<string, string>>({});
   const [isPlanetInsightsLoading, setIsPlanetInsightsLoading] = React.useState(false);
+  const [arePlanetInsightsSaved, setArePlanetInsightsSaved] = React.useState(false);
   const [muhurtaInterpretations, setMuhurtaInterpretations] = React.useState<Record<string, string>>({});
   const [isMuhurtaAiLoading, setIsMuhurtaAiLoading] = React.useState<string | null>(null);
   const [transitImpactInsight, setTransitImpactInsight] = React.useState<string | null>(null);
@@ -453,6 +455,7 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
   const [soulProfile, setSoulProfile] = React.useState<{ gifts: string; challenges: string; shadowWork: string; spirituality: string; career: string; love: string; health: string } | null>(null);
   const [isSoulProfileLoading, setIsSoulProfileLoading] = React.useState(false);
   const [soulProfileError, setSoulProfileError] = React.useState<string | null>(null);
+  const [isSoulProfileSaved, setIsSoulProfileSaved] = React.useState(false);
 
   // Auto-load Soul Profile from cache when profile or birth details change
   React.useEffect(() => {
@@ -461,10 +464,12 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
     const docId = `soul_profile_${activeChildProfileId || 'self'}`;
     setSoulProfile(null);
     setSoulProfileError(null);
+    setIsSoulProfileSaved(false);
     getPerAccountReport(user.uid, docId).then(cached => {
       if (cancelled) return;
       if (cached && cached.fingerprint === birthFingerprint && cached.data?.gifts) {
         setSoulProfile(cached.data);
+        setIsSoulProfileSaved(true);
       }
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -486,20 +491,9 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
   const generateTransitImpactInsight = async () => {
     if (isTransitAiLoading || !birthPositions || !positions || !user) return;
 
-    // Check Cache
-    const dateStr = currentTime.toDateString();
-    const fp = birthFingerprint || 'nob';
-    const cacheKey = `transit-impact-${user.uid}-${dateStr}-${fp}`;
-
-    try {
-      const cached = await getCachedReport(user.uid, 'transit-impact', cacheKey);
-      if (cached && isValidAiResponse(cached)) {
-        setTransitImpactInsight(cached);
-        return;
-      }
-    } catch (e) {
-      console.warn("Transit Impact cache fetch failed", e);
-    }
+    // Describes today's sky → keyed by birth details + calendar day.
+    const fingerprint = dailyFingerprint(birthFingerprint, currentTime);
+    const docId = `transit-impact-${activeChildProfileId || 'self'}`;
 
     setIsTransitAiLoading(true);
     setDashboardError(null);
@@ -514,17 +508,21 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
       Provide realistic guidance on areas of opportunity and caution.
       Keep it high-vibration, mystical yet grounded. Max 4 sentences. Plain text only.`;
 
-      const impactValue = await callGeminiProxy({
-        model: "gemini-3-flash-preview",
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-        }
-      }) || "The cosmic resonance is currently shifting beyond precise description.";
+      const { data: impactValue } = await ensureReport<string>({
+        uid: user.uid,
+        docId,
+        type: 'transit-impact',
+        fingerprint,
+        normalize: raw => (isValidAiResponse(raw) ? (raw as string) : null),
+        generate: async () => await callGeminiProxy({
+          model: "gemini-3-flash-preview",
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+          }
+        }) || "The cosmic resonance is currently shifting beyond precise description.",
+      });
       setTransitImpactInsight(impactValue);
-      if (isValidAiResponse(impactValue)) {
-        await saveAIReport(user.uid, 'transit-impact', cacheKey, impactValue, 24);
-      }
     } catch (error) {
       console.error("Transit Insight Error:", error);
       setDashboardError({
@@ -545,16 +543,6 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
     const fp = birthFingerprint || 'nob';
     // Fixed doc ID per account+profile — no fingerprint in key so there is always exactly one doc
     const docId = `soul_profile_${activeChildProfileId || 'self'}`;
-
-    // Check cache — valid only if fingerprint matches (birth details unchanged)
-    try {
-      const cached = await getPerAccountReport(user.uid, docId);
-      if (cached && cached.fingerprint === fp && cached.data?.gifts) {
-        setSoulProfile(cached.data);
-        setIsSoulProfileLoading(false);
-        return;
-      }
-    } catch {}
 
     try {
       const moonPos = birthPositions.find(p => p.name === 'Moon');
@@ -582,20 +570,29 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   "health": "..."
 }`;
 
-      const raw = await callGeminiProxy({
-        model: "gemini-3-flash-preview",
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.75 }
+      // Purely natal — generated once per profile and reused until birth details change.
+      const { data: parsed, fromCache, saved } = await ensureReport<any>({
+        uid: user.uid,
+        docId,
+        type: 'soul-profile',
+        fingerprint: fp,
+        normalize: raw => (raw && typeof raw === 'object' && (raw as any).gifts ? raw : null),
+        generate: async () => {
+          const raw = await callGeminiProxy({
+            model: "gemini-3-flash-preview",
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.75 }
+          });
+          const jsonStr = (raw || '').trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '');
+          return JSON.parse(jsonStr);
+        },
       });
-
-      let jsonStr = (raw || '').trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '');
-      const parsed = JSON.parse(jsonStr);
-      if (parsed.gifts) {
+      if (parsed?.gifts) {
         setSoulProfile(parsed);
-        // Upsert: one doc per profile, fingerprinted — auto-invalidates on birth detail change
-        await savePerAccountReport(user.uid, docId, parsed, fp);
+        setIsSoulProfileSaved(fromCache || saved);
       }
     } catch (err) {
+      setIsSoulProfileSaved(false);
       setSoulProfileError('Could not generate Soul Profile. Please try again.');
     } finally {
       setIsSoulProfileLoading(false);
@@ -607,18 +604,9 @@ Respond ONLY with valid JSON (no markdown, no backticks):
     const key = window.start.toISOString();
     if (isMuhurtaAiLoading || muhurtaInterpretations[key] || !currentDashas || !user) return;
 
-    // Check Cache
+    // One document per muhurta window, invalidated only by birth details.
     const fp = birthFingerprint || 'nob';
-    const cacheKey = `muhurta-interp-${user.uid}-${fp}-${key}`;
-    try {
-      const cached = await getCachedReport(user.uid, 'muhurta-analysis', cacheKey);
-      if (cached && isValidAiResponse(cached)) {
-        setMuhurtaInterpretations(prev => ({ ...prev, [key]: cached }));
-        return;
-      }
-    } catch (e) {
-      console.warn("Muhurta cache fetch failed", e);
-    }
+    const docId = `muhurta-${muhurtaEventType}-${key}`;
 
     setIsMuhurtaAiLoading(key);
     setDashboardError(null);
@@ -643,22 +631,24 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       
       Keep it high-vibration, mystical yet technically grounded. Plain text only. No markdown headers.`;
 
-      const interpretation = await callGeminiProxy({
-        model: "gemini-3-flash-preview",
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-        }
-      }) || "Cosmic alignment unclear at this moment.";
+      const { data: interpretation } = await ensureReport<string>({
+        uid: user.uid,
+        docId,
+        type: 'muhurta-analysis',
+        fingerprint: fp,
+        normalize: raw => (isValidAiResponse(raw) ? (raw as string) : null),
+        generate: async () => await callGeminiProxy({
+          model: "gemini-3-flash-preview",
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+          }
+        }) || "Cosmic alignment unclear at this moment.",
+      });
       setMuhurtaInterpretations(prev => ({
         ...prev,
         [key]: interpretation
       }));
-      
-      // Save to cache (30 days)
-      if (isValidAiResponse(interpretation)) {
-        await saveAIReport(user.uid, 'muhurta-analysis', cacheKey, interpretation, 720);
-      }
     } catch (error) {
       console.error("Muhurta AI Error:", error);
       setDashboardError({
@@ -674,17 +664,8 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   const generateYogaInterpretation = async (yogaName: string, yogaDesc: string) => {
     if (isYogaAiLoading || yogaInterpretations[yogaName] || !user) return;
 
-    // Check Cache
-    const cacheKey = `yoga-interp-${yogaName.replace(/\s+/g, '-').toLowerCase()}`;
-    try {
-      const cached = await getCachedReport(user.uid, 'yoga-interpretation', cacheKey);
-      if (cached && isValidAiResponse(cached)) {
-        setYogaInterpretations(prev => ({ ...prev, [yogaName]: cached }));
-        return;
-      }
-    } catch (e) {
-      console.warn("Yoga cache fetch failed", e);
-    }
+    // Generic yoga description — depends on neither birth details nor the date.
+    const docId = `yoga-interp-${yogaName.replace(/\s+/g, '-').toLowerCase()}`;
 
     setIsYogaAiLoading(yogaName);
     setDashboardError(null);
@@ -694,24 +675,26 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       Focus on how it manifests in a person's life, its karmic roots, and potential remedies or ways to enhance its positive effects. 
       Keep the tone enlightened, compassionate, and precise. Max 3 sentences. Do not use complex formatting, just plain text.`;
 
-      const interpretation = await callGeminiProxy({
-        model: "gemini-3-flash-preview",
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.95,
-          topK: 40
-        }
-      }) || "Insight unavailable at the moment.";
+      const { data: interpretation } = await ensureReport<string>({
+        uid: user.uid,
+        docId,
+        type: 'yoga-interpretation',
+        fingerprint: STATIC_FINGERPRINT,
+        normalize: raw => (isValidAiResponse(raw) ? (raw as string) : null),
+        generate: async () => await callGeminiProxy({
+          model: "gemini-3-flash-preview",
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.95,
+            topK: 40
+          }
+        }) || "Insight unavailable at the moment.",
+      });
       setYogaInterpretations(prev => ({
         ...prev,
         [yogaName]: interpretation
       }));
-      
-      // Save to cache (30 days TTL for yoga descriptions)
-      if (isValidAiResponse(interpretation)) {
-        await saveAIReport(user.uid, 'yoga-interpretation', cacheKey, interpretation, 720);
-      }
     } catch (error) {
       console.error("Yoga AI Error:", error);
       setDashboardError({
@@ -727,29 +710,27 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   const loadNatalPlanetInsights = React.useCallback(async () => {
     if (!user || !birthPositions?.length || !birthFingerprint || isPlanetInsightsLoading) return;
 
-    const cacheKey = `natal-planet-insights-${birthFingerprint}`;
-    try {
-      const cached = await getCachedReport(user.uid, 'natal-planet-insights', cacheKey);
-      if (cached && isValidPlanetInsights(cached)) {
-        setPlanetInterpretations(cached);
-        return;
-      }
-    } catch (e) {
-      console.warn('Planet insights cache fetch failed', e);
-    }
+    // Purely natal — one document per profile, regenerated only on birth changes.
+    const docId = `natal-planet-insights-${activeChildProfileId || 'self'}`;
 
     setIsPlanetInsightsLoading(true);
     setDashboardError(null);
     try {
-      const result = await generateNatalPlanetPlacementInsights(birthPositions, {
-        firstName: userProfile?.firstName,
-        gender: userProfile?.gender,
+      const { data: result, fromCache, saved } = await ensureReport<Record<string, string>>({
+        uid: user.uid,
+        docId,
+        type: 'natal-planet-insights',
+        fingerprint: birthFingerprint,
+        normalize: raw => (isValidPlanetInsights(raw) ? (raw as Record<string, string>) : null),
+        generate: () => generateNatalPlanetPlacementInsights(birthPositions, {
+          firstName: userProfile?.firstName,
+          gender: userProfile?.gender,
+        }),
       });
       setPlanetInterpretations(result);
-      if (isValidPlanetInsights(result)) {
-        await saveAIReport(user.uid, 'natal-planet-insights', cacheKey, result, 720);
-      }
+      setArePlanetInsightsSaved(fromCache || saved);
     } catch (error) {
+      setArePlanetInsightsSaved(false);
       console.error('Planet insights AI error:', error);
       setDashboardError({
         error,
@@ -769,6 +750,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 
   React.useEffect(() => {
     setPlanetInterpretations({});
+    setArePlanetInsightsSaved(false);
   }, [birthFingerprint]);
 
   const renderPlanetInsight = (planetName: string) => (
@@ -844,20 +826,9 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   const generateAiInsights = async () => {
     if (!birthPositions || !panchang || !currentTarabala || !positions || isAiLoading || !user) return;
     
-    // Check Firestore cache first
-    const dateStr = currentTime.toDateString();
-    const fp = birthFingerprint || 'nob';
-    const cacheKey = `daily-insights-${user.uid}-${dateStr}-${fp}`;
-    
-    try {
-      const cached = await getCachedReport(user.uid, 'daily-insights', cacheKey);
-      if (Array.isArray(cached) && cached.length > 0) {
-        setAiInsights(cached);
-        return;
-      }
-    } catch (e) {
-      console.warn("Cache fetch failed, proceeding with generation", e);
-    }
+    // Describes today's sky → keyed by birth details + calendar day.
+    const fingerprint = dailyFingerprint(birthFingerprint, currentTime);
+    const docId = `daily-insights-${activeChildProfileId || 'self'}`;
 
     setIsAiLoading(true);
     setDashboardError(null);
@@ -893,35 +864,39 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       Return a JSON array of objects with: topic, content, iconName (one of: Brain, Briefcase, HeartPulse, Compass, CircleDot), color (Tailwind text color), bg (Tailwind bg color).
       Make the content poetic yet practical. Avoid generic advice.`;
 
-      const responseText = await callGeminiProxy({
-        model: "gemini-3-flash-preview",
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                topic: { type: Type.STRING },
-                content: { type: Type.STRING },
-                iconName: { type: Type.STRING },
-                color: { type: Type.STRING },
-                bg: { type: Type.STRING }
-              },
-              required: ["topic", "content", "iconName", "color", "bg"]
+      const { data: result } = await ensureReport<any[]>({
+        uid: user.uid,
+        docId,
+        type: 'daily-insights',
+        fingerprint,
+        normalize: raw => (Array.isArray(raw) && raw.length > 0 ? raw : null),
+        generate: async () => {
+          const responseText = await callGeminiProxy({
+            model: "gemini-3-flash-preview",
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    topic: { type: Type.STRING },
+                    content: { type: Type.STRING },
+                    iconName: { type: Type.STRING },
+                    color: { type: Type.STRING },
+                    bg: { type: Type.STRING }
+                  },
+                  required: ["topic", "content", "iconName", "color", "bg"]
+                }
+              }
             }
-          }
-        }
+          });
+          if (!responseText) throw new Error("Celestial connection returned no data");
+          return JSON.parse(responseText);
+        },
       });
-      if (!responseText) throw new Error("Celestial connection returned no data");
-      const result = JSON.parse(responseText);
       setAiInsights(result);
-      
-      // Save to cache (24h TTL)
-      if (Array.isArray(result) && result.length > 0) {
-        await saveAIReport(user.uid, 'daily-insights', cacheKey, result, 24);
-      }
       setLastAiFetchTime(Date.now());
     } catch (error) {
       console.error("AI Insight Error:", error);
@@ -2234,6 +2209,11 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                 <div className={cn("p-5 rounded-3xl border", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-white border-slate-100 shadow-sm")}>
                   <div className={cn("text-[10px] uppercase tracking-widest font-mono mb-4 flex items-center gap-2", theme === 'dark' ? "text-jyotish-gold/60" : "text-slate-400")}>
                     <Sparkles className="w-3 h-3" /> Planet Positions at Birth
+                    <SavedIndicator
+                      saved={arePlanetInsightsSaved && Object.keys(planetInterpretations).length > 0 && !isPlanetInsightsLoading}
+                      isDark={theme === 'dark'}
+                      className="ml-auto"
+                    />
                   </div>
                   {(() => {
                     const statusOf = (p: PlanetPosition) => p.isRetrograde ? 'R' : p.dignity === 'exalted' ? 'Exalt' : p.dignity === 'debilitated' ? 'Debil' : p.dignity === 'moolatrikona' ? 'MT' : p.dignity === 'own' ? 'Own' : '';
@@ -2536,10 +2516,11 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                       <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", theme === 'dark' ? "bg-jyotish-gold/10 text-jyotish-gold" : "bg-orange-100 text-orange-600")}>
                         <Brain className="w-5 h-5" />
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <h3 className={cn("text-base font-bold", theme === 'dark' ? "text-white" : "text-slate-900")}>Soul Profile</h3>
                         <p className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-500")}>AI-powered natal chart reading</p>
                       </div>
+                      <SavedIndicator saved={isSoulProfileSaved && !!soulProfile && !isSoulProfileLoading} isDark={theme === 'dark'} />
                     </div>
 
                     {!soulProfile && !isSoulProfileLoading && (

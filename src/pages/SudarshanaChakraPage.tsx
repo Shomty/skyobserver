@@ -17,7 +17,8 @@ import {
   RASHIS,
 } from '../vedic-utils';
 import { fetchPlanetPositions } from '../services/positionsService';
-import { getPerAccountReport, savePerAccountReport } from '../services/aiReportService';
+import { ensureReport } from '../services/aiReportService';
+import { SavedIndicator } from '../components/SavedIndicator';
 import {
   generateSudarshanaChakraInterpretation,
   normalizeCachedSudarshanaInterpretation,
@@ -47,14 +48,6 @@ const PLANET_COLORS: Record<string, string> = {
 };
 
 const CX = 320, CY = 320;
-
-/**
- * Generation is deduped per (account · subject · birth fingerprint) so a remount
- * — including React StrictMode's double-mount in dev — reuses the request in
- * flight instead of paying for a second Gemini call.
- */
-type PendingReport = { result: SudarshanaChakraInterpretations; saved: boolean };
-const inFlightReports = new Map<string, Promise<PendingReport>>();
 
 const AI_SECTIONS: { key: keyof SudarshanaChakraInterpretations; label: string; color: string }[] = [
   { key: 'threefoldCore',              label: 'I. Threefold Core',              color: '#D4AF37' },
@@ -485,67 +478,36 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
     const requestId = ++reportRequestIdRef.current;
     const isCurrent = () => requestId === reportRequestIdRef.current;
 
-    if (!options?.force) {
-      try {
-        const cached = await getPerAccountReport(user.uid, cacheDocId);
-        if (!isCurrent()) return;
-
-        if (cached?.data && cached.fingerprint === subjectFingerprint) {
-          const normalized = normalizeCachedSudarshanaInterpretation(cached.data);
-          if (normalized) {
-            setAiData(normalized);
-            setIsReportCached(true);
-            setCacheWriteFailed(false);
-            setAiError(null);
-            return;
-          }
-        }
-      } catch {
-        // Fall through to generation on cache read failure
-      }
-    }
-
     setIsAiLoading(true);
     setAiError(null);
     setIsReportCached(false);
     setCacheWriteFailed(false);
 
-    const inFlightKey = `${user.uid}|${cacheDocId}|${subjectFingerprint}`;
-
     try {
-      let pending = options?.force ? undefined : inFlightReports.get(inFlightKey);
+      const profile = {
+        firstName: activeChildProfile?.name ?? userProfile?.firstName ?? userProfile?.displayName,
+        gender: userProfile?.gender,
+      };
 
-      if (!pending) {
-        const profile = {
-          firstName: activeChildProfile?.name ?? userProfile?.firstName ?? userProfile?.displayName,
-          gender: userProfile?.gender,
-        };
-        // Persist inside the shared task, before any staleness check, so a
-        // completed (already paid for) response is never discarded unsaved.
-        pending = (async (): Promise<PendingReport> => {
-          const generated = await generateSudarshanaChakraInterpretation(
-            chakra,
-            profile,
-            { currentAge, activeHouse, birthPositions: resolvedPositions }
-          );
-          const result = normalizeCachedSudarshanaInterpretation(generated) ?? generated;
-          const saved = await savePerAccountReport(user.uid, cacheDocId, result, subjectFingerprint);
-          return { result, saved };
-        })();
+      const { data, fromCache, saved } = await ensureReport<SudarshanaChakraInterpretations>({
+        uid: user.uid,
+        docId: cacheDocId,
+        type: 'sudarshana-chakra',
+        fingerprint: subjectFingerprint,
+        force: options?.force,
+        normalize: normalizeCachedSudarshanaInterpretation,
+        generate: () => generateSudarshanaChakraInterpretation(
+          chakra,
+          profile,
+          { currentAge, activeHouse, birthPositions: resolvedPositions }
+        ),
+      });
 
-        inFlightReports.set(inFlightKey, pending);
-        const clear = () => {
-          if (inFlightReports.get(inFlightKey) === pending) inFlightReports.delete(inFlightKey);
-        };
-        pending.then(clear, clear);
-      }
-
-      const { result, saved } = await pending;
       if (!isCurrent()) return;
 
-      setAiData(result);
-      setIsReportCached(saved);
-      setCacheWriteFailed(!saved);
+      setAiData(data);
+      setIsReportCached(fromCache || saved);
+      setCacheWriteFailed(!fromCache && !saved);
     } catch (err: any) {
       if (!isCurrent()) return;
       setAiError(err?.message || 'Failed to generate interpretation');
@@ -570,7 +532,7 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
 
   return (
     <div className={cn(
-      'flex-1 min-h-0 flex flex-col overflow-hidden font-sans selection:bg-jyotish-gold/30 transition-colors duration-500',
+      'flex-1 min-h-0 flex flex-col overflow-y-auto lg:overflow-hidden font-sans selection:bg-jyotish-gold/30 transition-colors duration-500',
       isDark ? 'bg-[#050505] text-white' : 'bg-[#f0f0f0] text-slate-900'
     )}>
       {/* Header */}
@@ -669,20 +631,20 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
       </div>
 
       {/* 50/50 Split Body */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
         {/* Left — Chart */}
         <div className={cn(
-          'lg:w-1/2 flex-shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r overflow-y-auto',
+          'lg:w-1/2 lg:flex-shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r lg:overflow-y-auto',
           isDark ? 'border-white/5' : 'border-slate-200'
         )}>
-          <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-[320px] lg:min-h-0">
+          <div className="lg:flex-1 flex flex-col items-center justify-center p-4">
             {isChartLoading ? (
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="w-8 h-8 text-jyotish-gold animate-spin" />
                 <p className={cn('text-sm', isDark ? 'text-white/40' : 'text-slate-500')}>Loading chart…</p>
               </div>
             ) : chakra ? (
-              <div className="w-full max-w-[min(92vw,480px)] aspect-square">
+              <div className="w-[min(85vw,280px)] lg:w-full lg:max-w-[min(92vw,480px)] aspect-square shrink-0 mx-auto">
                 <SudarshanaWheel
                   chakra={chakra}
                   layerVisible={layerVisible}
@@ -758,7 +720,7 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
         </div>
 
         {/* Right — Data & AI */}
-        <div className="lg:w-1/2 flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+        <div className="lg:w-1/2 lg:flex-1 min-h-0 lg:overflow-y-auto p-4 space-y-4 pb-8">
           {chakra && (
             <>
               {/* Active year badge */}
@@ -802,14 +764,7 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {isReportCached && aiData && !isAiLoading && (
-                  <span className={cn(
-                    'text-[9px] font-mono uppercase tracking-widest px-2 py-1 rounded-lg border',
-                    isDark ? 'text-jyotish-gold/60 border-jyotish-gold/20 bg-jyotish-gold/5' : 'text-jyotish-gold border-orange-200 bg-orange-50'
-                  )}>
-                    Saved
-                  </span>
-                )}
+                <SavedIndicator saved={isReportCached && !!aiData && !isAiLoading} isDark={isDark} />
                 {cacheWriteFailed && aiData && !isAiLoading && (
                   <span
                     title="The reading could not be written to your account, so it will be regenerated on the next load. Check the browser console for details."
