@@ -2019,29 +2019,6 @@ INTERPRETATION GUIDELINES:
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: ${theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'};
         }
-
-        @media print {
-          header, 
-          nav, 
-          aside,
-          .fixed,
-          .absolute,
-          .floating-actions,
-          input,
-          button:not(.print-visible) {
-            display: none !important;
-          }
-          main {
-            padding: 0 !important;
-            margin: 0 !important;
-            overflow: visible !important;
-            height: auto !important;
-          }
-          .custom-scrollbar {
-            overflow: visible !important;
-            height: auto !important;
-          }
-        }
       `}} />
       {/* Modals */}
       <AnimatePresence>

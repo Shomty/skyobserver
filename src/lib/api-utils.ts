@@ -101,10 +101,22 @@ export function getErrorMessage(error: any): string {
 }
 
 /**
+ * An oversized request can leave Gemini generating until the connection dies,
+ * which surfaces as a spinner that never resolves. Abort well before that so
+ * callers get a real error they can report or retry.
+ */
+const GEMINI_TIMEOUT_MS = 90_000;
+
+/**
  * Calls the backend Gemini proxy endpoint.
  * Keeps the API key server-side only.
  */
-export async function callGeminiProxy(params: Record<string, unknown>): Promise<string> {
+export async function callGeminiProxy(
+  params: Record<string, unknown>,
+  options: { timeoutMs?: number } = {},
+): Promise<string> {
+  const { timeoutMs = GEMINI_TIMEOUT_MS } = options;
+
   return withRetry(
     async () => {
       debugLog('gemini', 'Sending proxy request', {
@@ -112,11 +124,33 @@ export async function callGeminiProxy(params: Record<string, unknown>): Promise<
         hasConfig: Boolean(params.config),
       });
 
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      let res: Response;
+      try {
+        res = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params),
+          signal: controller.signal,
+        });
+      } catch (err: any) {
+        // Deliberately not phrased with the word "timeout": shouldRetry treats
+        // that as transient, and re-issuing a request that is too large to
+        // complete would only stall again.
+        if (err?.name === 'AbortError') {
+          const aborted: any = new Error(
+            `The celestial intelligence took longer than ${Math.round(timeoutMs / 1000)}s to respond. Please try again.`,
+          );
+          aborted.isTimeout = true;
+          debugError('gemini', 'Proxy request aborted', { timeoutMs });
+          throw aborted;
+        }
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Unknown error' }));
         const error: any = new Error(err.error || 'Gemini API error');

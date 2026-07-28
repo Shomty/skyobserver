@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState, useEffect } from 'react';
+import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Printer, 
@@ -23,13 +23,15 @@ import {
   X
 } from 'lucide-react';
 import { cn, getOrdinal } from '../lib/utils';
+import { getErrorMessage } from '../lib/api-utils';
 import { format } from 'date-fns';
 import NorthIndianChart from './NorthIndianChart';
 import { PlanetPosition, PanchangData, TransitEvent } from '../vedic-utils';
 import { generateCosmicInterpretations, AICosmicInterpretations } from '../services/geminiService';
-import { ensureReport, dailyFingerprint, backupAIReport, getAIReportBackups, restoreAIReport, AIReportBackup } from '../services/aiReportService';
+import { ensureReport, backupAIReport, getAIReportBackups, restoreAIReport, AIReportBackup } from '../services/aiReportService';
 import { exportUserData, downloadExportAsJSON } from '../services/exportService';
 import { SavedIndicator } from './SavedIndicator';
+import CosmicReportPrintView from './report/CosmicReportPrintView';
 import { KARAKA_INTERPRETATIONS } from '../lib/blueprintInterpretations';
 
 interface CosmicReportProps {
@@ -77,6 +79,7 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
   const reportRef = useRef<HTMLDivElement>(null);
   const [aiData, setAIData] = useState<AICosmicInterpretations | null>(null);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [isReportSaved, setIsReportSaved] = useState(false);
   const [showBackups, setShowBackups] = useState(false);
   const [backups, setBackups] = useState<AIReportBackup[]>([]);
@@ -132,76 +135,79 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
   }, [birthPositions]);
 
   const aiCallInFlightRef = useRef(false);
-  // Track the last fingerprint we successfully resolved so we can skip re-runs
-  // when nothing meaningful changed (e.g. every-second currentTime ticks that
-  // cause transits/panchang to re-render but describe the same day).
-  const lastFingerprintRef = useRef<string | null>(null);
+  // Fingerprint of the last attempt, set before the call runs. A failed attempt
+  // still counts: the effect re-fires on every currentTime tick, so retrying
+  // automatically would loop forever behind an unexplained spinner. Failures
+  // surface an error with a Retry button instead.
+  const lastAttemptedFingerprintRef = useRef<string | null>(null);
+
+  // Prompt inputs are read at call time rather than captured, so new array
+  // identities on each tick do not change the loader's identity.
+  const payloadRef = useRef({ profile, birthPositions, yogas, panchang, blueprint, transitPositions, transits });
+  payloadRef.current = { profile, birthPositions, yogas, panchang, blueprint, transitPositions, transits };
+
+  const loadReport = useCallback(async (options?: { force?: boolean }) => {
+    const payload = payloadRef.current;
+    if (!payload.birthPositions || !payload.panchang || !payload.blueprint || !user?.uid) return;
+    // Prevent concurrent calls — React may re-fire this effect before the
+    // previous async call finishes.
+    if (aiCallInFlightRef.current) return;
+
+    // Natal report — generated once per person, invalidated only when birth details change.
+    const fingerprint = birthFingerprint || 'nob';
+    if (!options?.force && fingerprint === lastAttemptedFingerprintRef.current) return;
+
+    aiCallInFlightRef.current = true;
+    lastAttemptedFingerprintRef.current = fingerprint;
+    setIsLoadingAI(true);
+    setAiError(null);
+    try {
+      const previousData = aiData;
+      const { data, fromCache, saved } = await ensureReport<AICosmicInterpretations>({
+        uid: user.uid,
+        docId: 'cosmic-report',
+        type: 'cosmic_analysis',
+        fingerprint,
+        force: options?.force,
+        normalize: raw =>
+          raw && typeof raw === 'object' && typeof (raw as AICosmicInterpretations).summary === 'string'
+            ? (raw as AICosmicInterpretations)
+            : null,
+        generate: () => generateCosmicInterpretations(
+          payload.profile,
+          payload.birthPositions!,
+          payload.yogas,
+          payload.panchang!,
+          payload.blueprint,
+          payload.transitPositions,
+          payload.transits.slice(0, 10), // cap events for prompt size
+        ),
+      });
+
+      // Snapshot the version this one replaced, so the restore history keeps
+      // working. Only meaningful when a new report was actually generated.
+      if (!fromCache && previousData) {
+        await backupAIReport(user.uid, 'cosmic_analysis', previousData);
+      }
+
+      setIsReportSaved(fromCache || saved);
+      setAIData(data);
+    } catch (error) {
+      setIsReportSaved(false);
+      setAiError(getErrorMessage(error));
+      console.error("AI Generation failed:", error);
+    } finally {
+      aiCallInFlightRef.current = false;
+      setIsLoadingAI(false);
+    }
+  // aiData is read for the backup snapshot only; excluding it keeps the loader
+  // identity stable so the effect below does not re-run when the report lands.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, birthFingerprint]);
 
   useEffect(() => {
-    async function fetchAIInterpretations() {
-      if (!birthPositions || !panchang || !blueprint || !user?.uid) return;
-      // Prevent concurrent calls — React may re-fire this effect before the
-      // previous async call finishes (e.g. when parent re-renders with new
-      // array references for the same logical data).
-      if (aiCallInFlightRef.current) return;
-
-      const transitEvents = transits.slice(0, 10); // cap to top 10 events for prompt size
-
-      // The report reads the current sky, so it is keyed by birth details plus
-      // the calendar day — NOT by tithi/karana/transit counts, which shift
-      // several times a day and used to force a fresh Gemini call each time.
-      const fingerprint = dailyFingerprint(birthFingerprint, new Date());
-
-      // Skip if the fingerprint hasn't changed — this effect fires every second
-      // because transits/panchang props include currentTime. Returning early
-      // here prevents the isLoadingAI toggle from causing visible flickering.
-      if (fingerprint === lastFingerprintRef.current) return;
-
-      aiCallInFlightRef.current = true;
-      setIsLoadingAI(true);
-      try {
-        const previousData = aiData;
-        const { data, fromCache, saved } = await ensureReport<AICosmicInterpretations>({
-          uid: user.uid,
-          docId: 'cosmic-report',
-          type: 'cosmic_analysis',
-          fingerprint,
-          normalize: raw =>
-            raw && typeof raw === 'object' && typeof (raw as AICosmicInterpretations).summary === 'string'
-              ? (raw as AICosmicInterpretations)
-              : null,
-          generate: () => generateCosmicInterpretations(
-            profile,
-            birthPositions,
-            yogas,
-            panchang,
-            blueprint,
-            transitPositions,
-            transitEvents
-          ),
-        });
-
-        // Snapshot the version this one replaced, so the restore history keeps
-        // working. Only meaningful when a new report was actually generated.
-        if (!fromCache && previousData) {
-          await backupAIReport(user.uid, 'cosmic_analysis', previousData);
-        }
-
-        lastFingerprintRef.current = fingerprint;
-        setIsReportSaved(fromCache || saved);
-        setAIData(data);
-      } catch (error) {
-        setIsReportSaved(false);
-        console.error("AI Generation failed:", error);
-        // Don't update lastFingerprintRef on error so the next effect run can retry.
-      } finally {
-        aiCallInFlightRef.current = false;
-        setIsLoadingAI(false);
-      }
-    }
-
-    fetchAIInterpretations();
-  }, [user?.uid, birthFingerprint, birthPositions, panchang, blueprint, profile, yogas, transitPositions, transits]);
+    loadReport();
+  }, [loadReport]);
 
   const interpretedBlueprint = useMemo(() => {
     if (!blueprint) return null;
@@ -231,6 +237,7 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
   }, [blueprint]);
 
   const handlePrint = () => {
+    if (isLoadingAI || !aiData) return;
     window.print();
   };
 
@@ -324,7 +331,9 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
           </button>
           <button 
             onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-jyotish-gold text-black rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-celestial-gold transition-all shadow-lg active:scale-95"
+            disabled={isLoadingAI || !aiData}
+            title={isLoadingAI || !aiData ? 'Wait for the report to finish generating' : 'Print or save as PDF'}
+            className="flex items-center gap-2 px-4 py-2 bg-jyotish-gold text-black rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-celestial-gold transition-all shadow-lg active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
           >
             <Printer className="w-4 h-4" />
             Print Report
@@ -427,7 +436,7 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
             </div>
             
             <AnimatePresence>
-              {(isLoadingAI || aiData) && (
+              {(isLoadingAI || aiData || aiError) && (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -451,6 +460,17 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
                     <div className="flex items-center gap-2 py-4">
                       <Loader2 className="w-4 h-4 text-jyotish-gold animate-spin" />
                       <p className="text-xs font-mono opacity-40">Consulting the cosmic intelligence...</p>
+                    </div>
+                  ) : aiError && !aiData ? (
+                    <div className="flex flex-col gap-3 py-2">
+                      <p className="text-sm leading-relaxed text-red-400">{aiError}</p>
+                      <button
+                        onClick={() => loadReport({ force: true })}
+                        className="self-start flex items-center gap-2 px-3 py-1.5 rounded-xl bg-jyotish-gold/20 text-jyotish-gold text-[10px] font-bold uppercase tracking-widest hover:bg-jyotish-gold/30 border border-jyotish-gold/20 transition-all active:scale-95"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Retry
+                      </button>
                     </div>
                   ) : (
                     <p className="text-base font-serif italic leading-relaxed text-jyotish-gold/90">
@@ -912,29 +932,17 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
         </div>
       </div>
 
-      <style>{`
-        @media print {
-          body {
-            background: white !important;
-            color: black !important;
-          }
-          .report-content {
-            background: white !important;
-            color: black !important;
-            box-shadow: none !important;
-            border: none !important;
-            padding: 0 !important;
-            width: 100% !important;
-          }
-          .page-break-before {
-            page-break-before: always;
-          }
-          .jyotish-gold { color: #856404 !important; }
-          .print-hidden { display: none !important; }
-          @page { margin: 2cm; }
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        }
-      `}</style>
+      {aiData && (
+        <CosmicReportPrintView
+          profile={profile}
+          birthPositions={birthPositions}
+          panchang={panchang}
+          aiData={aiData}
+          interpretedBlueprint={interpretedBlueprint}
+          chartQualities={chartQualities}
+          yogas={yogas}
+        />
+      )}
     </div>
   );
 };

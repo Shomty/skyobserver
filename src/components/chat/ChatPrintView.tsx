@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 
 export interface ChatPrintMessage {
@@ -13,14 +14,15 @@ interface ChatPrintViewProps {
 }
 
 /**
- * Screen-hidden, paper-optimized render of a conversation. Always mounted but
- * only visible during printing (see the `@media print` rules in index.css that
- * reveal `#chat-print-root`). Rendered on a white background with dark text so
- * "Save as PDF" produces a clean, readable document regardless of app theme.
+ * Screen-hidden, paper-optimized render of a conversation. Portalled to <body>
+ * and revealed only during printing by the `.print-root` rules in index.css —
+ * see the comment there for why it cannot live inside the app shell. Rendered
+ * on a white background with dark text so "Save as PDF" produces a clean,
+ * readable document regardless of app theme.
  */
 function ChatPrintView({ title, subjectName, date, messages }: ChatPrintViewProps) {
-  return (
-    <div id="chat-print-root" className="hidden print:block">
+  const content = (
+    <div id="chat-print-root" className="hidden print:block print-root" style={{ padding: 24 }}>
       <header style={{ borderBottom: '2px solid #d4af37', paddingBottom: 12, marginBottom: 20 }}>
         <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: '#b8860b', fontWeight: 700 }}>
           Vedic Sky Observer · Jyotish AI
@@ -60,6 +62,8 @@ function ChatPrintView({ title, subjectName, date, messages }: ChatPrintViewProp
       })}
     </div>
   );
+
+  return createPortal(content, document.body);
 }
 
 export default ChatPrintView;
