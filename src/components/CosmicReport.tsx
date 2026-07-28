@@ -27,7 +27,7 @@ import { format } from 'date-fns';
 import NorthIndianChart from './NorthIndianChart';
 import { PlanetPosition, PanchangData, TransitEvent } from '../vedic-utils';
 import { generateCosmicInterpretations, AICosmicInterpretations } from '../services/geminiService';
-import { getCachedReport, saveAIReport, backupAIReport, getAIReportBackups, restoreAIReport, AIReportBackup } from '../services/aiReportService';
+import { ensureReport, dailyFingerprint, backupAIReport, getAIReportBackups, restoreAIReport, AIReportBackup } from '../services/aiReportService';
 import { exportUserData, downloadExportAsJSON } from '../services/exportService';
 import { KARAKA_INTERPRETATIONS } from '../lib/blueprintInterpretations';
 
@@ -130,10 +130,10 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
   }, [birthPositions]);
 
   const aiCallInFlightRef = useRef(false);
-  // Track the last cache key we successfully resolved so we can skip re-runs
+  // Track the last fingerprint we successfully resolved so we can skip re-runs
   // when nothing meaningful changed (e.g. every-second currentTime ticks that
-  // cause transits/panchang to re-render but produce the same cache key).
-  const lastCacheKeyRef = useRef<string | null>(null);
+  // cause transits/panchang to re-render but describe the same day).
+  const lastFingerprintRef = useRef<string | null>(null);
 
   useEffect(() => {
     async function fetchAIInterpretations() {
@@ -144,59 +144,52 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
       if (aiCallInFlightRef.current) return;
 
       const transitEvents = transits.slice(0, 10); // cap to top 10 events for prompt size
-      
-      const cacheKey = JSON.stringify({
-        v: 4,
-        bf: birthFingerprint || null,
-        date: format(new Date(), 'yyyy-MM-dd'),
-        tithi: panchang.tithi.name,
-        nakshatra: panchang.nakshatra.name,
-        yoga: panchang.yoga.name,
-        karana: panchang.karana.name,
-        vara: panchang.vara,
-        ak: blueprint.charakarakas?.AK,
-        amk: blueprint.charakarakas?.AmK,
-        numYogas: yogas.length,
-        numTransits: transitEvents.length
-      });
 
-      // Skip if the cache key hasn't changed — this effect fires every second
+      // The report reads the current sky, so it is keyed by birth details plus
+      // the calendar day — NOT by tithi/karana/transit counts, which shift
+      // several times a day and used to force a fresh Gemini call each time.
+      const fingerprint = dailyFingerprint(birthFingerprint, new Date());
+
+      // Skip if the fingerprint hasn't changed — this effect fires every second
       // because transits/panchang props include currentTime. Returning early
       // here prevents the isLoadingAI toggle from causing visible flickering.
-      if (cacheKey === lastCacheKeyRef.current) return;
+      if (fingerprint === lastFingerprintRef.current) return;
 
       aiCallInFlightRef.current = true;
       setIsLoadingAI(true);
       try {
-        const cached = await getCachedReport(user.uid, 'cosmic_analysis', cacheKey);
-        if (cached) {
-          lastCacheKeyRef.current = cacheKey;
-          setAIData(cached);
-          setIsLoadingAI(false);
-          return;
+        const previousData = aiData;
+        const { data, fromCache } = await ensureReport<AICosmicInterpretations>({
+          uid: user.uid,
+          docId: 'cosmic-report',
+          type: 'cosmic_analysis',
+          fingerprint,
+          normalize: raw =>
+            raw && typeof raw === 'object' && typeof (raw as AICosmicInterpretations).summary === 'string'
+              ? (raw as AICosmicInterpretations)
+              : null,
+          generate: () => generateCosmicInterpretations(
+            profile,
+            birthPositions,
+            yogas,
+            panchang,
+            blueprint,
+            transitPositions,
+            transitEvents
+          ),
+        });
+
+        // Snapshot the version this one replaced, so the restore history keeps
+        // working. Only meaningful when a new report was actually generated.
+        if (!fromCache && previousData) {
+          await backupAIReport(user.uid, 'cosmic_analysis', previousData);
         }
 
-        // Backup existing AI data before generating new interpretations
-        if (aiData) {
-          await backupAIReport(user.uid, 'cosmic_analysis', aiData);
-        }
-
-        const generated = await generateCosmicInterpretations(
-          profile,
-          birthPositions,
-          yogas,
-          panchang,
-          blueprint,
-          transitPositions,
-          transitEvents
-        );
-        
-        await saveAIReport(user.uid, 'cosmic_analysis', cacheKey, generated, 24);
-        lastCacheKeyRef.current = cacheKey;
-        setAIData(generated);
+        lastFingerprintRef.current = fingerprint;
+        setAIData(data);
       } catch (error) {
         console.error("AI Generation failed:", error);
-        // Don't update lastCacheKeyRef on error so the next effect run can retry.
+        // Don't update lastFingerprintRef on error so the next effect run can retry.
       } finally {
         aiCallInFlightRef.current = false;
         setIsLoadingAI(false);
@@ -204,7 +197,7 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
     }
 
     fetchAIInterpretations();
-  }, [user?.uid, birthPositions, panchang, blueprint, profile, yogas, transitPositions, transits]);
+  }, [user?.uid, birthFingerprint, birthPositions, panchang, blueprint, profile, yogas, transitPositions, transits]);
 
   const interpretedBlueprint = useMemo(() => {
     if (!blueprint) return null;

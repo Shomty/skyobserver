@@ -10,7 +10,7 @@ import {
   computeDivisionalChart,
 } from '../lib/divisionalChartUtils';
 import NorthIndianChart from './NorthIndianChart';
-import { getPerAccountReport, savePerAccountReport } from '../services/aiReportService';
+import { getPerAccountReport, ensureReport } from '../services/aiReportService';
 import {
   generateDivisionalNakshatraInterpretations,
   DivisionalNakshatraInterpretations,
@@ -100,14 +100,19 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
         firstName: userProfile?.firstName,
         gender: userProfile?.gender,
       };
-      const result = await generateDivisionalNakshatraInterpretations(
-        selected,
-        info,
-        divisionalPositions,
-        profile,
-      );
-      // Persist permanently — no TTL, one API call ever per chart per birth details
-      await savePerAccountReport(user.uid, cacheDocId, result, birthFingerprint);
+      // Persist permanently — one API call ever per chart per birth details
+      const { data: result } = await ensureReport<DivisionalNakshatraInterpretations>({
+        uid: user.uid,
+        docId: cacheDocId,
+        type: 'divisional-nakshatra',
+        fingerprint: birthFingerprint,
+        generate: () => generateDivisionalNakshatraInterpretations(
+          selected,
+          info,
+          divisionalPositions,
+          profile,
+        ),
+      });
       setAiData(result);
     } catch (err: any) {
       setAiError(err?.message ?? 'Failed to generate interpretation.');

@@ -1,17 +1,18 @@
 import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  addDoc, 
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
   setDoc,
-  serverTimestamp, 
+  serverTimestamp,
   Timestamp,
   orderBy,
   limit,
   doc,
   getDoc
 } from 'firebase/firestore';
+import { format } from 'date-fns';
 import { db } from '../firebase';
 
 export interface AIReport {
@@ -22,61 +23,6 @@ export interface AIReport {
   data: any;
   createdAt: any;
   expiresAt?: any;
-}
-
-/**
- * Gets a cached AI report if it exists and hasn't expired.
- */
-export async function getCachedReport(uid: string, type: string, cacheKey: string): Promise<any | null> {
-  try {
-    const q = query(
-      collection(db, `users/${uid}/ai_reports`),
-      where('cacheKey', '==', cacheKey),
-      where('type', '==', type),
-      orderBy('createdAt', 'desc'),
-      limit(1)
-    );
-
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      const doc = snapshot.docs[0];
-      const report = doc.data() as AIReport;
-      
-      // Check for expiration if applicable
-      if (report.expiresAt && report.expiresAt instanceof Timestamp) {
-        if (report.expiresAt.toDate() < new Date()) {
-          return null;
-        }
-      }
-      
-      return report.data;
-    }
-  } catch (error) {
-    console.error("Error fetching cached report:", error);
-  }
-  return null;
-}
-
-/**
- * Saves a generated AI report to the cache.
- */
-export async function saveAIReport(uid: string, type: string, cacheKey: string, data: any, ttlHours?: number) {
-  try {
-    const expiresAt = ttlHours 
-      ? Timestamp.fromDate(new Date(Date.now() + ttlHours * 60 * 60 * 1000))
-      : null;
-
-    await addDoc(collection(db, `users/${uid}/ai_reports`), {
-      uid,
-      type,
-      cacheKey,
-      data,
-      createdAt: serverTimestamp(),
-      ...(expiresAt && { expiresAt })
-    });
-  } catch (error) {
-    console.error("Error saving AI report to cache:", error);
-  }
 }
 
 /**
@@ -124,7 +70,13 @@ function stripUndefined<T>(value: T): T {
  * "cached / saved" state must use this result — a failed write means the next
  * load will regenerate the report.
  */
-export async function savePerAccountReport(uid: string, docId: string, data: any, fingerprint: string): Promise<boolean> {
+export async function savePerAccountReport(
+  uid: string,
+  docId: string,
+  data: any,
+  fingerprint: string,
+  type?: string,
+): Promise<boolean> {
   try {
     const ref = doc(db, `users/${uid}/ai_reports`, docId);
     await setDoc(ref, {
@@ -132,6 +84,13 @@ export async function savePerAccountReport(uid: string, docId: string, data: any
       docId,
       data: stripUndefined(data),
       fingerprint,
+      // `type` and `cacheKey` keep these docs readable by the Journal/Archives
+      // views, which were written against the legacy report shape. `createdAt`
+      // is required for them to appear at all — `getUserReports` orders by it,
+      // and Firestore drops documents that lack the ordered field.
+      type: type ?? docId,
+      cacheKey: docId,
+      createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
     return true;
@@ -139,6 +98,125 @@ export async function savePerAccountReport(uid: string, docId: string, data: any
     console.error(`Error saving per-account report "${docId}" — report will be regenerated on next load:`, error);
     return false;
   }
+}
+
+/**
+ * Firestore document IDs cannot contain "/" and must not be "." or "..".
+ * Report IDs are built from yoga names and ISO timestamps, so normalise them.
+ */
+function toDocId(rawId: string): string {
+  const safe = rawId.replace(/[/\\]/g, '-').trim();
+  return safe === '' || safe === '.' || safe === '..' ? `report-${encodeURIComponent(rawId)}` : safe;
+}
+
+/**
+ * Fingerprint for reports that describe the *current sky* (transits, panchang).
+ * Keyed by birth details plus the calendar day, so the report is generated once
+ * per day and survives reloads and tab switches within that day.
+ */
+export function dailyFingerprint(birthFingerprint: string | null | undefined, date: Date): string {
+  return `${birthFingerprint ?? 'nob'}|${format(date, 'yyyy-MM-dd')}`;
+}
+
+/**
+ * Fingerprint for content that depends on neither birth details nor the date
+ * (e.g. a generic yoga description). Bump the version to force a refresh.
+ */
+export const STATIC_FINGERPRINT = 'static-v1';
+
+export interface EnsureReportOptions<T> {
+  uid: string;
+  /** Fixed document ID — one document per report, overwritten on regeneration. */
+  docId: string;
+  /** Report type, used for Journal/Archives labelling. */
+  type: string;
+  /** Regeneration happens only when this value changes. */
+  fingerprint: string;
+  generate: () => Promise<T>;
+  /**
+   * Validates/normalises both cached and freshly generated payloads. Returning
+   * null for a cached value discards it and triggers regeneration.
+   */
+  normalize?: (raw: unknown) => T | null;
+  /** Bypasses the cache and forces a new Gemini call. */
+  force?: boolean;
+}
+
+export interface EnsureReportResult<T> {
+  data: T;
+  /** True when the value came from Firestore and no API call was made. */
+  fromCache: boolean;
+  /** False when the Firestore write failed — the next load would regenerate. */
+  saved: boolean;
+}
+
+/**
+ * Module-level so that unmounting a component (tab switch, route change) does
+ * not drop the in-flight request — two mounts asking for the same report share
+ * a single Gemini call.
+ */
+const inFlightReports = new Map<string, Promise<{ data: unknown; saved: boolean }>>();
+
+/**
+ * The single entry point for every cached AI report.
+ *
+ * Reads the document by ID (never a query, so no composite index is involved),
+ * returns it when the fingerprint still matches, and otherwise generates once —
+ * deduped across concurrent callers — and persists the result before returning.
+ */
+export async function ensureReport<T>({
+  uid,
+  docId,
+  type,
+  fingerprint,
+  generate,
+  normalize,
+  force = false,
+}: EnsureReportOptions<T>): Promise<EnsureReportResult<T>> {
+  const safeDocId = toDocId(docId);
+  const normalizeValue = (raw: unknown): T | null =>
+    normalize ? normalize(raw) : (raw == null ? null : (raw as T));
+
+  if (!force) {
+    try {
+      const cached = await getPerAccountReport(uid, safeDocId);
+      if (cached && cached.fingerprint === fingerprint) {
+        const value = normalizeValue(cached.data);
+        if (value !== null) {
+          return { data: value, fromCache: true, saved: true };
+        }
+      }
+    } catch {
+      // Cache read failure must not block the user — fall through to generation.
+    }
+  }
+
+  const inFlightKey = `${uid}|${safeDocId}|${fingerprint}`;
+  let pending = force ? undefined : inFlightReports.get(inFlightKey);
+
+  if (!pending) {
+    // Persist inside the shared task so an already-paid-for response is never
+    // discarded unsaved when the component that requested it has unmounted.
+    pending = (async () => {
+      const generated = await generate();
+      const value = normalizeValue(generated);
+      // A response that fails validation is still shown to the user, but it is
+      // never cached — otherwise a single bad generation would be pinned until
+      // the birth details change.
+      if (value === null) return { data: generated, saved: false };
+      const saved = await savePerAccountReport(uid, safeDocId, value, fingerprint, type);
+      return { data: value, saved };
+    })();
+
+    inFlightReports.set(inFlightKey, pending);
+    const clear = () => {
+      if (inFlightReports.get(inFlightKey) === pending) inFlightReports.delete(inFlightKey);
+    };
+    pending.then(clear, clear);
+  }
+
+  const { data, saved } = await pending;
+  return { data: data as T, fromCache: false, saved };
 }
 
 export interface SavedInterpretation {
