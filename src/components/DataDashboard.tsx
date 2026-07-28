@@ -23,6 +23,7 @@ import { DateTimePicker } from './DateTimePicker';
 import { toDateTimeLocalValue } from '../lib/dateInputUtils';
 import { db, updateDoc, doc } from '../firebase';
 import { ensureReport, dailyFingerprint, STATIC_FINGERPRINT, getPerAccountReport } from '../services/aiReportService';
+import { SavedIndicator } from './SavedIndicator';
 import { generateNatalPlanetPlacementInsights } from '../services/geminiService';
 import { callGeminiProxy, getErrorMessage, withRetry } from '../lib/api-utils';
 import { APIErrorMessage } from './APIErrorMessage';
@@ -453,6 +454,7 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
   const [soulProfile, setSoulProfile] = React.useState<{ gifts: string; challenges: string; shadowWork: string; spirituality: string; career: string; love: string; health: string } | null>(null);
   const [isSoulProfileLoading, setIsSoulProfileLoading] = React.useState(false);
   const [soulProfileError, setSoulProfileError] = React.useState<string | null>(null);
+  const [isSoulProfileSaved, setIsSoulProfileSaved] = React.useState(false);
 
   // Auto-load Soul Profile from cache when profile or birth details change
   React.useEffect(() => {
@@ -461,10 +463,12 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
     const docId = `soul_profile_${activeChildProfileId || 'self'}`;
     setSoulProfile(null);
     setSoulProfileError(null);
+    setIsSoulProfileSaved(false);
     getPerAccountReport(user.uid, docId).then(cached => {
       if (cancelled) return;
       if (cached && cached.fingerprint === birthFingerprint && cached.data?.gifts) {
         setSoulProfile(cached.data);
+        setIsSoulProfileSaved(true);
       }
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -566,7 +570,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 }`;
 
       // Purely natal — generated once per profile and reused until birth details change.
-      const { data: parsed } = await ensureReport<any>({
+      const { data: parsed, fromCache, saved } = await ensureReport<any>({
         uid: user.uid,
         docId,
         type: 'soul-profile',
@@ -584,8 +588,10 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       });
       if (parsed?.gifts) {
         setSoulProfile(parsed);
+        setIsSoulProfileSaved(fromCache || saved);
       }
     } catch (err) {
+      setIsSoulProfileSaved(false);
       setSoulProfileError('Could not generate Soul Profile. Please try again.');
     } finally {
       setIsSoulProfileLoading(false);
@@ -2501,10 +2507,11 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                       <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", theme === 'dark' ? "bg-jyotish-gold/10 text-jyotish-gold" : "bg-orange-100 text-orange-600")}>
                         <Brain className="w-5 h-5" />
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <h3 className={cn("text-base font-bold", theme === 'dark' ? "text-white" : "text-slate-900")}>Soul Profile</h3>
                         <p className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-500")}>AI-powered natal chart reading</p>
                       </div>
+                      <SavedIndicator saved={isSoulProfileSaved && !!soulProfile && !isSoulProfileLoading} isDark={theme === 'dark'} />
                     </div>
 
                     {!soulProfile && !isSoulProfileLoading && (
