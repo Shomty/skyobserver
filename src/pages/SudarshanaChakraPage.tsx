@@ -18,6 +18,7 @@ import {
 } from '../vedic-utils';
 import { fetchPlanetPositions } from '../services/positionsService';
 import { ensureReport } from '../services/aiReportService';
+import { SavedIndicator } from '../components/SavedIndicator';
 import {
   generateSudarshanaChakraInterpretation,
   normalizeCachedSudarshanaInterpretation,
@@ -763,14 +764,7 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {isReportCached && aiData && !isAiLoading && (
-                  <span className={cn(
-                    'text-[9px] font-mono uppercase tracking-widest px-2 py-1 rounded-lg border',
-                    isDark ? 'text-jyotish-gold/60 border-jyotish-gold/20 bg-jyotish-gold/5' : 'text-jyotish-gold border-orange-200 bg-orange-50'
-                  )}>
-                    Saved
-                  </span>
-                )}
+                <SavedIndicator saved={isReportCached && !!aiData && !isAiLoading} isDark={isDark} />
                 {cacheWriteFailed && aiData && !isAiLoading && (
                   <span
                     title="The reading could not be written to your account, so it will be regenerated on the next load. Check the browser console for details."

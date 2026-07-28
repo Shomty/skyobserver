@@ -29,6 +29,7 @@ import { PlanetPosition, PanchangData, TransitEvent } from '../vedic-utils';
 import { generateCosmicInterpretations, AICosmicInterpretations } from '../services/geminiService';
 import { ensureReport, dailyFingerprint, backupAIReport, getAIReportBackups, restoreAIReport, AIReportBackup } from '../services/aiReportService';
 import { exportUserData, downloadExportAsJSON } from '../services/exportService';
+import { SavedIndicator } from './SavedIndicator';
 import { KARAKA_INTERPRETATIONS } from '../lib/blueprintInterpretations';
 
 interface CosmicReportProps {
@@ -76,6 +77,7 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
   const reportRef = useRef<HTMLDivElement>(null);
   const [aiData, setAIData] = useState<AICosmicInterpretations | null>(null);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [isReportSaved, setIsReportSaved] = useState(false);
   const [showBackups, setShowBackups] = useState(false);
   const [backups, setBackups] = useState<AIReportBackup[]>([]);
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
@@ -159,7 +161,7 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
       setIsLoadingAI(true);
       try {
         const previousData = aiData;
-        const { data, fromCache } = await ensureReport<AICosmicInterpretations>({
+        const { data, fromCache, saved } = await ensureReport<AICosmicInterpretations>({
           uid: user.uid,
           docId: 'cosmic-report',
           type: 'cosmic_analysis',
@@ -186,8 +188,10 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
         }
 
         lastFingerprintRef.current = fingerprint;
+        setIsReportSaved(fromCache || saved);
         setAIData(data);
       } catch (error) {
+        setIsReportSaved(false);
         console.error("AI Generation failed:", error);
         // Don't update lastFingerprintRef on error so the next effect run can retry.
       } finally {
@@ -436,10 +440,11 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
                     <div className="w-8 h-8 rounded-lg bg-jyotish-gold/20 flex items-center justify-center">
                       <BrainCircuit className={cn("w-4 h-4 text-jyotish-gold", isLoadingAI && "animate-pulse")} />
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-bold text-jyotish-gold uppercase tracking-widest font-mono">Soul Synthesis</h4>
                       <p className="text-[10px] opacity-40">Personalized AI Interpretation</p>
                     </div>
+                    <SavedIndicator saved={isReportSaved && !!aiData && !isLoadingAI} isDark={theme === 'dark'} />
                   </div>
                   
                   {isLoadingAI ? (
