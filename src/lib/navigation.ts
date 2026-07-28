@@ -91,5 +91,21 @@ export const MORE_SHEET_IDS = new Set<NavId>(
   NAV_ITEMS.filter((item) => item.surfaces.moreSheet).map((item) => item.id)
 );
 
+/** Tabs that render a dedicated full-page view (not the sky + insights split). */
+export const FULL_PAGE_VIEW_IDS = new Set<NavId>([
+  'chart',
+  'archives',
+  'profile',
+  'chat',
+  'sudarshana',
+  'report',
+  'profiles',
+  'admin',
+]);
+
+export function isDashboardView(id: NavId): boolean {
+  return id === 'sky' || id === 'overview' || id === 'stats';
+}
+
 /** Tabs where the floating celestial controls HUD is eligible on mobile. */
 export const CONTROLS_HUD_IDS = new Set<NavId>(['sky']);

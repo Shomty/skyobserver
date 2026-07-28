@@ -230,6 +230,15 @@ export interface ArudhaLagnaResult {
 export interface UpapadaLagnaResult {
   signNumber: SignNumber;
   house: number;
+  secondFromUL: {
+    signNumber: SignNumber;
+    signName: string;
+    lord: string;
+    occupants: string[];
+    aspectingPlanets: string[];
+    influence: 'benefic' | 'malefic' | 'mixed' | 'neutral';
+    interpretation: string;
+  };
 }
 
 export interface VarnadaLagnaResult {
@@ -381,8 +390,8 @@ export interface YogaDetectionResult {
 
 const NATURAL_BENEFICS: string[] = ['Jupiter', 'Venus', 'Mercury', 'Moon'];
 const NATURAL_MALEFICS: string[] = ['Sun', 'Mars', 'Saturn', 'Rahu', 'Ketu'];
-const KENDRA_HOUSES = [1, 4, 7, 10];
-const KONA_HOUSES = [1, 5, 9];
+export const KENDRA_HOUSES = [1, 4, 7, 10];
+export const KONA_HOUSES = [1, 5, 9];
 const TRIKA_HOUSES = [6, 8, 12];
 const UPACHAYA_HOUSES = [3, 6, 10, 11];
 const APOKLIMA_HOUSES = [3, 6, 9, 12];
@@ -1091,9 +1100,10 @@ export const calculatePositions = (date: Date, lat?: number, lon?: number): Plan
 export interface Ashtakavarga {
   bav: Record<string, number[]>;
   sav: number[];
-  trikonReduced?: number[];
-  ekadhipatyaReduced?: number[];
-  yogPinda?: number;
+  trikonReduced: number[];
+  ekadhipatyaReduced: number[];
+  yogPinda: number;
+  hasAscendant: boolean;
 }
 
 const ASHTAKAVARGA_RULES: Record<string, Record<string, number[]>> = {
@@ -1145,7 +1155,7 @@ const ASHTAKAVARGA_RULES: Record<string, Record<string, number[]>> = {
     Jupiter: [1, 2, 3, 4, 7, 8, 10, 11],
     Venus: [2, 5, 6, 9, 10, 11],
     Saturn: [3, 5, 6, 12],
-    Ascendant: [1, 2, 4, 5, 6, 9, 10, 11]
+    Ascendant: [1, 2, 4, 5, 6, 7, 9, 10, 11]
   },
   Venus: {
     Sun: [8, 11, 12],
@@ -1160,7 +1170,7 @@ const ASHTAKAVARGA_RULES: Record<string, Record<string, number[]>> = {
   Saturn: {
     Sun: [1, 2, 4, 7, 8, 10, 11],
     Moon: [3, 6, 11],
-    Mars: [3, 5, 6, 10, 11],
+    Mars: [3, 5, 6, 10, 11, 12],
     Mercury: [6, 8, 9, 10, 11, 12],
     Jupiter: [5, 6, 11, 12],
     Venus: [6, 11, 12],
@@ -1168,6 +1178,17 @@ const ASHTAKAVARGA_RULES: Record<string, Record<string, number[]>> = {
     Ascendant: [1, 3, 4, 6, 10, 11]
   }
 };
+
+const BAV_CANONICAL_TOTALS: Record<string, number> = {
+  Sun: 48, Moon: 49, Mars: 39, Mercury: 54, Jupiter: 56, Venus: 52, Saturn: 39,
+};
+
+for (const [planet, expected] of Object.entries(BAV_CANONICAL_TOTALS)) {
+  const actual = Object.values(ASHTAKAVARGA_RULES[planet]).reduce((sum, houses) => sum + houses.length, 0);
+  if (actual !== expected) {
+    throw new Error(`Ashtakavarga rule table for ${planet} sums to ${actual} bindus, expected ${expected} (BPHS).`);
+  }
+}
 
 const RASI_MULTIPLIERS = [7, 10, 8, 4, 10, 5, 7, 8, 9, 5, 11, 12];
 const PLANET_MULTIPLIERS: Record<string, number> = {
@@ -1195,6 +1216,7 @@ export const performTrikonShodhana = (scores: number[]): number[] => {
   return reduced;
 };
 
+// Ekadhipatya shodhana per B.V. Raman's Ashtakavarga System (Sanjay Rath tradition).
 export const performEkadhipatyaShodhana = (scores: number[], positions: PlanetPosition[]): number[] => {
   const reduced = [...scores];
   const pairs = [
@@ -1205,11 +1227,13 @@ export const performEkadhipatyaShodhana = (scores: number[], positions: PlanetPo
     [9, 10]  // Capricorn, Aquarius (Saturn)
   ];
 
-  const planetSigns = positions.reduce((acc, p) => {
+  const grahas = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
+  const occupiedSigns = positions.reduce((acc, p) => {
+    if (!grahas.includes(p.name)) return acc;
     const idx = RASHIS.indexOf(p.rashi);
-    if (idx !== -1) acc[idx] = p.name;
+    if (idx !== -1) acc[idx] = true;
     return acc;
-  }, {} as Record<number, string>);
+  }, {} as Record<number, boolean>);
 
   for (const [s1, s2] of pairs) {
     const v1 = reduced[s1];
@@ -1217,27 +1241,23 @@ export const performEkadhipatyaShodhana = (scores: number[], positions: PlanetPo
     
     if (v1 === 0 || v2 === 0) continue;
     
-    const p1 = planetSigns[s1];
-    const p2 = planetSigns[s2];
+    const o1 = occupiedSigns[s1] ?? false;
+    const o2 = occupiedSigns[s2] ?? false;
     
-    if (!p1 && !p2) {
-      // Both empty
+    if (!o1 && !o2) {
+      // Neither occupied: both reduced to lesser; equal values become 0
       const min = Math.min(v1, v2);
       reduced[s1] = min;
       reduced[s2] = min;
-    } else if (p1 && p2) {
-      // Both occupied - no reduction
+    } else if (o1 && o2) {
+      // Both occupied — no reduction
     } else {
-      // One occupied
-      if (v1 === v2) {
-        // Equal scores
-        reduced[s1] = v1;
-        reduced[s2] = v2;
-      } else {
-        const min = Math.min(v1, v2);
-        reduced[s1] = min;
-        reduced[s2] = min;
-      }
+      // One occupied: only the unoccupied sign is reduced
+      const unoccupied = o1 ? s2 : s1;
+      const occupied = o1 ? s1 : s2;
+      const vUnoccupied = reduced[unoccupied];
+      const vOccupied = reduced[occupied];
+      reduced[unoccupied] = vUnoccupied === vOccupied ? 0 : Math.min(vUnoccupied, vOccupied);
     }
   }
   return reduced;
@@ -1255,6 +1275,7 @@ export const calculateYogPinda = (reducedScores: number[], positions: PlanetPosi
     const p = positions.find(pos => pos.name === pName);
     if (p) {
       const rashiIdx = RASHIS.indexOf(p.rashi);
+      if (rashiIdx === -1) continue;
       grahaPinda += reducedScores[rashiIdx] * PLANET_MULTIPLIERS[pName];
     }
   }
@@ -1273,9 +1294,12 @@ export const calculateAshtakavarga = (positions: PlanetPosition[]): Ashtakavarga
   const refIndices: Record<string, number> = {};
   for (const p of positions) {
     if (refPlanets.includes(p.name)) {
-      refIndices[p.name] = RASHIS.indexOf(p.rashi);
+      const signIdx = RASHIS.indexOf(p.rashi);
+      if (signIdx !== -1) refIndices[p.name] = signIdx;
     }
   }
+
+  const hasAscendant = refIndices["Ascendant"] !== undefined;
   
   for (const target of targetPlanets) {
     bav[target] = new Array(12).fill(0);
@@ -1297,7 +1321,7 @@ export const calculateAshtakavarga = (positions: PlanetPosition[]): Ashtakavarga
   const ekadhipatyaReduced = performEkadhipatyaShodhana(trikonReduced, positions);
   const yogPinda = calculateYogPinda(ekadhipatyaReduced, positions);
   
-  return { bav, sav, trikonReduced, ekadhipatyaReduced, yogPinda };
+  return { bav, sav, trikonReduced, ekadhipatyaReduced, yogPinda, hasAscendant };
 };
 
 export interface TransitEvent {
@@ -1902,37 +1926,102 @@ export const getNavamshaSign = (longitude: number): string => {
   return RASHIS[(startIdx + navIdxInSign) % 12];
 };
 
-export const calculateAmK = (positions: PlanetPosition[]): string => {
-  const mainPlanets = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
-  const degrees = positions
-    .filter(p => mainPlanets.includes(p.name))
-    .map(p => ({ 
-      name: p.name, 
-      deg: p.degree + (p.minute / 60) 
-    }))
-    .sort((a, b) => b.deg - a.deg);
-  
-  return degrees[1]?.name || degrees[0]?.name;
+export const isVargottama = (position: PlanetPosition): boolean => {
+  const d1Sign = RASHIS[Math.floor(position.siderealLongitude / 30) % 12];
+  const d9Sign = getNavamshaSign(position.siderealLongitude);
+  return d1Sign === d9Sign;
 };
 
-export const calculateUL = (positions: PlanetPosition[]): string => {
-  const ascendant = positions.find(p => p.name === "Ascendant");
-  if (!ascendant) return "";
-  
-  const ascSignIdx = RASHIS.indexOf(ascendant.rashi);
-  const house12SignIdx = (ascSignIdx + 11) % 12;
-  const house12Sign = RASHIS[house12SignIdx];
-  
-  const lord12Name = RASHI_LORDS[house12Sign];
-  const lord12Pos = positions.find(p => p.name === lord12Name);
-  if (!lord12Pos) return "";
-  
-  const lord12SignIdx = RASHIS.indexOf(lord12Pos.rashi);
-  const distance = (lord12SignIdx - house12SignIdx + 12) % 12;
-  const arudhaSignIdx = (lord12SignIdx + distance) % 12;
-  
-  return RASHIS[arudhaSignIdx];
-};
+export const getVargottamaPlanets = (positions: PlanetPosition[]): string[] =>
+  positions
+    .filter(p =>
+      !['Ascendant', 'Rahu', 'Ketu', 'Bhrigu Bindu', 'Gulika', 'Maandi'].includes(p.name) &&
+      isVargottama(p)
+    )
+    .map(p => p.name);
+
+export interface LagnaLordAnalysis {
+  lord: string;
+  sign: string;
+  house: number;
+  dignity: string | undefined;
+  isKendra: boolean;
+  isKona: boolean;
+  isProtective: boolean;
+  summary: string;
+}
+
+export function analyzeLagnaLord(positions: PlanetPosition[]): LagnaLordAnalysis | null {
+  const asc = positions.find(p => p.name === 'Ascendant');
+  if (!asc) return null;
+
+  const lord = getRashiLord(asc.rashi);
+  const lordPos = positions.find(p => p.name === lord);
+  if (!lordPos) return null;
+
+  const rashiIdx = RASHIS.indexOf(lordPos.rashi);
+  const dignity = getDignity(lord, rashiIdx);
+  const isKendra = KENDRA_HOUSES.includes(lordPos.house);
+  const isKona = KONA_HOUSES.includes(lordPos.house);
+  const isProtective = isKendra || isKona || dignity === 'Exalted' || dignity === 'Own Sign';
+
+  let summary = `Your Ascendant lord ${lord} is in ${lordPos.rashi} (house ${lordPos.house})`;
+  if (dignity) summary += ` with ${dignity} dignity`;
+  if (isProtective) {
+    summary += '. Well-placed in a Kendra or Kona, it acts as a protective shield against afflictions.';
+  } else {
+    summary += '. Its placement suggests you benefit from conscious effort to strengthen vitality and life direction.';
+  }
+
+  return { lord, sign: lordPos.rashi, house: lordPos.house, dignity, isKendra, isKona, isProtective, summary };
+}
+
+export function kaalVelaToPlanetPosition(
+  name: string,
+  symbol: string,
+  siderealLongitude: number,
+  ascendant: PlanetPosition | undefined,
+  color: string,
+): PlanetPosition {
+  const rashiIdx = Math.floor(siderealLongitude / 30) % 12;
+  const degInRashi = siderealLongitude % 30;
+  const nakshatraIdx = Math.floor(siderealLongitude / (360 / 27));
+  const degInNak = siderealLongitude % (360 / 27);
+  const pada = Math.floor(degInNak / (360 / (27 * 4))) + 1;
+  let house = 1;
+  if (ascendant) {
+    const ascIdx = RASHIS.indexOf(ascendant.rashi);
+    house = ((rashiIdx - ascIdx + 12) % 12) + 1;
+  }
+  return {
+    name,
+    symbol,
+    longitude: siderealLongitude,
+    siderealLongitude,
+    rashi: RASHIS[rashiIdx],
+    nakshatra: NAKSHATRAS[nakshatraIdx],
+    pada,
+    degree: Math.floor(degInRashi),
+    minute: Math.round((degInRashi % 1) * 60),
+    isRetrograde: false,
+    isCombust: false,
+    color,
+    house,
+  };
+}
+
+export function injectKaalVelaPoints(
+  positions: PlanetPosition[],
+  kaalVelas: KaalVelaSetResult,
+): PlanetPosition[] {
+  const asc = positions.find(p => p.name === 'Ascendant');
+  const extras = [
+    kaalVelaToPlanetPosition('Gulika', 'Gu', kaalVelas.gulika.longitude, asc, '#4B0082'),
+    kaalVelaToPlanetPosition('Maandi', 'Ma', kaalVelas.maandi.longitude, asc, '#2F4F4F'),
+  ];
+  const existing = new Set(positions.map(p => p.name));
+  return [...positions, ...extras.filter(p => !existing.has(p.name))];
+}
 
 export interface MuhurtaBaseData {
   natalAscendant: PlanetPosition;
@@ -1958,8 +2047,29 @@ export interface MuhurtaWindow {
   reasons: string[];
   vargottamaLagna: boolean;
   vargottamaMoon: boolean;
+  tarabala: TarabalaResult;
+  chandrabala: { score: number; description: string; position: number };
   dashaContext?: string;
   panchang: PanchangData;
+}
+
+/** Funnel diagnostics for a Muhurta search — counts rejection reasons across the scan. */
+export interface MuhurtaFunnelStats {
+  daysScanned: number;
+  daysTier1Pass: number;
+  daysTier2Pass: number;
+  samplesScanned: number;
+  rejected: {
+    tier1Day: number;
+    tier2Day: number;
+    lagnaClash: number;
+    rahuKaal: number;
+    ashtama: number;
+    lagnaLordVeto: number;
+    natalMaleficVeto: number;
+    lowScore: number;
+  };
+  samplesPassAll: number;
 }
 
 /** Outcome of a Muhurta search, including how much of the requested range was actually covered. */
@@ -1971,6 +2081,10 @@ export interface MuhurtaSearchResult {
   scannedThrough: Date;
   /** True when the sample budget ran out before reaching the requested end date. */
   truncated: boolean;
+  emptyReason?: 'missing_natal_data' | 'invalid_range' | 'no_strict_matches';
+  funnelStats?: MuhurtaFunnelStats;
+  /** Original requested span (days) when auto-expand found windows in a longer range. */
+  expandedFromDays?: number;
 }
 
 export const calculatePanchang = (date: Date, positions: PlanetPosition[]): PanchangData => {
@@ -2050,7 +2164,7 @@ export const getTarabala = (birthNakshatra: string, transitNakshatra: string): T
   const tara = diff % 9 || 9;
 
   const taraData = [
-    { name: "Janma", quality: "Neutral/Caution", meaning: "Focus on health and self; avoid heavy new risks.", score: 50 },
+    { name: "Janma", quality: "Inauspicious", meaning: "Danger to body and health; avoid new ventures.", score: 0 },
     { name: "Sampat", quality: "Auspicious", meaning: "Excellent for wealth, gains, and business deals.", score: 100 },
     { name: "Vipat", quality: "Inauspicious", meaning: "High chance of obstacles or losses; delay big moves.", score: 0 },
     { name: "Kshema", quality: "Auspicious", meaning: "Good for well-being, comfort, and security.", score: 100 },
@@ -2065,19 +2179,39 @@ export const getTarabala = (birthNakshatra: string, transitNakshatra: string): T
   return { tara, name: data.name, quality: data.quality, meaning: data.meaning, score: data.score };
 };
 
-export const getChandrabala = (birthRashi: string, transitRashi: string): { score: number; description: string } => {
+export const getChandrabalaPosition = (birthRashi: string, transitRashi: string): number => {
   const birthIdx = RASHIS.indexOf(birthRashi);
   const transitIdx = RASHIS.indexOf(transitRashi);
-  if (birthIdx === -1 || transitIdx === -1) return { score: 0, description: "Unknown" };
+  if (birthIdx === -1 || transitIdx === -1) return 0;
+  return (transitIdx - birthIdx + 12) % 12 + 1;
+};
 
-  const diff = (transitIdx - birthIdx + 12) % 12 + 1;
+export const getTaraRemainder = (birthNakshatra: string, transitNakshatra: string): number => {
+  const birthIdx = NAKSHATRAS.indexOf(birthNakshatra);
+  const transitIdx = NAKSHATRAS.indexOf(transitNakshatra);
+  if (birthIdx === -1 || transitIdx === -1) return 0;
+  const diff = (transitIdx - birthIdx + 27) % 27 + 1;
+  return diff % 9 || 9;
+};
+
+export const getChandrabala = (birthRashi: string, transitRashi: string): { score: number; description: string; position: number } => {
+  const diff = getChandrabalaPosition(birthRashi, transitRashi);
+  if (diff === 0) return { score: 0, description: "Unknown", position: 0 };
+
   const favorable = [1, 3, 6, 7, 10, 11];
-  
+  const neutral = [2, 5, 9];
+  const unfavorable = [4, 8, 12];
+
   if (favorable.includes(diff)) {
-    return { score: 100, description: "Favorable" };
-  } else {
-    return { score: 0, description: "Unfavorable" };
+    return { score: 100, description: "Favorable", position: diff };
   }
+  if (neutral.includes(diff)) {
+    return { score: 50, description: "Neutral (needs strong Tarabala)", position: diff };
+  }
+  if (unfavorable.includes(diff)) {
+    return { score: 0, description: "Unfavorable", position: diff };
+  }
+  return { score: 0, description: "Unknown", position: diff };
 };
 
 export function detectNabhashaYogas(
@@ -2654,8 +2788,9 @@ export function detectAuspiciousYogas(
   if (ninthLordPos && lagnaLordPos) {
     const ninthLordHouse = houseOf(ninthLord)!;
     const ninthLordStrong = isOwnSign(ninthLord, longitudeToSignAndDegree(ninthLordPos.siderealLongitude).sign) || isExaltationSign(ninthLord, longitudeToSignAndDegree(ninthLordPos.siderealLongitude).sign);
-    const lagnaLordHouse = houseOf(lagnaLord)!;
-    const lagnaLordStrong = KENDRA_HOUSES.includes(lagnaLordHouse) || KONA_HOUSES.includes(lagnaLordHouse) || isOwnSign(lagnaLord, longitudeToSignAndDegree(lagnaLordPos.siderealLongitude).sign) || isExaltationSign(lagnaLord, longitudeToSignAndDegree(lagnaLordPos.siderealLongitude).sign);
+    const lagnaLordAnalysis = analyzeLagnaLord(planets);
+    const lagnaLordStrong = lagnaLordAnalysis?.isProtective ?? false;
+    const lagnaLordHouse = lagnaLordAnalysis?.house ?? houseOf(lagnaLord)!;
 
     if (KENDRA_HOUSES.includes(ninthLordHouse) && ninthLordStrong && lagnaLordStrong) {
       yogas.push({
@@ -3171,10 +3306,445 @@ export const detectYogas = (positions: PlanetPosition[]): Yoga[] => {
 
 // --- Advanced Muhurta Engine ---
 
-const getNakshatraCount = (startNak: string, endNak: string): number => {
-  const startIdx = NAKSHATRAS.indexOf(startNak);
-  const endIdx = NAKSHATRAS.indexOf(endNak);
-  return ((endIdx - startIdx + 27) % 27) + 1;
+export type NakshatraCategory = 'Sthira' | 'Chara' | 'Mridu' | 'Kshipra';
+
+const NAKSHATRA_CATEGORY: Record<string, NakshatraCategory> = {
+  'Rohini': 'Sthira', 'Uttara Phalguni': 'Sthira', 'Uttara Ashadha': 'Sthira', 'Uttara Bhadrapada': 'Sthira',
+  'Swati': 'Chara', 'Punarvasu': 'Chara', 'Shravana': 'Chara', 'Dhanishta': 'Chara', 'Shatabhisha': 'Chara',
+  'Chitra': 'Mridu', 'Anuradha': 'Mridu', 'Mrigashira': 'Mridu', 'Revati': 'Mridu',
+  'Ashwini': 'Kshipra', 'Pushya': 'Kshipra', 'Hasta': 'Kshipra',
+};
+
+const EVENT_PREFERRED_NAKSHATRA: Record<EventCategory, NakshatraCategory[]> = {
+  CAREER: ['Sthira', 'Kshipra'],
+  MARRIAGE: ['Mridu', 'Sthira'],
+  PROPERTY: ['Sthira'],
+  GENERAL: ['Sthira', 'Chara', 'Mridu', 'Kshipra'],
+};
+
+/** Panchang yoga numbers (1-indexed) to hard-veto. */
+const INAUSPICIOUS_PANCHANG_YOGA_NUMBERS = [1, 6, 13, 17, 27];
+/** Panchang yoga numbers that earn a global scoring bonus. */
+const AUSPICIOUS_PANCHANG_YOGA_NUMBERS = [7, 16, 21, 23, 24, 25];
+
+const TARABALA_VETO = [1, 3, 5, 7];
+const TARABALA_STRONG = [2, 4, 6, 8, 9];
+const CHANDRABALA_VETO = [4, 8, 12];
+const CHANDRABALA_NEUTRAL = [2, 5, 9];
+
+const BENEFIC_WEEKDAYS = ['Sunday', 'Monday', 'Wednesday', 'Thursday', 'Friday'];
+const MALEFIC_WEEKDAYS = ['Tuesday', 'Saturday'];
+
+const MUHURTA_GRAHAS = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu'];
+const GOCHARA_MALEFICS = ['Saturn', 'Mars', 'Rahu', 'Ketu'];
+const GOCHARA_BENEFICS = ['Jupiter', 'Venus'];
+const LAGNA_LORD_MALEFICS = ['Saturn', 'Mars', 'Rahu', 'Ketu'];
+const LAGNA_LORD_BENEFICS = ['Jupiter', 'Venus', 'Mercury'];
+
+/** Hard-veto orb for conjunction / opposition (degrees). */
+const MUHURTA_TIGHT_ORB = 5;
+/** Scoring-only orb for wider transit pressure (degrees). */
+const MUHURTA_WIDE_ORB = 8;
+
+const BENEFIC_DASHA_LORDS = ['Jupiter', 'Venus', 'Moon', 'Mercury'];
+
+interface MuhurtaDayGate {
+  tier1Pass: boolean;
+  sunrise: Date;
+  sunset: Date;
+}
+
+const angularDistance = (a: number, b: number): number => {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+};
+
+const isTightConjunction = (lonA: number, lonB: number, orb = MUHURTA_TIGHT_ORB): boolean =>
+  angularDistance(lonA, lonB) <= orb;
+
+const isTightOpposition = (lonA: number, lonB: number, orb = MUHURTA_TIGHT_ORB): boolean =>
+  Math.abs(angularDistance(lonA, lonB) - 180) <= orb;
+
+const isWideConjunction = (lonA: number, lonB: number): boolean =>
+  angularDistance(lonA, lonB) <= MUHURTA_WIDE_ORB;
+
+const isWideOpposition = (lonA: number, lonB: number): boolean =>
+  Math.abs(angularDistance(lonA, lonB) - 180) <= MUHURTA_WIDE_ORB;
+
+const hasTightMaleficHit = (targetLon: number, maleficLon: number): boolean =>
+  isTightConjunction(targetLon, maleficLon) || isTightOpposition(targetLon, maleficLon);
+
+const getHouseFromLagna = (planetRashi: string, lagnaRashi: string): number =>
+  ((RASHIS.indexOf(planetRashi) - RASHIS.indexOf(lagnaRashi) + 12) % 12) + 1;
+
+export const getNakshatraCategory = (nakshatra: string): NakshatraCategory | null =>
+  NAKSHATRA_CATEGORY[nakshatra] ?? null;
+
+export const isEclipseWindow = (positions: PlanetPosition[]): boolean => {
+  const sun = positions.find(p => p.name === 'Sun');
+  const moon = positions.find(p => p.name === 'Moon');
+  const rahu = positions.find(p => p.name === 'Rahu');
+  if (!sun || !moon || !rahu) return false;
+
+  const sunMoonSep = angularDistance(sun.siderealLongitude, moon.siderealLongitude);
+  const ketuLon = (rahu.siderealLongitude + 180) % 360;
+  const moonNodeSep = Math.min(
+    angularDistance(moon.siderealLongitude, rahu.siderealLongitude),
+    angularDistance(moon.siderealLongitude, ketuLon)
+  );
+  const isSyzygy = sunMoonSep < 15 || sunMoonSep > 165;
+  return isSyzygy && moonNodeSep < 18;
+};
+
+export const isSankrantiWindow = (positions: PlanetPosition[]): boolean => {
+  const sun = positions.find(p => p.name === 'Sun');
+  if (!sun) return false;
+  const degInSign = sun.siderealLongitude % 30;
+  // Block ~12 hours on either side of solar ingress (0.25° ≈ 6 hours).
+  return degInSign < 0.25 || degInSign > 29.75;
+};
+
+export const violatesAshtamaShuddhi = (transitPositions: PlanetPosition[]): boolean => {
+  const asc = transitPositions.find(p => p.name === 'Ascendant');
+  if (!asc) return true;
+  // Tier 3 (hourly Lagna): reject malefics in the 8th from the current Muhurta Ascendant.
+  return transitPositions.some(
+    p => GOCHARA_MALEFICS.includes(p.name) && getHouseFromLagna(p.rashi, asc.rashi) === 8
+  );
+};
+
+/** True when any graha occupies the Muhurta 8th — ideal Ashtama Shuddhi is fully vacant. */
+export const hasOccupiedEighthHouse = (transitPositions: PlanetPosition[]): boolean => {
+  const asc = transitPositions.find(p => p.name === 'Ascendant');
+  if (!asc) return true;
+  return transitPositions.some(
+    p => MUHURTA_GRAHAS.includes(p.name) && getHouseFromLagna(p.rashi, asc.rashi) === 8
+  );
+};
+
+const hasSimpleNeechaBhanga = (lord: PlanetPosition, ascRashi: string, transitPositions: PlanetPosition[]): boolean => {
+  const debilDispositor = RASHI_LORDS[lord.rashi];
+  const dispositor = transitPositions.find(p => p.name === debilDispositor);
+  if (!dispositor) return false;
+  const house = getHouseFromLagna(dispositor.rashi, ascRashi);
+  return [1, 4, 7, 10].includes(house);
+};
+
+/** Tier 4 hard veto: combust, uncancelled debilitation, or tight malefic conjunction/opposition. */
+export const isLagnaLordHardVeto = (transitPositions: PlanetPosition[]): boolean => {
+  const asc = transitPositions.find(p => p.name === 'Ascendant');
+  if (!asc) return true;
+  const lordName = RASHI_LORDS[asc.rashi];
+  const lord = transitPositions.find(p => p.name === lordName);
+  if (!lord) return false;
+
+  if (lord.isCombust) return true;
+
+  const dignity = getDignity(lord.name, RASHIS.indexOf(lord.rashi));
+  if (dignity === 'Debilitated' && !hasSimpleNeechaBhanga(lord, asc.rashi, transitPositions)) {
+    return true;
+  }
+
+  return LAGNA_LORD_MALEFICS.some(malefic => {
+    const m = transitPositions.find(p => p.name === malefic);
+    return m ? hasTightMaleficHit(lord.siderealLongitude, m.siderealLongitude) : false;
+  });
+};
+
+/** @deprecated Use isLagnaLordHardVeto — kept for exports/tests. */
+export const isLagnaLordAfflicted = isLagnaLordHardVeto;
+
+const isPlanetSignAspecting = (target: PlanetPosition, aspecter: PlanetPosition): boolean => {
+  if (target.rashi === aspecter.rashi) return false;
+  const aspects = getAspectingHouses(aspecter.name);
+  const aspSignIdx = RASHIS.indexOf(aspecter.rashi);
+  const targetSignIdx = RASHIS.indexOf(target.rashi);
+  return aspects.some(asp => (aspSignIdx + asp - 1) % 12 === targetSignIdx);
+};
+
+const scoreLagnaLordStrength = (transitPositions: PlanetPosition[]): { score: number; reasons: string[] } => {
+  const asc = transitPositions.find(p => p.name === 'Ascendant');
+  if (!asc) return { score: 0, reasons: [] };
+
+  const lordName = RASHI_LORDS[asc.rashi];
+  const lord = transitPositions.find(p => p.name === lordName);
+  if (!lord) return { score: 0, reasons: [] };
+
+  let score = 0;
+  const reasons: string[] = [];
+  const dignity = getDignity(lord.name, RASHIS.indexOf(lord.rashi));
+
+  if (dignity === 'Exalted') {
+    score += 25;
+    reasons.push(`Muhurta Lagna lord ${lordName} is exalted.`);
+  } else if (dignity === 'Own Sign') {
+    score += 20;
+    reasons.push(`Muhurta Lagna lord ${lordName} is in own sign.`);
+  } else if (dignity === 'Debilitated') {
+    if (hasSimpleNeechaBhanga(lord, asc.rashi, transitPositions)) {
+      score += 10;
+      reasons.push(`Debilitated Lagna lord ${lordName} has Neecha Bhanga support.`);
+    }
+  } else {
+    score += 8;
+    reasons.push(`Muhurta Lagna lord ${lordName} holds neutral dignity.`);
+  }
+
+  const house = getHouseFromLagna(lord.rashi, asc.rashi);
+  if ([1, 4, 5, 7, 9, 10, 11].includes(house)) {
+    score += 10;
+    reasons.push('Lagna lord occupies a supportive house.');
+  }
+
+  for (const bName of LAGNA_LORD_BENEFICS) {
+    const b = transitPositions.find(p => p.name === bName);
+    if (!b) continue;
+    if (isTightConjunction(lord.siderealLongitude, b.siderealLongitude)) {
+      score += 12;
+      reasons.push(`${bName} tightly supports the Lagna lord.`);
+    } else if (isPlanetSignAspecting(lord, b)) {
+      score += 6;
+      reasons.push(`${bName} aspects the Lagna lord by sign.`);
+    }
+  }
+
+  for (const mName of LAGNA_LORD_MALEFICS) {
+    const m = transitPositions.find(p => p.name === mName);
+    if (!m) continue;
+    if (hasTightMaleficHit(lord.siderealLongitude, m.siderealLongitude)) continue;
+    if (isPlanetSignAspecting(lord, m)) {
+      score -= 5;
+      reasons.push(`${mName} broadly aspects the Lagna lord — minor deduction.`);
+    }
+  }
+
+  return { score: Math.max(-15, Math.min(score, 45)), reasons };
+};
+
+const parseMahadashaLord = (dasha: string): string =>
+  dasha.split(/[/\-]/)[0]?.trim() || '';
+
+const hasBeneficMitigation = (
+  currentDasha: string,
+  transitPositions: PlanetPosition[],
+  natalPositions: PlanetPosition[]
+): boolean => {
+  if (BENEFIC_DASHA_LORDS.includes(parseMahadashaLord(currentDasha))) return true;
+  const natalAsc = natalPositions.find(p => p.name === 'Ascendant');
+  const natalMoon = natalPositions.find(p => p.name === 'Moon');
+  if (!natalAsc || !natalMoon) return false;
+  const favorable = [1, 5, 9, 11];
+  return transitPositions.some(p => {
+    if (!GOCHARA_BENEFICS.includes(p.name)) return false;
+    return favorable.includes(getHouseFromLagna(p.rashi, natalMoon.rashi))
+      || favorable.includes(getHouseFromLagna(p.rashi, natalAsc.rashi));
+  });
+};
+
+/** Tier 4: tight-degree natal transit pressure (scoring only unless mitigation absent). */
+export const hasNatalMaleficTransitAffliction = (
+  transitPositions: PlanetPosition[],
+  natalPositions: PlanetPosition[],
+  currentDasha: string
+): boolean => {
+  if (hasBeneficMitigation(currentDasha, transitPositions, natalPositions)) return false;
+
+  const natalAsc = natalPositions.find(p => p.name === 'Ascendant');
+  const natalMoon = natalPositions.find(p => p.name === 'Moon');
+  if (!natalAsc || !natalMoon) return false;
+
+  const natalLagnaLordName = RASHI_LORDS[natalAsc.rashi];
+  const dashaLord = parseMahadashaLord(currentDasha);
+  const targets = [
+    natalPositions.find(p => p.name === natalLagnaLordName),
+    natalMoon,
+    natalPositions.find(p => p.name === dashaLord),
+  ].filter(Boolean) as PlanetPosition[];
+
+  for (const t of transitPositions.filter(p => GOCHARA_MALEFICS.includes(p.name))) {
+    for (const target of targets) {
+      if (hasTightMaleficHit(target.siderealLongitude, t.siderealLongitude)) return true;
+    }
+  }
+  return false;
+};
+
+/** Natal Gochara affliction severity — degree orbs only, never sign-based vetoes. */
+const scoreNatalMaleficPressure = (
+  transitPositions: PlanetPosition[],
+  natalPositions: PlanetPosition[],
+  currentDasha: string
+): { penalty: number; reasons: string[] } => {
+  const natalAsc = natalPositions.find(p => p.name === 'Ascendant');
+  const natalMoon = natalPositions.find(p => p.name === 'Moon');
+  if (!natalAsc || !natalMoon) return { penalty: 0, reasons: [] };
+
+  const mitigated = hasBeneficMitigation(currentDasha, transitPositions, natalPositions);
+  const natalLagnaLordName = RASHI_LORDS[natalAsc.rashi];
+  const dashaLord = parseMahadashaLord(currentDasha);
+  const targets: { label: string; planet: PlanetPosition }[] = [
+    { label: 'natal Lagna lord', planet: natalPositions.find(p => p.name === natalLagnaLordName)! },
+    { label: 'natal Moon', planet: natalMoon },
+    { label: 'Mahadasha lord', planet: natalPositions.find(p => p.name === dashaLord)! },
+  ].filter(t => t.planet);
+
+  let penalty = 0;
+  const reasons: string[] = [];
+
+  for (const t of transitPositions.filter(p => GOCHARA_MALEFICS.includes(p.name))) {
+    for (const { label, planet } of targets) {
+      if (!planet) continue;
+      const sep = angularDistance(planet.siderealLongitude, t.siderealLongitude);
+      if (hasTightMaleficHit(planet.siderealLongitude, t.siderealLongitude)) {
+        if (mitigated) {
+          penalty += 5;
+          reasons.push(`Transit ${t.name} tightly pressures ${label} — buffered by benefic dasha/Gochara.`);
+        }
+        continue;
+      }
+      if (isWideConjunction(planet.siderealLongitude, t.siderealLongitude)) {
+        penalty += mitigated ? 2 : 6;
+        reasons.push(`Transit ${t.name} widely conjunct ${label}.`);
+      } else if (isWideOpposition(planet.siderealLongitude, t.siderealLongitude)) {
+        penalty += mitigated ? 2 : 5;
+        reasons.push(`Transit ${t.name} widely opposes ${label}.`);
+      }
+    }
+  }
+  return { penalty: Math.min(penalty, mitigated ? 12 : 25), reasons };
+};
+
+/** Tier 1 — universal day gate (Panchanga at sunrise). */
+const evaluateTier1Day = (
+  sunrise: Date,
+  lat: number,
+  lon: number,
+  category: EventCategory
+): boolean => {
+  const pos = calculatePositionsLite(sunrise, lat, lon);
+  const pan = calculatePanchang(sunrise, pos);
+  if (isEclipseWindow(pos)) return false;
+  if (isSankrantiWindow(pos)) return false;
+  if (!isVaaraAllowed(pan.vara, category)) return false;
+  if (isRiktaTithiActive(pan.tithi.number)) return false;
+  if (INAUSPICIOUS_PANCHANG_YOGA_NUMBERS.includes(pan.yoga.number)) return false;
+  if (pan.karana.name === 'Vishti') return false;
+  return true;
+};
+
+/** Tier 2 — per-sample native compatibility (Tarabala / Chandrabala at transit Moon). */
+const evaluateTier2Sample = (natalMoon: PlanetPosition, transitMoon: PlanetPosition): boolean => {
+  const tara = getTaraRemainder(natalMoon.nakshatra, transitMoon.nakshatra);
+  if (TARABALA_VETO.includes(tara)) return false;
+
+  const chPos = getChandrabalaPosition(natalMoon.rashi, transitMoon.rashi);
+  if (CHANDRABALA_VETO.includes(chPos)) return false;
+  if (CHANDRABALA_NEUTRAL.includes(chPos) && !TARABALA_STRONG.includes(tara)) return false;
+  return true;
+};
+
+const getMuhurtaDayGate = (
+  date: Date,
+  lat: number,
+  lon: number,
+  category: EventCategory,
+  cache: Map<string, MuhurtaDayGate>
+): MuhurtaDayGate => {
+  const { sunrise, sunset } = getRiseSetInfo(date, lat, lon);
+  const dayKey = sunrise.toISOString().slice(0, 10);
+
+  const cached = cache.get(dayKey);
+  if (cached) return cached;
+
+  const gate: MuhurtaDayGate = {
+    sunrise,
+    sunset,
+    tier1Pass: evaluateTier1Day(sunrise, lat, lon, category),
+  };
+  cache.set(dayKey, gate);
+  return gate;
+};
+
+const createEmptyFunnelStats = (): MuhurtaFunnelStats => ({
+  daysScanned: 0,
+  daysTier1Pass: 0,
+  daysTier2Pass: 0,
+  samplesScanned: 0,
+  rejected: {
+    tier1Day: 0,
+    tier2Day: 0,
+    lagnaClash: 0,
+    rahuKaal: 0,
+    ashtama: 0,
+    lagnaLordVeto: 0,
+    natalMaleficVeto: 0,
+    lowScore: 0,
+  },
+  samplesPassAll: 0,
+});
+
+const isVaaraAllowed = (vara: string, category: EventCategory): boolean => {
+  if (BENEFIC_WEEKDAYS.includes(vara)) return true;
+  if (vara === 'Saturday' && category === 'PROPERTY') return true;
+  if (MALEFIC_WEEKDAYS.includes(vara) && (category === 'MARRIAGE' || category === 'CAREER')) return false;
+  return !MALEFIC_WEEKDAYS.includes(vara) || category === 'GENERAL';
+};
+
+const isHarmonicMoonAspect = (moonLon: number, targetLon: number): boolean => {
+  const sep = angularDistance(moonLon, targetLon);
+  return Math.abs(sep - 60) < 8 || Math.abs(sep - 120) < 8;
+};
+
+const scoreDashaAlignment = (currentDasha: string): { score: number; reason?: string } => {
+  const lord = parseMahadashaLord(currentDasha);
+  const beneficLords = ['Jupiter', 'Venus', 'Moon', 'Mercury'];
+  const challengingLords = ['Saturn', 'Rahu', 'Ketu', 'Mars'];
+  if (beneficLords.includes(lord)) {
+    return { score: 15, reason: `Favorable ${lord} Mahadasha supports new beginnings.` };
+  }
+  if (challengingLords.includes(lord)) {
+    return { score: 0, reason: `${lord} Mahadasha requires an exceptionally strong Muhurta Lagna.` };
+  }
+  return { score: 8 };
+};
+
+const scoreNatalGochara = (
+  transitPositions: PlanetPosition[],
+  natalPositions: PlanetPosition[]
+): { score: number; reasons: string[] } => {
+  const natalAsc = natalPositions.find(p => p.name === 'Ascendant');
+  const natalMoon = natalPositions.find(p => p.name === 'Moon');
+  if (!natalAsc || !natalMoon) return { score: 0, reasons: [] };
+
+  let score = 0;
+  const reasons: string[] = [];
+  const favorableHouses = [1, 5, 9, 11];
+
+  for (const p of transitPositions.filter(x => GOCHARA_BENEFICS.includes(x.name))) {
+    const fromMoon = getHouseFromLagna(p.rashi, natalMoon.rashi);
+    const fromLagna = getHouseFromLagna(p.rashi, natalAsc.rashi);
+    if (favorableHouses.includes(fromMoon) || favorableHouses.includes(fromLagna)) {
+      score += 15;
+      reasons.push(`Transit ${p.name} graces a favorable natal house (Gochara).`);
+    }
+  }
+  return { score: Math.min(score, 30), reasons };
+};
+
+const scoreTransitMoonTrigger = (
+  transitPositions: PlanetPosition[],
+  natalPositions: PlanetPosition[]
+): { score: number; reason?: string } => {
+  const tMoon = transitPositions.find(p => p.name === 'Moon');
+  if (!tMoon) return { score: 0 };
+  const natalBenefics = natalPositions.filter(p => GOCHARA_BENEFICS.includes(p.name));
+  const harmonious = natalBenefics.some(p =>
+    isHarmonicMoonAspect(tMoon.siderealLongitude, p.siderealLongitude)
+  );
+  if (harmonious) {
+    return { score: 10, reason: 'Transit Moon harmonizes with natal benefics.' };
+  }
+  return { score: 0 };
 };
 
 export const getRiseSetInfo = (date: Date, lat: number, lon: number) => {
@@ -3300,26 +3870,26 @@ const getDashamshaSign = (longitude: number): string => {
 };
 
 /**
- * Maximum attainable Panchang (global) score: Auspicious Tithi (10) + Supportive Vara (10).
- * Used to normalise the headline score onto a 0-100 scale.
+ * Maximum attainable Panchang (global) score:
+ * Auspicious Tithi (10) + Supportive Vara (10) + Auspicious Yoga (5) + Nakshatra category (10).
  */
-export const MUHURTA_GLOBAL_MAX = 20;
+export const MUHURTA_GLOBAL_MAX = 35;
 
 /**
  * Maximum attainable individual (Janma Kundali) score per event category.
  *
- * Shared base = Ascendant lord well placed (20) + three benefics in a transit kendra (45)
- *             + Vargottama Ascendant (30) + Vargottama Moon (20) = 115.
- * CAREER adds  = D10 kendra (20) + Jupiter/Venus aspecting the Amatyakaraka (20 + 20) = 60.
- * MARRIAGE adds= Jupiter/Venus in the D9 kendra (20 + 20) + Jupiter aspecting the Upapada (25) = 65.
- *
- * NOTE: PROPERTY and GENERAL currently have no category-specific rules, so they share the base.
+ * Shared base = Lagna lord strength (45) + benefics in transit kendra (45) + Vargottama Lagna (30)
+ *             + Vargottama Moon (20) + Gochara benefics (30) + Dasha alignment (15)
+ *             + Transit Moon trigger (10) = 195.
+ * CAREER adds  = D10 kendra (20) + Jupiter/Venus aspecting AmK (40) = 60.
+ * MARRIAGE adds= D9 kendra (40) + Jupiter aspecting Upapada (25) + Venus strength (15) = 80.
+ * PROPERTY adds= 4th lord strength (20) + Mars/Jupiter on 4th (25) = 45.
  */
 const MUHURTA_INDIVIDUAL_MAX: Record<EventCategory, number> = {
-  CAREER: 175,
-  MARRIAGE: 180,
-  PROPERTY: 115,
-  GENERAL: 115,
+  CAREER: 255,
+  MARRIAGE: 275,
+  PROPERTY: 240,
+  GENERAL: 195,
 };
 
 export interface MuhurtaScore {
@@ -3338,6 +3908,7 @@ export interface MuhurtaScore {
 
 const scoreMuhurtaTime = (
   transitPositions: PlanetPosition[],
+  natalPositions: PlanetPosition[],
   natalData: MuhurtaBaseData,
   category: EventCategory,
   /** Panchang for THIS candidate instant. Must be computed by the caller from the
@@ -3363,34 +3934,40 @@ const scoreMuhurtaTime = (
   }
 
   // Weekday (Vara)
-  if (['Monday', 'Wednesday', 'Thursday', 'Friday'].includes(pan.vara)) {
+  if (BENEFIC_WEEKDAYS.includes(pan.vara)) {
     globalScore += 10;
     reasons.push(`Supportive Weekday: ${pan.vara}`);
+  } else if (pan.vara === 'Saturday' && category === 'PROPERTY') {
+    globalScore += 10;
+    reasons.push('Saturn-aligned Saturday for property and manual foundations.');
+  } else if (pan.vara === 'Tuesday' && category === 'GENERAL') {
+    globalScore += 5;
+    reasons.push('Mars-aligned Tuesday — suitable for decisive general action.');
   }
 
-  // 2. Individual Resonance (Janma Kundali)
-  
-  // Ascendant Fortification
+  // Panchang Yoga bonus
+  if (AUSPICIOUS_PANCHANG_YOGA_NUMBERS.includes(pan.yoga.number)) {
+    globalScore += 5;
+    reasons.push(`Auspicious Yoga: ${pan.yoga.name}`);
+  }
+
+  // Nakshatra category × event type
+  const nakCategory = getNakshatraCategory(pan.nakshatra.name);
+  if (nakCategory && EVENT_PREFERRED_NAKSHATRA[category].includes(nakCategory)) {
+    globalScore += 10;
+    reasons.push(`${nakCategory} Nakshatra (${pan.nakshatra.name}) suits ${category.toLowerCase()} events.`);
+  }
+
+  // 2. Individual Resonance (Janma Kundali) — Tier 4 Lagna lord strength
+
+  const lagnaLord = scoreLagnaLordStrength(transitPositions);
+  individualScore += lagnaLord.score;
+  reasons.push(...lagnaLord.reasons);
+
   const tAscSign = tAsc.rashi;
-  const tAscLord = RASHI_LORDS[tAscSign];
-  const tAscLordPos = transitPositions.find(p => p.name === tAscLord);
-  
-  if (tAscLordPos) {
-    const tAscSignIdx = RASHIS.indexOf(tAscSign);
-    const tAscLordSignIdx = RASHIS.indexOf(tAscLordPos.rashi);
-    const house = ((tAscLordSignIdx - tAscSignIdx + 12) % 12) + 1;
-    
-    if ([1, 4, 7, 10, 5, 9].includes(house)) {
-      individualScore += 20;
-      reasons.push("Personal Harmony: Ascendant Lord is in an auspicious house.");
-    }
-  }
-
   const benefics = ["Jupiter", "Venus", "Mercury"];
   transitPositions.forEach(p => {
-    const tAscSignIdx = RASHIS.indexOf(tAscSign);
-    const pSignIdx = RASHIS.indexOf(p.rashi);
-    const house = ((pSignIdx - tAscSignIdx + 12) % 12) + 1;
+    const house = getHouseFromLagna(p.rashi, tAscSign);
 
     if (benefics.includes(p.name)) {
       if ([1, 4, 7, 10].includes(house)) {
@@ -3407,21 +3984,43 @@ const scoreMuhurtaTime = (
   });
 
   // Strength Check
-  const lagnaD1 = tAsc.rashi;
-  const lagnaD9 = getNavamshaSign(tAsc.siderealLongitude);
-  const vargottamaLagna = lagnaD1 === lagnaD9;
+  const vargottamaLagna = isVargottama(tAsc);
   if (vargottamaLagna) {
     individualScore += 30;
     reasons.push("Vargottama Ascendant - exceptional foundational strength.");
   }
 
-  const moonD1 = tMoon.rashi;
-  const moonD9 = getNavamshaSign(tMoon.siderealLongitude);
-  const vargottamaMoon = moonD1 === moonD9;
+  const vargottamaMoon = isVargottama(tMoon);
   if (vargottamaMoon) {
     individualScore += 20;
     reasons.push("Vargottama Moon - mental and emotional alignment.");
   }
+
+  // Natal Gochara layer
+  const gochara = scoreNatalGochara(transitPositions, natalPositions);
+  individualScore += gochara.score;
+  reasons.push(...gochara.reasons);
+
+  // Dasha alignment
+  const dashaScore = scoreDashaAlignment(natalData.currentDasha);
+  individualScore += dashaScore.score;
+  if (dashaScore.reason) reasons.push(dashaScore.reason);
+
+  // Transit Moon trigger
+  const moonTrigger = scoreTransitMoonTrigger(transitPositions, natalPositions);
+  individualScore += moonTrigger.score;
+  if (moonTrigger.reason) reasons.push(moonTrigger.reason);
+
+  // Ashtama Shuddhi bonus when 8th is fully vacant
+  if (!hasOccupiedEighthHouse(transitPositions)) {
+    individualScore += 10;
+    reasons.push('Ashtama Shuddhi: 8th house is completely vacant.');
+  }
+
+  // Natal Gochara pressure (degree orbs; benefic mitigation applied inside)
+  const maleficPressure = scoreNatalMaleficPressure(transitPositions, natalPositions, natalData.currentDasha);
+  individualScore -= maleficPressure.penalty;
+  reasons.push(...maleficPressure.reasons);
 
   // Contextual Event Scoring
   if (category === 'CAREER') {
@@ -3433,13 +4032,21 @@ const scoreMuhurtaTime = (
     if (tTenLordPos) {
        const tAscD10 = getDashamshaSign(tAsc.siderealLongitude);
        const tTenLordD10 = getDashamshaSign(tTenLordPos.siderealLongitude);
-       const tAscD10Idx = RASHIS.indexOf(tAscD10);
-       const tTenLordD10Idx = RASHIS.indexOf(tTenLordD10);
-       const houseD10 = ((tTenLordD10Idx - tAscD10Idx + 12) % 12) + 1;
+       const houseD10 = ((RASHIS.indexOf(tTenLordD10) - RASHIS.indexOf(tAscD10) + 12) % 12) + 1;
        if ([1, 4, 7, 10].includes(houseD10)) {
            individualScore += 20;
            reasons.push("Career Anchor: Transit 10th Lord is in a D10 Kendra.");
        }
+    }
+
+    // 10th and 11th house strength in Muhurta chart
+    const tTenSign = RASHIS[(RASHIS.indexOf(tAscSign) + 9) % 12];
+    const tElevenSign = RASHIS[(RASHIS.indexOf(tAscSign) + 10) % 12];
+    const tenOccupants = transitPositions.filter(p => MUHURTA_GRAHAS.includes(p.name) && p.rashi === tTenSign);
+    const elevenOccupants = transitPositions.filter(p => MUHURTA_GRAHAS.includes(p.name) && p.rashi === tElevenSign);
+    if (tenOccupants.some(p => GOCHARA_BENEFICS.includes(p.name)) || elevenOccupants.some(p => GOCHARA_BENEFICS.includes(p.name))) {
+      individualScore += 10;
+      reasons.push('Benefic influence on the 10th or 11th house of the Muhurta chart.');
     }
 
     ["Jupiter", "Venus"].forEach(pName => {
@@ -3458,6 +4065,7 @@ const scoreMuhurtaTime = (
     });
   } else if (category === 'MARRIAGE') {
     const jupiter = transitPositions.find(p => p.name === "Jupiter");
+    const venus = transitPositions.find(p => p.name === "Venus");
     const ulSignIdx = RASHIS.indexOf(natalData.natalUL);
     
     ["Jupiter", "Venus"].forEach(pName => {
@@ -3482,6 +4090,53 @@ const scoreMuhurtaTime = (
           reasons.push("Jupiter blessing your natal Upapada Lagna.");
           break;
         }
+      }
+    }
+
+    // 7th house and Venus strength
+    const tSevenSign = RASHIS[(RASHIS.indexOf(tAscSign) + 6) % 12];
+    const sevenOccupants = transitPositions.filter(p => MUHURTA_GRAHAS.includes(p.name) && p.rashi === tSevenSign);
+    if (sevenOccupants.some(p => !GOCHARA_MALEFICS.includes(p.name))) {
+      individualScore += 10;
+      reasons.push('7th house of the Muhurta chart is free from heavy malefic occupancy.');
+    }
+    if (venus) {
+      const venusHouse = getHouseFromLagna(venus.rashi, tAscSign);
+      if ([1, 4, 5, 7, 9, 10, 11].includes(venusHouse) && !['Saturn', 'Rahu', 'Ketu', 'Mars'].some(m => {
+        const mp = transitPositions.find(x => x.name === m);
+        return mp && mp.rashi === venus.rashi;
+      })) {
+        individualScore += 15;
+        reasons.push('Venus is strong and unafflicted in the Muhurta chart.');
+      }
+    }
+  } else if (category === 'PROPERTY') {
+    const tFourSign = RASHIS[(RASHIS.indexOf(tAscSign) + 3) % 12];
+    const tFourLord = RASHI_LORDS[tFourSign];
+    const tFourLordPos = transitPositions.find(p => p.name === tFourLord);
+    if (tFourLordPos) {
+      const fourLordHouse = getHouseFromLagna(tFourLordPos.rashi, tAscSign);
+      if ([1, 4, 5, 7, 9, 10, 11].includes(fourLordHouse)) {
+        individualScore += 20;
+        reasons.push('4th lord of the Muhurta chart is well placed for property.');
+      }
+    }
+    for (const pName of ['Mars', 'Jupiter'] as const) {
+      const p = transitPositions.find(pos => pos.name === pName);
+      if (!p) continue;
+      const house = getHouseFromLagna(p.rashi, tAscSign);
+      if (house === 4) {
+        individualScore += 15;
+        reasons.push(`${pName} occupies the 4th house — strong for land and foundations.`);
+        break;
+      }
+      const aspects = getAspectingHouses(pName);
+      const pSignIdx = RASHIS.indexOf(p.rashi);
+      const fourSignIdx = RASHIS.indexOf(tFourSign);
+      if (aspects.some(asp => (pSignIdx + asp - 1) % 12 === fourSignIdx)) {
+        individualScore += 10;
+        reasons.push(`${pName} aspects the 4th house of the Muhurta chart.`);
+        break;
       }
     }
   }
@@ -3694,43 +4349,98 @@ export function calculateTriSphuta(lagnaSign: SignNumber, planets: PlanetPositio
 
 // --- Arudha & Relationship Lagnas ---
 
-export function calculateArudhaLagna(lagnaSign: SignNumber, planets: PlanetPosition[]): ArudhaLagnaResult {
-  const lagnaLord = RASHI_LORDS[RASHIS[lagnaSign - 1]];
-  const lordPos = planets.find(p => p.name === lagnaLord);
-  if (!lordPos) return { signNumber: lagnaSign, house: 1 };
-
-  const lordSign = (RASHIS.indexOf(lordPos.rashi) + 1) as SignNumber;
-  const distance = ((lordSign - lagnaSign + 12) % 12);
-  let arudhaSign = ((lordSign + distance - 1) % 12) + 1;
-
-  // Exceptions (BPHS): Arudha cannot be in 1st or 7th from source
-  if (arudhaSign === lagnaSign) {
-    arudhaSign = ((lagnaSign + 9 - 1) % 12) + 1; // 10th house
-  } else if (((arudhaSign - lagnaSign + 12) % 12) + 1 === 7) {
-    arudhaSign = ((lagnaSign + 3 - 1) % 12) + 1; // 4th house
+export function calculateArudhaPada(
+  houseNum: number,
+  lagnaSign: SignNumber,
+  planets: PlanetPosition[],
+): { signNumber: SignNumber; house: number } {
+  const sourceSign = ((lagnaSign + houseNum - 2) % 12 + 1) as SignNumber;
+  const sourceLord = RASHI_LORDS[RASHIS[sourceSign - 1]];
+  const lordPos = planets.find(p => p.name === sourceLord);
+  if (!lordPos) {
+    return { signNumber: sourceSign, house: ((sourceSign - lagnaSign + 12) % 12) + 1 };
   }
 
-  return { signNumber: arudhaSign as SignNumber, house: ((arudhaSign - lagnaSign + 12) % 12) + 1 };
+  const lordSign = (RASHIS.indexOf(lordPos.rashi) + 1) as SignNumber;
+  const distance = ((lordSign - sourceSign + 12) % 12);
+  let arudhaSign = ((lordSign + distance - 1) % 12) + 1;
+
+  // BPHS exceptions: Arudha cannot be in 1st or 7th from source
+  if (arudhaSign === sourceSign) {
+    arudhaSign = ((sourceSign + 9 - 1) % 12) + 1;
+  } else if (((arudhaSign - sourceSign + 12) % 12) + 1 === 7) {
+    arudhaSign = ((sourceSign + 3 - 1) % 12) + 1;
+  }
+
+  return {
+    signNumber: arudhaSign as SignNumber,
+    house: ((arudhaSign - lagnaSign + 12) % 12) + 1,
+  };
+}
+
+export function calculateArudhaLagna(lagnaSign: SignNumber, planets: PlanetPosition[]): ArudhaLagnaResult {
+  return calculateArudhaPada(1, lagnaSign, planets);
+}
+
+function analyzeSecondFromUL(
+  upapadaSign: SignNumber,
+  lagnaSign: SignNumber,
+  planets: PlanetPosition[],
+): UpapadaLagnaResult['secondFromUL'] {
+  const secondSign = advanceSigns(upapadaSign, 2);
+  const secondSignName = getSignName(secondSign);
+  const lord = getRashiLord(secondSignName);
+  const grahas = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
+  const occupants = planets
+    .filter(p => grahas.includes(p.name) && RASHIS.indexOf(p.rashi) + 1 === secondSign)
+    .map(p => p.name);
+
+  const aspectingPlanets: string[] = [];
+  for (const p of planets.filter(x => grahas.includes(x.name))) {
+    const drishti = calculateDrishti(p.name, planets);
+    if (drishti.aspectedRashis.includes(secondSignName)) {
+      aspectingPlanets.push(p.name);
+    }
+  }
+
+  const benefics = ['Jupiter', 'Venus', 'Mercury'];
+  const malefics = ['Saturn', 'Mars', 'Rahu', 'Ketu', 'Sun'];
+  const beneficCount = [...occupants, ...aspectingPlanets].filter(x => benefics.includes(x)).length;
+  const maleficCount = [...occupants, ...aspectingPlanets].filter(x => malefics.includes(x)).length;
+
+  let influence: 'benefic' | 'malefic' | 'mixed' | 'neutral' = 'neutral';
+  if (beneficCount > 0 && maleficCount === 0) influence = 'benefic';
+  else if (maleficCount > 0 && beneficCount === 0) influence = 'malefic';
+  else if (beneficCount > 0 && maleficCount > 0) influence = 'mixed';
+
+  let interpretation = `The 2nd house from Upapada Lagna (${secondSignName}, lord ${lord}) governs the sustenance and longevity of the marital bond. `;
+  if (influence === 'benefic') {
+    interpretation += 'Benefic influence here supports a durable, nourishing partnership.';
+  } else if (influence === 'malefic') {
+    interpretation += 'Malefic pressure here suggests strain on the bond — conscious care and patience are advised.';
+  } else if (influence === 'mixed') {
+    interpretation += 'Mixed influences indicate both support and tests in sustaining the union.';
+  } else {
+    interpretation += 'No strong graha influence — the bond follows its natural course from other chart factors.';
+  }
+
+  return {
+    signNumber: secondSign,
+    signName: secondSignName,
+    lord,
+    occupants,
+    aspectingPlanets,
+    influence,
+    interpretation,
+  };
 }
 
 export function calculateUpapadaLagna(lagnaSign: SignNumber, planets: PlanetPosition[]): UpapadaLagnaResult {
-  const house12Sign = ((lagnaSign + 11 - 1) % 12) + 1;
-  const house12Lord = RASHI_LORDS[RASHIS[house12Sign - 1]];
-  const lordPos = planets.find(p => p.name === house12Lord);
-  if (!lordPos) return { signNumber: house12Sign as SignNumber, house: 12 };
-
-  const lordSign = (RASHIS.indexOf(lordPos.rashi) + 1) as SignNumber;
-  const distance = ((lordSign - house12Sign + 12) % 12);
-  let upapadaSign = ((lordSign + distance - 1) % 12) + 1;
-
-  // Exceptions (BPHS): Same as AL
-  if (upapadaSign === house12Sign) {
-    upapadaSign = ((house12Sign + 9 - 1) % 12) + 1;
-  } else if (((upapadaSign - house12Sign + 12) % 12) + 1 === 7) {
-    upapadaSign = ((house12Sign + 3 - 1) % 12) + 1;
-  }
-
-  return { signNumber: upapadaSign as SignNumber, house: ((upapadaSign - lagnaSign + 12) % 12) + 1 };
+  const base = calculateArudhaPada(12, lagnaSign, planets);
+  return {
+    ...base,
+    secondFromUL: analyzeSecondFromUL(base.signNumber, lagnaSign, planets),
+  };
 }
 
 export function calculateVarnadaLagna(
@@ -4009,110 +4719,147 @@ const chooseMuhurtaStepMinutes = (rangeMs: number): number => {
   return MUHURTA_STEP_LADDER_MINUTES[MUHURTA_STEP_LADDER_MINUTES.length - 1];
 };
 
-export const findMuhurtaWindows = (
+const consolidateMuhurtaWindows = (windows: MuhurtaWindow[]): MuhurtaWindow[] => {
+  const consolidated: MuhurtaWindow[] = [];
+  if (windows.length === 0) return consolidated;
+
+  let currentBlock = { ...windows[0] };
+  for (let i = 1; i < windows.length; i++) {
+    const w = windows[i];
+    if (w.start.getTime() === currentBlock.end.getTime() && Math.abs(w.score - currentBlock.score) < 10) {
+      currentBlock.end = w.end;
+      currentBlock.score = Math.max(currentBlock.score, w.score);
+      currentBlock.rawScore = Math.max(currentBlock.rawScore, w.rawScore);
+      currentBlock.globalScore = Math.max(currentBlock.globalScore, w.globalScore);
+      currentBlock.individualScore = Math.max(currentBlock.individualScore, w.individualScore);
+      currentBlock.reasons = Array.from(new Set([...currentBlock.reasons, ...w.reasons]));
+    } else {
+      consolidated.push(currentBlock);
+      currentBlock = { ...w };
+    }
+  }
+  consolidated.push(currentBlock);
+  return consolidated.sort((a, b) => b.score - a.score).slice(0, 5);
+};
+
+interface MuhurtaScanOutcome {
+  windows: MuhurtaWindow[];
+  stepMinutes: number;
+  scannedThrough: Date;
+  truncated: boolean;
+  funnelStats: MuhurtaFunnelStats;
+}
+
+const runMuhurtaScan = (
   natalPositions: PlanetPosition[],
+  natalData: MuhurtaBaseData,
   startDate: Date,
   endDate: Date,
   category: EventCategory,
   lat: number,
   lon: number,
   currentDasha: string
-): MuhurtaSearchResult => {
-  const natalAscendant = natalPositions.find(p => p.name === "Ascendant");
-  const natalMoon = natalPositions.find(p => p.name === "Moon");
-
-  // Both are required by every veto below; bail out cleanly instead of throwing on `undefined.rashi`.
-  if (!natalAscendant || !natalMoon) {
-    return { windows: [], stepMinutes: 0, scannedThrough: new Date(startDate), truncated: false };
-  }
-
-  const natalData: MuhurtaBaseData = {
-    natalAscendant,
-    natalMoon,
-    natalUL: calculateUL(natalPositions),
-    natalAmK: calculateAmK(natalPositions),
-    currentDasha
-  };
-
+): MuhurtaScanOutcome => {
   const stepMinutes = chooseMuhurtaStepMinutes(endDate.getTime() - startDate.getTime());
   const stepMs = stepMinutes * 60 * 1000;
   const windows: MuhurtaWindow[] = [];
+  const funnelStats = createEmptyFunnelStats();
 
   let current = new Date(startDate);
-  let sunriseSunset: { sunrise: Date, sunset: Date } | null = null;
-  let lastDay = -1;
+  const dayGateCache = new Map<string, MuhurtaDayGate>();
+  const seenDays = new Set<string>();
+  const tier2PassedDays = new Set<string>();
 
-  // Hard safety cap. The step ladder above sizes `stepMs` so this is normally not reached;
-  // it only bites on extreme custom ranges (beyond ~360 days).
   let steps = 0;
   let scannedThrough = new Date(startDate);
 
   while (current <= endDate && steps < MUHURTA_MAX_SAMPLES) {
     scannedThrough = new Date(current);
-    if (current.getDate() !== lastDay) {
-      sunriseSunset = getRiseSetInfo(current, lat, lon);
-      lastDay = current.getDate();
+    funnelStats.samplesScanned++;
+
+    const dayGate = getMuhurtaDayGate(current, lat, lon, category, dayGateCache);
+    const dayKey = dayGate.sunrise.toISOString().slice(0, 10);
+
+    if (!seenDays.has(dayKey)) {
+      seenDays.add(dayKey);
+      funnelStats.daysScanned++;
+      if (dayGate.tier1Pass) funnelStats.daysTier1Pass++;
+    }
+
+    // Tier 1 — day-level Panchanga gate (cached per Vedic day)
+    if (!dayGate.tier1Pass) {
+      funnelStats.rejected.tier1Day++;
+      current = new Date(current.getTime() + stepMs);
+      steps++;
+      continue;
     }
 
     const tPos = calculatePositionsLite(current, lat, lon);
     const tMoon = tPos.find(p => p.name === "Moon")!;
     const tAsc = tPos.find(p => p.name === "Ascendant")!;
 
-    // Vetoes
-    const tCount = getNakshatraCount(natalData.natalMoon.nakshatra, tMoon.nakshatra);
-    if ([3, 5, 7].includes(tCount % 9)) {
+    // Tier 2 — per-sample Tarabala / Chandrabala at transit Moon
+    if (!evaluateTier2Sample(natalData.natalMoon, tMoon)) {
+      funnelStats.rejected.tier2Day++;
       current = new Date(current.getTime() + stepMs);
       steps++;
       continue;
     }
 
-    const nMIdx = RASHIS.indexOf(natalData.natalMoon.rashi);
-    const tMIdx = RASHIS.indexOf(tMoon.rashi);
-    if ([6, 8, 12].includes(((tMIdx - nMIdx + 12) % 12) + 1)) {
-      current = new Date(current.getTime() + stepMs);
-      steps++;
-      continue;
+    if (!tier2PassedDays.has(dayKey)) {
+      tier2PassedDays.add(dayKey);
+      funnelStats.daysTier2Pass++;
     }
 
+    // Tier 3 — Lagna clash with natal Ascendant (hourly Lagna rotation)
     const nAIdx = RASHIS.indexOf(natalData.natalAscendant.rashi);
     const tAIdx = RASHIS.indexOf(tAsc.rashi);
     if ([8, 12].includes(((tAIdx - nAIdx + 12) % 12) + 1)) {
+      funnelStats.rejected.lagnaClash++;
       current = new Date(current.getTime() + stepMs);
       steps++;
       continue;
     }
 
-    if (sunriseSunset && isRahuKaalActive(current, sunriseSunset.sunrise, sunriseSunset.sunset)) {
+    if (isRahuKaalActive(current, dayGate.sunrise, dayGate.sunset)) {
+      funnelStats.rejected.rahuKaal++;
       current = new Date(current.getTime() + stepMs);
       steps++;
       continue;
     }
 
     const pan = calculatePanchang(current, tPos);
-    // Universal Vetoes (Panchang)
-    if (isRiktaTithiActive(pan.tithi.number)) {
+
+    // Tier 3 — Ashtama Shuddhi (no malefics in 8th from Muhurta Lagna)
+    if (violatesAshtamaShuddhi(tPos)) {
+      funnelStats.rejected.ashtama++;
       current = new Date(current.getTime() + stepMs);
       steps++;
       continue;
     }
 
-    // Yoga Vetoes (Vyatipata=17, Vaidhriti=27)
-    if ([17, 27].includes(pan.yoga.number)) {
+    // Tier 4 hard vetoes — tight afflictions only
+    if (isLagnaLordHardVeto(tPos)) {
+      funnelStats.rejected.lagnaLordVeto++;
       current = new Date(current.getTime() + stepMs);
       steps++;
       continue;
     }
 
-    // Karana Vetoes (Vishti/Bhadra = Karana 7 if repeating, or fixed 59-60)
-    if (pan.karana.name === "Vishti") {
-        current = new Date(current.getTime() + stepMs);
-        steps++;
-        continue;
+    if (hasNatalMaleficTransitAffliction(tPos, natalPositions, currentDasha)) {
+      funnelStats.rejected.natalMaleficVeto++;
+      current = new Date(current.getTime() + stepMs);
+      steps++;
+      continue;
     }
 
-    // `pan` is derived from `current`, so Vara is the candidate's weekday — not today's.
-    const res = scoreMuhurtaTime(tPos, natalData, category, pan);
-    // Gate on the unnormalised score so the candidate set matches the pre-normalisation behaviour.
+    funnelStats.samplesPassAll++;
+
+    const tarabala = getTarabala(natalData.natalMoon.nakshatra, tMoon.nakshatra);
+    const chandrabala = getChandrabala(natalData.natalMoon.rashi, tMoon.rashi);
+
+    // Tier 4 scoring — rank surviving candidates
+    const res = scoreMuhurtaTime(tPos, natalPositions, natalData, category, pan);
     if (res.rawScore > 20) {
       windows.push({
         start: new Date(current),
@@ -4125,42 +4872,110 @@ export const findMuhurtaWindows = (
         reasons: res.reasons,
         vargottamaLagna: res.vargottamaLagna,
         vargottamaMoon: res.vargottamaMoon,
+        tarabala,
+        chandrabala,
         panchang: pan
       });
+    } else {
+      funnelStats.rejected.lowScore++;
     }
 
     current = new Date(current.getTime() + stepMs);
     steps++;
   }
 
-  // Consolidate contiguous blocks
-  const consolidated: MuhurtaWindow[] = [];
-  if (windows.length > 0) {
-    let currentBlock = { ...windows[0] };
-    for (let i = 1; i < windows.length; i++) {
-        const w = windows[i];
-        if (w.start.getTime() === currentBlock.end.getTime() && Math.abs(w.score - currentBlock.score) < 10) {
-            currentBlock.end = w.end;
-            currentBlock.score = Math.max(currentBlock.score, w.score);
-            currentBlock.rawScore = Math.max(currentBlock.rawScore, w.rawScore);
-            currentBlock.globalScore = Math.max(currentBlock.globalScore, w.globalScore);
-            currentBlock.individualScore = Math.max(currentBlock.individualScore, w.individualScore);
-            currentBlock.reasons = Array.from(new Set([...currentBlock.reasons, ...w.reasons]));
-        } else {
-            consolidated.push(currentBlock);
-            currentBlock = { ...w };
-        }
-    }
-    consolidated.push(currentBlock);
-  }
-
   return {
-    windows: consolidated.sort((a, b) => b.score - a.score).slice(0, 5),
+    windows: consolidateMuhurtaWindows(windows),
     stepMinutes,
     scannedThrough,
-    // Strict `<`: a run that stops with `current` exactly on `endDate` covered the whole range.
     truncated: steps >= MUHURTA_MAX_SAMPLES && current.getTime() < endDate.getTime(),
+    funnelStats,
   };
+};
+
+const MUHURTA_AUTO_EXPAND_DAYS = [60, 90, 180] as const;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export const findMuhurtaWindows = (
+  natalPositions: PlanetPosition[],
+  startDate: Date,
+  endDate: Date,
+  category: EventCategory,
+  lat: number,
+  lon: number,
+  currentDasha: string
+): MuhurtaSearchResult => {
+  const natalAscendant = natalPositions.find(p => p.name === "Ascendant");
+  const natalMoon = natalPositions.find(p => p.name === "Moon");
+
+  if (!natalAscendant || !natalMoon) {
+    return {
+      windows: [],
+      stepMinutes: 0,
+      scannedThrough: new Date(startDate),
+      truncated: false,
+      emptyReason: 'missing_natal_data',
+    };
+  }
+
+  if (endDate.getTime() < startDate.getTime()) {
+    return {
+      windows: [],
+      stepMinutes: 0,
+      scannedThrough: new Date(startDate),
+      truncated: false,
+      emptyReason: 'invalid_range',
+    };
+  }
+
+  const charakarakas = calculateCharakarakas(natalPositions);
+  const lagnaSignNumber = (RASHIS.indexOf(natalAscendant.rashi) + 1) as SignNumber;
+  const upapada = calculateUpapadaLagna(lagnaSignNumber, natalPositions);
+
+  const natalData: MuhurtaBaseData = {
+    natalAscendant,
+    natalMoon,
+    natalUL: RASHIS[upapada.signNumber - 1],
+    natalAmK: charakarakas.AmK,
+    currentDasha
+  };
+
+  const requestedRangeDays = (endDate.getTime() - startDate.getTime()) / MS_PER_DAY;
+  let scan = runMuhurtaScan(natalPositions, natalData, startDate, endDate, category, lat, lon, currentDasha);
+
+  let expandedFromDays: number | undefined;
+  if (scan.windows.length === 0 && requestedRangeDays <= 30) {
+    for (const expandDays of MUHURTA_AUTO_EXPAND_DAYS) {
+      if (expandDays <= requestedRangeDays) continue;
+      const expandedEnd = new Date(startDate.getTime() + expandDays * MS_PER_DAY);
+      const expandedScan = runMuhurtaScan(
+        natalPositions, natalData, startDate, expandedEnd, category, lat, lon, currentDasha
+      );
+      if (expandedScan.windows.length > 0) {
+        scan = expandedScan;
+        expandedFromDays = Math.round(requestedRangeDays) || requestedRangeDays;
+        break;
+      }
+    }
+  }
+
+  const result: MuhurtaSearchResult = {
+    windows: scan.windows,
+    stepMinutes: scan.stepMinutes,
+    scannedThrough: scan.scannedThrough,
+    truncated: scan.truncated,
+    funnelStats: scan.funnelStats,
+  };
+
+  if (expandedFromDays !== undefined) {
+    result.expandedFromDays = expandedFromDays;
+  }
+
+  if (scan.windows.length === 0) {
+    result.emptyReason = 'no_strict_matches';
+  }
+
+  return result;
 }
 
 export const getDashaWarning = (dasha: string): string => {
@@ -4219,6 +5034,12 @@ function buildSudarshanaLayer(
     });
   return { label, description, referencePlanet, referenceSign, referenceSignIndex: refSignIndex, houses };
 }
+
+/** Active Sudarshana house for a given age: (age mod 12) + 1; remainder 0 → house 12. */
+export const calculateSudarshanaActiveHouse = (age: number): number => {
+  const remainder = age % 12;
+  return remainder === 0 ? 12 : remainder + 1;
+};
 
 export const calculateSudarshanaChakra = (birthPositions: PlanetPosition[]): SudarshanaChakraResult => {
   const ascendant = birthPositions.find(p => p.name === 'Ascendant');

@@ -13,7 +13,7 @@ import { Header } from './components/Header';
 import { SectionNav } from './components/SectionNav';
 import { MobileNavigation } from './components/MobileNavigation';
 import { MoreSheet } from './components/MoreSheet';
-import { type NavId, pathToNavId, navIdToPath, DEFAULT_NAV_ID, MORE_SHEET_IDS, CONTROLS_HUD_IDS } from './lib/navigation';
+import { type NavId, pathToNavId, navIdToPath, DEFAULT_NAV_ID, MORE_SHEET_IDS, CONTROLS_HUD_IDS, isDashboardView } from './lib/navigation';
 import { DASHBOARD_TABS } from './lib/dashboardTabs';
 import { TabGroup, type TabGroupItem } from './components/ui';
 import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
@@ -152,13 +152,13 @@ const EphemerisModal = ({
         exit={{ scale: 0.9, opacity: 0 }}
         className={cn(
           "border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl transition-colors duration-500",
-          theme === 'dark' ? "bg-[#0a0a0a] border-white/10" : "bg-white border-slate-200"
+          theme === 'dark' ? "bg-[#0a0a0a] border-white/10" : "bg-surface-card border-border-gold"
         )}
       >
-        <div className={cn("p-6 border-b flex justify-between items-center", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
+        <div className={cn("p-6 border-b flex justify-between items-center", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
           <div className="flex items-center gap-3">
             <CalendarDays className="w-5 h-5 text-orange-500" />
-            <h2 className={cn("text-lg font-bold uppercase tracking-tight font-serif italic", theme === 'dark' ? "text-white" : "text-slate-900")}>Ephemeris Export</h2>
+            <h2 className={cn("text-lg font-bold uppercase tracking-tight font-serif italic", theme === 'dark' ? "text-white" : "text-ink-primary")}>Ephemeris Export</h2>
           </div>
           <button onClick={onClose} className={cn("p-2 rounded-lg transition-colors", theme === 'dark' ? "hover:bg-white/5 text-white/40" : "hover:bg-slate-100 text-slate-400")}>
             <X className="w-5 h-5" />
@@ -168,7 +168,7 @@ const EphemerisModal = ({
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Start Date</label>
+              <label className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Start Date</label>
               <input 
                 type="date" 
                 value={start}
@@ -180,7 +180,7 @@ const EphemerisModal = ({
               />
             </div>
             <div className="space-y-2">
-              <label className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>End Date</label>
+              <label className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>End Date</label>
               <input 
                 type="date" 
                 value={end}
@@ -194,7 +194,7 @@ const EphemerisModal = ({
           </div>
 
           <div className="space-y-2">
-            <label className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Frequency</label>
+            <label className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Frequency</label>
             <div className="flex gap-2">
               {(['daily', 'weekly'] as const).map((f) => (
                 <button
@@ -289,15 +289,15 @@ const TransitInterpretationModal = ({
         exit={{ scale: 0.9, opacity: 0 }}
         className={cn(
           "border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl transition-colors duration-500 flex flex-col max-h-[80vh]",
-          theme === 'dark' ? "bg-[#0a0a0a] border-white/10" : "bg-white border-slate-200"
+          theme === 'dark' ? "bg-[#0a0a0a] border-white/10" : "bg-surface-card border-border-gold"
         )}
       >
-        <div className={cn("p-6 border-b flex justify-between items-center", theme === 'dark' ? "border-white/5 bg-white/5" : "border-slate-100 bg-slate-50")}>
+        <div className={cn("p-6 border-b flex justify-between items-center", theme === 'dark' ? "border-white/5 bg-white/5" : "border-border-gold bg-surface-muted")}>
           <div className="flex items-center gap-3">
             <Sparkles className="w-5 h-5 text-purple-500" />
             <div>
-              <h2 className={cn("text-lg font-bold uppercase tracking-tight font-serif italic", theme === 'dark' ? "text-white/90" : "text-slate-900")}>{transit.title}</h2>
-              <p className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>AI Astrological Interpretation</p>
+              <h2 className={cn("text-lg font-bold uppercase tracking-tight font-serif italic", theme === 'dark' ? "text-white/90" : "text-ink-primary")}>{transit.title}</h2>
+              <p className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>AI Astrological Interpretation</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -329,7 +329,7 @@ const TransitInterpretationModal = ({
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
-              <p className={cn("text-sm font-mono uppercase tracking-widest animate-pulse", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Consulting the celestial spheres...</p>
+              <p className={cn("text-sm font-mono uppercase tracking-widest animate-pulse", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Consulting the celestial spheres...</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -341,17 +341,17 @@ const TransitInterpretationModal = ({
                 )}>
                   {transit.type}
                 </span>
-                <span className={cn("text-xs font-mono italic", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Original interpretation: {transit.description}</span>
+                <span className={cn("text-xs font-mono italic", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Original interpretation: {transit.description}</span>
               </div>
               
               <div className={cn("prose max-w-none", theme === 'dark' ? "prose-invert" : "")}>
-                <div className={cn("markdown-body leading-relaxed text-sm", theme === 'dark' ? "text-white/80" : "text-slate-700")}>
+                <div className={cn("markdown-body leading-relaxed text-sm", theme === 'dark' ? "text-white/80" : "text-ink-secondary")}>
                   <ReactMarkdown>{interpretation || "No interpretation generated."}</ReactMarkdown>
                 </div>
               </div>
 
               {interpretation && (
-                <div className={cn("pt-6 border-t flex justify-center", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
+                <div className={cn("pt-6 border-t flex justify-center", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
                   <button
                     onClick={handleSave}
                     disabled={isSaving || isSaved}
@@ -371,7 +371,7 @@ const TransitInterpretationModal = ({
           )}
         </div>
         
-        <div className={cn("p-4 border-t flex justify-end transition-colors duration-500", theme === 'dark' ? "border-white/5 bg-white/[0.02]" : "border-slate-100 bg-slate-50")}>
+        <div className={cn("p-4 border-t flex justify-end transition-colors duration-500", theme === 'dark' ? "border-white/5 bg-white/[0.02]" : "border-border-gold bg-surface-muted")}>
           <button 
             onClick={onClose}
             className={cn(
@@ -1580,7 +1580,7 @@ INTERPRETATION GUIDELINES:
     return (
       <div className={cn(
         "min-h-screen flex items-center justify-center transition-colors duration-500",
-        theme === 'dark' ? "bg-[#050505]" : "bg-slate-50"
+        theme === 'dark' ? "bg-[#050505]" : "bg-surface-base"
       )}>
         <motion.div
           animate={{ rotate: 360 }}
@@ -1595,7 +1595,7 @@ INTERPRETATION GUIDELINES:
 
   if (isAuthReady && !user) {
     return (
-      <React.Suspense fallback={<div className="min-h-screen universe-bg dark" />}>
+      <React.Suspense fallback={<div className="min-h-screen universe-bg light" />}>
         <LandingPage />
       </React.Suspense>
     );
@@ -1628,108 +1628,16 @@ INTERPRETATION GUIDELINES:
 
   const isPendingApproval = userProfile?.approvalStatus === 'pending';
 
-  if (activeTab === 'admin' && user && userProfile) {
-    return (
-      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" /></div>}>
-        <AdminPage
-          user={user}
-          userProfile={userProfile}
-          theme={theme}
-          onClose={() => setActiveTab(DEFAULT_NAV_ID)}
-        />
-      </React.Suspense>
-    );
-  }
-
-  if (activeTab === 'sudarshana' && birthPositions && user && userProfile) {
-    return (
-      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" /></div>}>
-        <SudarshanaChakraPage
-          birthPositions={birthPositions}
-          user={user}
-          userProfile={userProfile}
-          birthFingerprint={birthFingerprint}
-          onClose={() => setActiveTab(DEFAULT_NAV_ID)}
-        />
-      </React.Suspense>
-    );
-  }
-
-  if (activeTab === 'report' && user && userProfile) {
-    return (
-      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" /></div>}>
-        <div className={cn(
-          "min-h-screen font-sans selection:bg-jyotish-gold/30 transition-colors duration-500",
-          theme === 'dark' ? "bg-[#050505] text-white" : "bg-white text-slate-900"
-        )}>
-          <CosmicReport 
-            user={user}
-            profile={userProfile}
-            birthPositions={birthPositions}
-            yogas={birthYogas}
-            panchang={birthPanchang}
-            blueprint={birthSpecialPoints}
-            ashtakavarga={natalAshtakavarga}
-            theme={theme}
-            onClose={() => setActiveTab(DEFAULT_NAV_ID)}
-            transitPositions={transitPositions}
-            transits={transits}
-            birthFingerprint={birthFingerprint}
-          />
-        </div>
-      </React.Suspense>
-    );
-  }
-
-  if (activeTab === 'chat' && user && userProfile) {
-    return (
-      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" /></div>}>
-        <AIChatPage
-          user={user}
-          userProfile={userProfile}
-          childProfiles={childProfiles}
-          transitPositions={transitPositions}
-          birthPositions={birthPositions}
-          birthYogas={birthYogas}
-          yogas={yogas}
-          transits={transits}
-          birthPanchang={birthPanchang}
-          panchang={panchang}
-          birthSpecialPoints={birthSpecialPoints}
-          onClose={() => setActiveTab(DEFAULT_NAV_ID)}
-        />
-      </React.Suspense>
-    );
-  }
-
-  if (activeTab === 'profiles' && user && userProfile) {
-    return (
-      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" /></div>}>
-        <div className={cn(
-          "min-h-screen font-sans selection:bg-jyotish-gold/30 transition-colors duration-500",
-          theme === 'dark' ? "bg-[#050505] text-white" : "bg-white text-slate-900"
-        )}>
-          <ProfilesPage
-            user={user}
-            userProfile={userProfile}
-            childProfiles={childProfiles}
-            activeChildProfileId={activeChildProfileId}
-            onSaveProfile={saveChildProfile}
-            onDeleteProfile={deleteChildProfile}
-            onLoadProfile={loadChildProfile}
-            onClearProfile={clearChildProfile}
-            geocode={geocode}
-            onClose={() => setActiveTab(DEFAULT_NAV_ID)}
-          />
-        </div>
-      </React.Suspense>
-    );
-  }
+  const pageSuspenseFallback = (
+    <div className="flex-1 flex items-center justify-center min-h-[12rem]">
+      <Loader2 className="w-10 h-10 text-jyotish-gold animate-spin" />
+    </div>
+  );
 
   return (
     <div className={cn(
       "h-[100dvh] font-sans selection:bg-jyotish-gold/30 overflow-hidden flex flex-col transition-colors duration-500 universe-bg",
-      theme === 'dark' ? "dark text-white" : "light bg-[#f8f9fa] text-slate-900"
+      theme === 'dark' ? "dark text-white" : "light bg-surface-base text-ink-primary"
     )}>
       {/* Atmospheric Background */}
       <CelestialBackground />
@@ -1832,7 +1740,7 @@ INTERPRETATION GUIDELINES:
               ) : (
                 <div className={cn(
                   "flex flex-col items-center justify-center py-24 gap-3",
-                  theme === 'dark' ? "text-white/30" : "text-slate-400"
+                  theme === 'dark' ? "text-white/30" : "text-ink-faint"
                 )}>
                   <Layers className="w-10 h-10 opacity-40" />
                   <p className="text-sm">Enter birth details to view your kundli</p>
@@ -1842,8 +1750,8 @@ INTERPRETATION GUIDELINES:
           </div>
         )}
 
-        {/* Primary Views Grid — Sky + Insights (not Kundli) */}
-        {activeTab !== 'archives' && activeTab !== 'profile' && activeTab !== 'chart' && (
+        {/* Primary Views Grid — Sky + Insights (dashboard tabs only) */}
+        {isDashboardView(activeTab) && (
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden">
             {/* Left Panel: Sky Map — exclusive on mobile for sky */}
             <SkyMap
@@ -1880,7 +1788,7 @@ INTERPRETATION GUIDELINES:
             {/* Right Panel: Data Dashboard — exclusive on mobile for stats */}
             <div className={cn(
               "flex flex-col min-h-0 min-w-0 border-t lg:border-t-0 transition-colors duration-500 lg:col-span-6",
-              theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-200",
+              theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-surface-card border-border-gold",
               activeTab === 'sky' ? "hidden lg:flex" : "flex"
             )}>
               <DataDashboard
@@ -1955,9 +1863,124 @@ INTERPRETATION GUIDELINES:
           </div>
         )}
 
+        {/* Admin */}
+        {activeTab === 'admin' && user && userProfile && (
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <React.Suspense fallback={pageSuspenseFallback}>
+              <AdminPage
+                user={user}
+                userProfile={userProfile}
+                theme={theme}
+                onClose={() => setActiveTab(DEFAULT_NAV_ID)}
+              />
+            </React.Suspense>
+          </div>
+        )}
+
+        {/* Sudarshana Chakra */}
+        {activeTab === 'sudarshana' && user && userProfile && (
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            {birthPositions ? (
+              <React.Suspense fallback={pageSuspenseFallback}>
+                <SudarshanaChakraPage
+                  birthPositions={birthPositions}
+                  birthTime={birthTime}
+                  user={user}
+                  userProfile={userProfile}
+                  birthFingerprint={birthFingerprint}
+                  childProfiles={childProfiles}
+                  onClose={() => setActiveTab(DEFAULT_NAV_ID)}
+                />
+              </React.Suspense>
+            ) : (
+              <div className={cn(
+                "flex flex-col items-center justify-center flex-1 gap-3",
+                theme === 'dark' ? "text-white/30" : "text-ink-faint"
+              )}>
+                <CircleDot className="w-10 h-10 opacity-40" />
+                <p className="text-sm">Enter birth details to view Sudarshana Chakra</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Full Cosmic Report */}
+        {activeTab === 'report' && user && userProfile && (
+          <div className={cn(
+            "flex-1 min-h-0 overflow-y-auto font-sans selection:bg-jyotish-gold/30 transition-colors duration-500",
+            theme === 'dark' ? "bg-[#050505] text-white" : "bg-surface-card text-ink-primary"
+          )}>
+            <React.Suspense fallback={pageSuspenseFallback}>
+              <CosmicReport
+                user={user}
+                profile={userProfile}
+                birthPositions={birthPositions}
+                yogas={birthYogas}
+                panchang={birthPanchang}
+                blueprint={birthSpecialPoints}
+                theme={theme}
+                onClose={() => setActiveTab(DEFAULT_NAV_ID)}
+                transitPositions={transitPositions}
+                transits={transits}
+                birthFingerprint={birthFingerprint}
+              />
+            </React.Suspense>
+          </div>
+        )}
+
+        {/* Jyotish AI Chat */}
+        {activeTab === 'chat' && user && userProfile && (
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            <React.Suspense fallback={pageSuspenseFallback}>
+              <AIChatPage
+                user={user}
+                userProfile={userProfile}
+                childProfiles={childProfiles}
+                referenceDate={currentTime}
+                locationLabel={city ?? undefined}
+                transitPositions={transitPositions}
+                birthPositions={birthPositions}
+                birthYogas={birthYogas}
+                yogas={yogas}
+                transits={transits}
+                birthPanchang={birthPanchang}
+                panchang={panchang}
+                birthSpecialPoints={birthSpecialPoints}
+                onClose={() => setActiveTab(DEFAULT_NAV_ID)}
+              />
+            </React.Suspense>
+          </div>
+        )}
+
+        {/* People / Child Profiles */}
+        {activeTab === 'profiles' && user && userProfile && (
+          <div className={cn(
+            "flex-1 min-h-0 overflow-hidden flex flex-col font-sans selection:bg-jyotish-gold/30 transition-colors duration-500",
+            theme === 'dark' ? "bg-[#050505] text-white" : "bg-surface-card text-ink-primary"
+          )}>
+            <React.Suspense fallback={pageSuspenseFallback}>
+              <ProfilesPage
+                user={user}
+                userProfile={userProfile}
+                childProfiles={childProfiles}
+                activeChildProfileId={activeChildProfileId}
+                onSaveProfile={saveChildProfile}
+                onDeleteProfile={deleteChildProfile}
+                onLoadProfile={loadChildProfile}
+                onClearProfile={clearChildProfile}
+                geocode={geocode}
+                onClose={() => setActiveTab(DEFAULT_NAV_ID)}
+              />
+            </React.Suspense>
+          </div>
+        )}
+
         {/* Archives View */}
         {activeTab === 'archives' && user && (
-          <div className="flex-1 min-h-0 bg-black/20">
+          <div className={cn(
+            "flex-1 min-h-0",
+            theme === 'dark' ? "bg-black/20" : "bg-surface-base"
+          )}>
             <Archives uid={user.uid} />
           </div>
         )}
@@ -2039,6 +2062,8 @@ INTERPRETATION GUIDELINES:
       <AIAssistant
         user={user}
         userProfile={userProfile}
+        referenceDate={currentTime}
+        locationLabel={city ?? undefined}
         positions={positions}
         birthPositions={birthPositions}
         birthYogas={birthYogas}
@@ -2076,7 +2101,7 @@ INTERPRETATION GUIDELINES:
             "lg:hidden fixed bottom-[5.5rem] left-1/2 -translate-x-1/2 z-40 border backdrop-blur-md rounded-full px-5 py-2.5 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.4)] cursor-pointer active:scale-95 transition-transform duration-300",
             theme === 'dark'
               ? "bg-[#0b0c10]/90 border-jyotish-gold/25"
-              : "bg-white/90 border-slate-200"
+              : "bg-surface-card/90 border-border-gold"
           )}
         >
           <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
@@ -2121,7 +2146,7 @@ INTERPRETATION GUIDELINES:
 
               <div className={cn(
                 "flex items-center justify-between pb-3 border-b",
-                theme === 'dark' ? "border-white/5" : "border-slate-100"
+                theme === 'dark' ? "border-white/5" : "border-border-gold"
               )}>
                 <div className="flex items-center gap-2">
                   <Compass className="w-5 h-5 text-jyotish-gold animate-spin-slow" />
@@ -2179,7 +2204,7 @@ INTERPRETATION GUIDELINES:
                 <label className="text-[9px] uppercase tracking-widest font-mono text-jyotish-gold/70 font-bold">Observer Location</label>
                 <div className={cn(
                   "p-4 rounded-xl border flex items-center justify-between gap-3",
-                  theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-100 shadow-sm"
+                  theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-surface-card border-border-gold shadow-sm"
                 )}>
                   <div className="flex items-center gap-2 min-w-0">
                     <MapPin className="w-4 h-4 text-jyotish-gold shrink-0" />
@@ -2205,7 +2230,7 @@ INTERPRETATION GUIDELINES:
                 <label className="text-[9px] uppercase tracking-widest font-mono text-jyotish-gold/70 font-bold">Epoch Setup</label>
                 <div className={cn(
                   "p-4 rounded-xl border flex flex-col gap-4",
-                  theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-white border-slate-100 shadow-sm"
+                  theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-surface-card border-border-gold shadow-sm"
                 )}>
                   <DateTimePicker
                     label={viewMode === 'natal' ? 'Date & time of birth' : 'Observation moment'}
@@ -2228,7 +2253,7 @@ INTERPRETATION GUIDELINES:
                   {viewMode === 'transit' && (
                     <div className={cn(
                       "flex flex-col sm:flex-row sm:items-center justify-between border-t pt-4 gap-3",
-                      theme === 'dark' ? "border-white/5" : "border-slate-100"
+                      theme === 'dark' ? "border-white/5" : "border-border-gold"
                     )}>
                       <div className="flex items-center gap-2">
                         <button
@@ -2251,7 +2276,7 @@ INTERPRETATION GUIDELINES:
                           onClick={() => adjustTime(-1)}
                           className={cn(
                             "flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 text-[9px] font-mono uppercase tracking-wider transition-all border active:scale-95",
-                            theme === 'dark' ? "bg-white/5 hover:bg-white/10 text-white/60 border-white/10" : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200 shadow-sm"
+                            theme === 'dark' ? "bg-white/5 hover:bg-white/10 text-white/60 border-white/10" : "bg-surface-card hover:bg-surface-muted text-ink-muted border-border-gold shadow-sm"
                           )}
                         >
                           <Rewind className="w-3.5 h-3.5" /> -1 Day
@@ -2260,7 +2285,7 @@ INTERPRETATION GUIDELINES:
                           onClick={() => adjustTime(1)}
                           className={cn(
                             "flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 text-[9px] font-mono uppercase tracking-wider transition-all border active:scale-95",
-                            theme === 'dark' ? "bg-white/5 hover:bg-white/10 text-white/60 border-white/10" : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200 shadow-sm"
+                            theme === 'dark' ? "bg-white/5 hover:bg-white/10 text-white/60 border-white/10" : "bg-surface-card hover:bg-surface-muted text-ink-muted border-border-gold shadow-sm"
                           )}
                         >
                           +1 Day <FastForward className="w-3.5 h-3.5" />

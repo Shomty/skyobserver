@@ -29,6 +29,7 @@ import { PlanetPosition, PanchangData, TransitEvent } from '../vedic-utils';
 import { generateCosmicInterpretations, AICosmicInterpretations } from '../services/geminiService';
 import { getCachedReport, saveAIReport, backupAIReport, getAIReportBackups, restoreAIReport, AIReportBackup } from '../services/aiReportService';
 import { exportUserData, downloadExportAsJSON } from '../services/exportService';
+import { KARAKA_INTERPRETATIONS } from '../lib/blueprintInterpretations';
 
 interface CosmicReportProps {
   user: any;
@@ -37,7 +38,6 @@ interface CosmicReportProps {
   yogas: any[];
   panchang: PanchangData | null;
   blueprint: any | null;
-  ashtakavarga: any | null;
   theme: 'light' | 'dark';
   onClose?: () => void;
   transitPositions?: PlanetPosition[];
@@ -60,51 +60,6 @@ const getPlanetKeywords = (planet: string) => {
   return keywords[planet] || '';
 };
 
-const KARAKA_INTERPRETATIONS: Record<string, Record<string, string>> = {
-  AK: {
-    'Sun': 'Self-realization through leadership, authority, and maintaining integrity.',
-    'Moon': 'Growth through emotional intelligence, care, and connecting with the public.',
-    'Mars': 'Development through courage, energy management, and purposeful action.',
-    'Mercury': 'Purpose through learning, communication, and intellectual adaptability.',
-    'Jupiter': 'Wisdom seeking through teaching, justice, and spiritual expansion.',
-    'Venus': 'Purpose through harmony, devotion, creative expression, and aesthetics.',
-    'Saturn': 'Maturity through discipline, selfless service, and enduring responsibility.',
-    'Rahu': 'Unconventional path through innovation and breaking outdated boundaries.',
-  },
-  AmK: {
-    'Sun': 'Success in executive roles, administration, or leadership positions.',
-    'Moon': 'Prosperity through social fields, hospitality, or creative commerce.',
-    'Mars': 'Achievement in technical fields, engineering, or competitive ventures.',
-    'Mercury': 'Success in communication, strategic planning, writing, or media.',
-    'Jupiter': 'Prosperity as a counselor, teacher, banker, or traditional advisor.',
-    'Venus': 'Success in arts, entertainment, luxury business, or diplomacy.',
-    'Saturn': 'Achievement in structure-building, long-term law, or industry.',
-    'Rahu': 'Prosperity in technology, foreign trade, or innovative disruptions.',
-  },
-  Ishta: {
-    'Sun': 'Seek protection through the Sun (Shiva)—focus on truth, clarity, and steadfastness.',
-    'Moon': 'Seek grace through the Moon (Gauri/Lalitā)—balance via nurturing and devotion.',
-    'Mars': 'Find strength in Mars (Hanuman/Kartikeya)—growth through courage and discipline.',
-    'Mercury': 'Guided by Mercury (Vishnu)—spiritual progress through knowledge and speech.',
-    'Jupiter': 'Protected by Jupiter (Guru/Hayagriva)—wisdom and expansion as your shield.',
-    'Venus': 'Grace of Venus (Lakshmi)—spiritual path through beauty and pure devotion.',
-    'Saturn': 'Disciplined by Saturn (Kurma/Yama)—protection through patience and service.',
-    'Rahu': 'Guided by Rahu (Durga)—breaking illusions through fierce inner strength.',
-    'Ketu': 'Enlightened by Ketu (Ganesha)—liberation through sharp logic and intuition.',
-  },
-  Dharma: {
-    'Sun': 'Duty linked to leadership, maintaining order, and personal integrity.',
-    'Moon': 'Ethical path centered on care, emotional stability, and public service.',
-    'Mars': 'Dharma fulfilled through protection, logical action, and technical defense.',
-    'Mercury': 'Moral duty involves spreading knowledge, fair trade, and diplomacy.',
-    'Jupiter': 'Dharma involves teaching, upholding traditions, and spiritual guidance.',
-    'Venus': 'Ethical mission centered on harmony, creativity, and balanced relationships.',
-    'Saturn': 'Duty to the community, hard work, and maintaining societal structures.',
-    'Rahu': 'Dharma involves innovative disruption and expanding cultural boundaries.',
-    'Ketu': 'Moral path focused on detachment, research, and mystical exploration.',
-  }
-};
-
 export const CosmicReport: React.FC<CosmicReportProps> = ({
   user,
   profile,
@@ -112,7 +67,6 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
   yogas,
   panchang,
   blueprint,
-  ashtakavarga,
   theme,
   onClose,
   transitPositions = [],
@@ -326,7 +280,7 @@ export const CosmicReport: React.FC<CosmicReportProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/50 dark:bg-black/40 py-8 px-4 sm:px-6 lg:px-8 pb-32">
+    <div className="h-full bg-slate-100/50 dark:bg-black/40 py-8 px-4 sm:px-6 lg:px-8 pb-32">
       <div className="max-w-5xl mx-auto flex justify-between items-center mb-8 print:hidden">
         <div className="flex items-center gap-4">
           {onClose && (

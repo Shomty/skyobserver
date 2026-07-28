@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useTheme } from '../../context/ThemeContext';
+import { useThemeClasses } from '../../lib/themeClasses';
 
 interface SectionCardProps {
   title?: string;
@@ -26,21 +26,13 @@ export function SectionCard({
   children,
   className,
 }: SectionCardProps) {
-  const { theme } = useTheme();
+  const tc = useThemeClasses();
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   const hasHeader = Boolean(title || icon || action);
 
   return (
-    <div
-      className={cn(
-        'rounded-2xl border p-4 transition-colors duration-500',
-        theme === 'dark'
-          ? 'bg-white/[0.03] border-white/10'
-          : 'bg-white border-slate-200 shadow-sm',
-        className
-      )}
-    >
+    <div className={cn('rounded-2xl border p-4 transition-colors duration-500', tc.surface, className)}>
       {hasHeader && (
         <div className="flex items-center justify-between gap-3 mb-3">
           <button
@@ -52,18 +44,9 @@ export function SectionCard({
             )}
             disabled={!collapsible}
           >
-            {icon && (
-              <span className={theme === 'dark' ? 'text-jyotish-gold' : 'text-jyotish-gold'}>
-                {icon}
-              </span>
-            )}
+            {icon && <span className="text-jyotish-gold">{icon}</span>}
             {title && (
-              <h3
-                className={cn(
-                  'text-title font-serif truncate',
-                  theme === 'dark' ? 'text-white/90' : 'text-slate-900'
-                )}
-              >
+              <h3 className={cn('text-title font-serif truncate', tc.textPrimary)}>
                 {title}
               </h3>
             )}
@@ -72,7 +55,7 @@ export function SectionCard({
                 className={cn(
                   'w-4 h-4 shrink-0 transition-transform',
                   collapsed && '-rotate-90',
-                  theme === 'dark' ? 'text-white/40' : 'text-slate-400'
+                  tc.textFaint
                 )}
               />
             )}

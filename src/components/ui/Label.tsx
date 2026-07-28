@@ -1,6 +1,6 @@
 import type { ElementType, ReactNode } from 'react';
 import { cn } from '../../lib/utils';
-import { useTheme } from '../../context/ThemeContext';
+import { useThemeClasses } from '../../lib/themeClasses';
 
 interface LabelProps {
   children: ReactNode;
@@ -14,15 +14,13 @@ interface LabelProps {
  * pattern with a readable 12px sans caption.
  */
 export function Label({ children, as: Tag = 'span', className, muted = true }: LabelProps) {
-  const { theme } = useTheme();
+  const tc = useThemeClasses();
 
   return (
     <Tag
       className={cn(
         'text-caption font-medium uppercase tracking-wider',
-        muted
-          ? theme === 'dark' ? 'text-white/50' : 'text-slate-500'
-          : theme === 'dark' ? 'text-white/80' : 'text-slate-700',
+        muted ? tc.textMuted : tc.textSecondary,
         className
       )}
     >

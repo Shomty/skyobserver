@@ -14,11 +14,11 @@ const TypingIndicator: React.FC<TypingIndicatorProps> = ({ theme }) => {
         <Bot className="w-4 h-4 text-jyotish-gold" />
       </div>
       <div className={cn(
-        'rounded-2xl px-4 py-3 border flex items-center gap-2',
-        isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'
+        'rounded-2xl px-4 py-3 border flex items-center gap-2 shadow-sm',
+        isDark ? 'bg-white/5 border-white/10' : 'bg-surface-card border-border-gold'
       )}>
         <Loader2 className="w-4 h-4 animate-spin text-jyotish-gold" />
-        <span className={cn('text-xs', isDark ? 'text-white/40' : 'text-slate-400')}>Consulting the stars…</span>
+        <span className={cn('text-xs', isDark ? 'text-white/40' : 'text-ink-muted')}>Consulting the stars…</span>
       </div>
     </div>
   );

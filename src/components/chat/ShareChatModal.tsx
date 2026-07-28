@@ -5,7 +5,6 @@ import { cn } from '../../lib/utils';
 
 interface ShareChatModalProps {
   theme: 'dark' | 'light';
-  /** Existing share id for this chat, or null if not shared yet. */
   shareId: string | null;
   isCreating: boolean;
   isRevoking: boolean;
@@ -37,8 +36,7 @@ function ShareChatModal({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard may be unavailable (e.g. insecure context); the link is still
-      // visible in the field for manual copy.
+      // Clipboard may be unavailable
     }
   };
 
@@ -48,7 +46,7 @@ function ShareChatModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className={cn('absolute inset-0 backdrop-blur-sm', isDark ? 'bg-black/60' : 'bg-ink-primary/20')}
         onClick={onClose}
       />
       <motion.div
@@ -58,14 +56,14 @@ function ShareChatModal({
         transition={{ duration: 0.15 }}
         className={cn(
           'relative w-full max-w-md rounded-2xl border shadow-2xl p-6',
-          isDark ? 'bg-[#0f0f1a] border-jyotish-gold/20 text-white' : 'bg-white border-slate-200 text-slate-900'
+          isDark ? 'bg-[#0f0f1a] border-jyotish-gold/20 text-white' : 'bg-surface-card border-border-gold text-ink-primary'
         )}
       >
         <button
           onClick={onClose}
           className={cn(
             'absolute top-4 right-4 p-1.5 rounded-lg transition-colors',
-            isDark ? 'text-white/40 hover:text-white hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+            isDark ? 'text-white/40 hover:text-white hover:bg-white/5' : 'text-ink-faint hover:text-ink-primary hover:bg-surface-muted'
           )}
           aria-label="Close"
         >
@@ -81,8 +79,8 @@ function ShareChatModal({
 
         <div
           className={cn(
-            'flex items-start gap-2 text-xs rounded-xl p-3 mb-4',
-            isDark ? 'bg-white/5 text-white/60' : 'bg-slate-50 text-slate-600'
+            'flex items-start gap-2 text-xs rounded-xl p-3 mb-4 border',
+            isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-surface-muted border-border-gold text-ink-secondary'
           )}
         >
           <ShieldCheck className="w-4 h-4 text-jyotish-gold flex-shrink-0 mt-0.5" />
@@ -93,12 +91,7 @@ function ShareChatModal({
         </div>
 
         {error && (
-          <div
-            className={cn(
-              'text-xs rounded-lg px-3 py-2 mb-3',
-              isDark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600'
-            )}
-          >
+          <div className={cn('text-xs rounded-lg px-3 py-2 mb-3', isDark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600 border border-red-200')}>
             {error}
           </div>
         )}
@@ -112,7 +105,7 @@ function ShareChatModal({
                 onFocus={(e) => e.target.select()}
                 className={cn(
                   'flex-1 min-w-0 text-xs rounded-lg px-3 py-2.5 border font-mono',
-                  isDark ? 'bg-black/40 border-white/10 text-white/80' : 'bg-slate-50 border-slate-200 text-slate-700'
+                  isDark ? 'bg-black/40 border-white/10 text-white/80' : 'bg-surface-muted border-border-gold text-ink-secondary'
                 )}
               />
               <button
@@ -120,7 +113,7 @@ function ShareChatModal({
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors flex-shrink-0',
                   copied
-                    ? 'bg-green-500/15 text-green-500'
+                    ? 'bg-green-500/15 text-green-600'
                     : 'bg-jyotish-gold/10 border border-jyotish-gold/20 text-jyotish-gold hover:bg-jyotish-gold/20'
                 )}
               >
@@ -133,7 +126,7 @@ function ShareChatModal({
               disabled={isRevoking}
               className={cn(
                 'w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors',
-                isDark ? 'text-red-400 hover:bg-red-500/10' : 'text-red-500 hover:bg-red-50'
+                isDark ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50 border border-red-200'
               )}
             >
               {isRevoking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}

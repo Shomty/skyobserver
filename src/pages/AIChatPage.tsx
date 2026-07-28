@@ -48,6 +48,8 @@ export interface AIChatPageProps {
   user: User;
   userProfile: any;
   childProfiles: ChildProfile[];
+  referenceDate: Date;
+  locationLabel?: string;
   transitPositions: PlanetPosition[];
   birthPositions: PlanetPosition[] | null;
   birthYogas: Yoga[];
@@ -63,6 +65,8 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
   user,
   userProfile,
   childProfiles,
+  referenceDate,
+  locationLabel,
   transitPositions,
   birthPositions,
   birthYogas,
@@ -376,6 +380,8 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
   const chatCtx: ChatContextProps = {
     userProfile,
     subjectName: resolvedSubjectName,
+    referenceDate,
+    locationLabel,
     transitPositions,
     birthPositions: activeChildProfile ? chatBirthPositions : birthPositions,
     birthYogas: activeChildProfile ? chatBirthYogas : birthYogas,
@@ -389,7 +395,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
   const getSystemInstruction = useCallback(
     () => buildSystemInstruction(chatCtx),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [userProfile, resolvedSubjectName, chatBirthPositions, chatBirthYogas, chatBirthPanchang, chatBirthSpecialPoints, birthPositions, birthYogas, birthPanchang, transitPositions, yogas, transits, panchang, birthSpecialPoints, chatSubjectProfileId]
+    [userProfile, resolvedSubjectName, referenceDate.getTime(), locationLabel, chatBirthPositions, chatBirthYogas, chatBirthPanchang, chatBirthSpecialPoints, birthPositions, birthYogas, birthPanchang, transitPositions, yogas, transits, panchang, birthSpecialPoints, chatSubjectProfileId]
   );
 
   const createNewSession = async () => {
@@ -555,26 +561,26 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
 
   return (
     <div className={cn(
-      "h-screen overflow-hidden font-sans flex flex-col transition-colors duration-500",
-      isDark ? "bg-[#050505] text-white" : "bg-white text-slate-900"
+      "flex-1 min-h-0 overflow-hidden font-sans flex flex-col transition-colors duration-500",
+      isDark ? "bg-[#050505] text-white" : "bg-surface-base text-ink-primary"
     )}>
       {/* Page Header */}
       <header className={cn(
         "sticky top-0 z-40 flex items-center gap-3 px-4 py-3 border-b backdrop-blur-xl flex-shrink-0",
-        isDark ? "bg-mystic-purple/60 border-jyotish-gold/10" : "bg-white/80 border-slate-200"
+        isDark ? "bg-mystic-purple/60 border-jyotish-gold/10" : "bg-surface-card/80 border-border-gold"
       )}>
         <button
           onClick={onClose}
           className={cn(
             "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors",
-            isDark ? "text-white/60 hover:text-white hover:bg-white/5" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+            isDark ? "text-white/60 hover:text-white hover:bg-white/5" : "text-ink-muted hover:text-ink-primary hover:bg-surface-muted"
           )}
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="hidden sm:inline">Back</span>
         </button>
 
-        <div className={cn("w-px h-6", isDark ? "bg-white/10" : "bg-slate-200")} />
+        <div className={cn("w-px h-6", isDark ? "bg-white/10" : "bg-border-gold")} />
 
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-jyotish-gold/10 border border-jyotish-gold/30 flex items-center justify-center">
@@ -592,7 +598,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
                 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] uppercase tracking-widest font-bold transition-all',
                 isDark
                   ? 'bg-white/5 border-white/10 text-jyotish-gold hover:bg-white/10'
-                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                  : 'bg-surface-muted border-border-gold text-ink-secondary hover:bg-surface-elevated'
               )}
               aria-label="Switch analysis subject"
             >
@@ -616,10 +622,10 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
                   transition={{ duration: 0.12 }}
                   className={cn(
                     'absolute top-full mt-2 right-0 z-50 min-w-[180px] rounded-2xl border shadow-xl overflow-hidden',
-                    isDark ? 'bg-[#0f0f1a] border-jyotish-gold/20' : 'bg-white border-slate-200'
+                    isDark ? 'bg-[#0f0f1a] border-jyotish-gold/20' : 'bg-surface-card border-border-gold shadow-lg'
                   )}
                 >
-                  <div className={cn('px-3 py-2 text-[9px] uppercase tracking-widest font-mono border-b', isDark ? 'text-white/30 border-white/5' : 'text-slate-400 border-slate-100')}>
+                  <div className={cn('px-3 py-2 text-[9px] uppercase tracking-widest font-mono border-b', isDark ? 'text-white/30 border-white/5' : 'text-ink-faint border-border-gold')}>
                     Analyze whose chart?
                   </div>
                   {/* Own chart option */}
@@ -627,13 +633,13 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
                     onClick={() => { setChatSubjectProfileId(null); setProfileSelectorOpen(false); }}
                     className={cn(
                       'w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors text-left',
-                      isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50',
-                      !chatSubjectProfileId ? (isDark ? 'text-jyotish-gold' : 'text-amber-600') : (isDark ? 'text-white/70' : 'text-slate-700')
+                      isDark ? 'hover:bg-white/5' : 'hover:bg-surface-muted',
+                      !chatSubjectProfileId ? (isDark ? 'text-jyotish-gold' : 'text-jyotish-gold') : (isDark ? 'text-white/70' : 'text-ink-secondary')
                     )}
                   >
                     {!chatSubjectProfileId ? <Check className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 shrink-0" />}
                     <span className="truncate font-semibold">{userProfile?.displayName || userProfile?.name || 'Your Chart'}</span>
-                    <span className={cn('text-[9px] ml-auto shrink-0', isDark ? 'text-white/30' : 'text-slate-400')}>You</span>
+                    <span className={cn('text-[9px] ml-auto shrink-0', isDark ? 'text-white/30' : 'text-ink-faint')}>You</span>
                   </button>
                   {/* Child profile options */}
                   {childProfiles.map(profile => (
@@ -642,13 +648,13 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
                       onClick={() => { setChatSubjectProfileId(profile.id); setProfileSelectorOpen(false); }}
                       className={cn(
                         'w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors text-left',
-                        isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50',
-                        chatSubjectProfileId === profile.id ? (isDark ? 'text-jyotish-gold' : 'text-amber-600') : (isDark ? 'text-white/70' : 'text-slate-700')
+                        isDark ? 'hover:bg-white/5' : 'hover:bg-surface-muted',
+                        chatSubjectProfileId === profile.id ? (isDark ? 'text-jyotish-gold' : 'text-jyotish-gold') : (isDark ? 'text-white/70' : 'text-ink-secondary')
                       )}
                     >
                       {chatSubjectProfileId === profile.id ? <Check className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 shrink-0" />}
                       <span className="truncate font-semibold">{profile.name}</span>
-                      <span className={cn('text-[9px] ml-auto shrink-0 truncate max-w-[60px]', isDark ? 'text-white/30' : 'text-slate-400')}>{profile.city}</span>
+                      <span className={cn('text-[9px] ml-auto shrink-0 truncate max-w-[60px]', isDark ? 'text-white/30' : 'text-ink-faint')}>{profile.city}</span>
                     </button>
                   ))}
                 </motion.div>
@@ -665,7 +671,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
                 title="Export as PDF"
                 className={cn(
                   'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors',
-                  isDark ? 'text-white/50 hover:text-white hover:bg-white/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                  isDark ? 'text-white/50 hover:text-white hover:bg-white/5' : 'text-ink-muted hover:text-ink-primary hover:bg-surface-muted'
                 )}
               >
                 <Printer className="w-4 h-4" />
@@ -678,7 +684,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
                   'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors',
                   shareId
                     ? 'text-jyotish-gold bg-jyotish-gold/10'
-                    : isDark ? 'text-white/50 hover:text-white hover:bg-white/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                    : isDark ? 'text-white/50 hover:text-white hover:bg-white/5' : 'text-ink-muted hover:text-ink-primary hover:bg-surface-muted'
                 )}
               >
                 <Share2 className="w-4 h-4" />
@@ -690,7 +696,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
             onClick={() => setSidebarOpen(s => !s)}
             className={cn(
               "lg:hidden p-2 rounded-lg transition-colors",
-              isDark ? "text-white/40 hover:text-white hover:bg-white/5" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              isDark ? "text-white/40 hover:text-white hover:bg-white/5" : "text-ink-faint hover:text-ink-primary hover:bg-surface-muted"
             )}
             aria-label="Toggle session list"
           >
@@ -700,12 +706,12 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
       </header>
 
       {/* Body: sidebar + chat */}
-      <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100dvh - 57px)' }}>
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* Sidebar — fixed overlay on mobile, inline on desktop */}
         <aside className={cn(
           "flex-shrink-0 flex flex-col border-r transition-all duration-300 overflow-hidden",
-          isDark ? "bg-black/40 border-jyotish-gold/10" : "bg-slate-50 border-slate-200",
+          isDark ? "bg-black/40 border-jyotish-gold/10" : "bg-surface-muted border-border-gold",
           // Desktop: always visible at full width
           "hidden lg:flex lg:w-[280px]",
         )}>
@@ -729,7 +735,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="lg:hidden fixed inset-0 z-20 bg-black/50"
+                className="lg:hidden fixed inset-0 z-20 bg-ink-primary/25 backdrop-blur-[2px]"
                 onClick={() => setSidebarOpen(false)}
               />
               <motion.aside
@@ -740,7 +746,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
                 transition={{ type: 'tween', duration: 0.2 }}
                 className={cn(
                   "lg:hidden fixed left-0 top-0 bottom-0 z-30 w-[280px] flex flex-col border-r pt-14",
-                  isDark ? "bg-[#0a0a0f] border-jyotish-gold/10" : "bg-white border-slate-200"
+                  isDark ? "bg-[#0a0a0f] border-jyotish-gold/10" : "bg-surface-card border-border-gold"
                 )}
               >
                 <SidebarContent
@@ -780,7 +786,10 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
             </div>
           )}
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className={cn(
+            "flex-1 overflow-y-auto custom-scrollbar",
+            !isDark && "bg-surface-base"
+          )}>
             {!activeSessionId && messages.length === 0 ? (
               <EmptyState theme={theme} onSelectPrompt={(p) => sendMessage(p)} />
             ) : (
@@ -803,7 +812,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
           {/* Input Bar */}
           <div className={cn(
             "flex-shrink-0 p-4 border-t",
-            isDark ? "bg-black/20 border-white/5" : "bg-white border-slate-200"
+            isDark ? "bg-black/20 border-white/5" : "bg-surface-card border-border-gold"
           )}>
             <div className="max-w-4xl mx-auto">
               <ChatInput
@@ -864,7 +873,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   const isDark = theme === 'dark';
   return (
     <>
-      <div className={cn("p-3 border-b flex-shrink-0", isDark ? "border-jyotish-gold/10" : "border-slate-200")}>
+      <div className={cn("p-3 border-b flex-shrink-0", isDark ? "border-jyotish-gold/10" : "border-border-gold")}>
         <button
           onClick={onNewChat}
           className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl bg-jyotish-gold/10 border border-jyotish-gold/20 text-jyotish-gold hover:bg-jyotish-gold/20 transition-colors text-xs font-bold uppercase tracking-widest"
@@ -875,7 +884,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-0.5 custom-scrollbar">
         {sessions.length === 0 && (
-          <p className={cn("text-xs text-center py-10 px-4", isDark ? "text-white/30" : "text-slate-400")}>
+          <p className={cn("text-xs text-center py-10 px-4", isDark ? "text-white/30" : "text-ink-faint")}>
             No chats yet. Start a new conversation.
           </p>
         )}
@@ -889,17 +898,17 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                 ? "bg-jyotish-gold/10 border border-jyotish-gold/20"
                 : isDark
                   ? "hover:bg-white/5 border border-transparent"
-                  : "hover:bg-slate-100 border border-transparent"
+                  : "hover:bg-surface-muted border border-transparent"
             )}
           >
             <MessageSquare className={cn(
               "w-4 h-4 mt-0.5 flex-shrink-0",
-              activeSessionId === session.id ? "text-jyotish-gold" : isDark ? "text-white/30" : "text-slate-400"
+              activeSessionId === session.id ? "text-jyotish-gold" : isDark ? "text-white/30" : "text-ink-faint"
             )} />
             <div className="flex-1 min-w-0">
               <p className={cn(
                 "text-xs font-medium truncate",
-                activeSessionId === session.id ? "text-jyotish-gold" : isDark ? "text-white/80" : "text-slate-700"
+                activeSessionId === session.id ? "text-jyotish-gold" : isDark ? "text-white/80" : "text-ink-secondary"
               )}>
                 {session.title}
               </p>
@@ -910,13 +919,13 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                     ? "text-jyotish-gold/80 bg-jyotish-gold/10 border-jyotish-gold/20"
                     : isDark
                       ? "text-white/40 bg-white/5 border-white/10"
-                      : "text-slate-500 bg-slate-100 border-slate-200"
+                      : "text-ink-muted bg-surface-muted border-border-gold"
                 )}>
                   <Users className="w-2.5 h-2.5" />
                   {session.subjectName ?? (userProfile?.displayName || userProfile?.name || 'You')}
                 </span>
                 {session.updatedAt?.toDate && (
-                  <p className={cn("text-[10px]", isDark ? "text-white/30" : "text-slate-400")}>
+                  <p className={cn("text-[10px]", isDark ? "text-white/30" : "text-ink-faint")}>
                     {format(session.updatedAt.toDate(), 'MMM d')}
                   </p>
                 )}

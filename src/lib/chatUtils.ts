@@ -1,8 +1,11 @@
+import { format } from 'date-fns';
 import { PlanetPosition, Yoga, TransitEvent, PanchangData, NAKSHATRA_DATA } from '../vedic-utils';
 
 export interface ChatContextProps {
   userProfile?: any;
   subjectName?: string;
+  referenceDate: Date;
+  locationLabel?: string;
   transitPositions: PlanetPosition[];
   birthPositions: PlanetPosition[] | null;
   birthYogas: Yoga[];
@@ -11,6 +14,22 @@ export interface ChatContextProps {
   birthPanchang: PanchangData | null;
   panchang: PanchangData | null;
   birthSpecialPoints?: any;
+}
+
+export function formatReferenceDateBlock(date: Date, locationLabel?: string): string {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const local = format(date, "EEEE, MMMM d, yyyy 'at' HH:mm");
+  const locationLine = locationLabel ? `\n- Observer location: ${locationLabel}` : '';
+
+  return `REFERENCE DATE & TIME (authoritative — use for all "today", "now", "current", and timing answers):
+- ISO: ${date.toISOString()}
+- Local: ${local} (${tz})${locationLine}
+- The CURRENT TRANSIT CHART, CURRENT PANCHANG, and SIGNIFICANT CURRENT TRANSITS below are computed for this exact moment.
+
+TEMPORAL RULES:
+- Always interpret "today", "this week/month/year" relative to the REFERENCE DATE above.
+- Do not assume 2024 or 2025 unless explicitly stated in birth/historical data.
+- When giving forecasts, date them relative to the reference date, not your training cutoff.`;
 }
 
 export function formatPositions(pos: PlanetPosition[]) {
@@ -33,7 +52,20 @@ export function formatPositions(pos: PlanetPosition[]) {
 }
 
 export function buildSystemInstruction(ctx: ChatContextProps): string {
-  const { userProfile, subjectName, transitPositions, birthPositions, birthYogas, yogas, transits, birthPanchang, panchang, birthSpecialPoints } = ctx;
+  const {
+    userProfile,
+    subjectName,
+    referenceDate,
+    locationLabel,
+    transitPositions,
+    birthPositions,
+    birthYogas,
+    yogas,
+    transits,
+    birthPanchang,
+    panchang,
+    birthSpecialPoints,
+  } = ctx;
 
   const resolvedName = subjectName || userProfile?.name || userProfile?.firstName || 'Unknown';
   const isOtherPerson = !!subjectName && subjectName !== (userProfile?.name || userProfile?.firstName);
@@ -49,6 +81,8 @@ Name: ${resolvedName}
 Gender: ${isOtherPerson ? 'Unknown' : (userProfile?.gender || 'Unknown')}
 Date of Birth: ${isOtherPerson ? 'See birth positions below' : (userProfile?.birthDetails?.time ? new Date(userProfile.birthDetails.time).toLocaleDateString() : 'Unknown')}
 Birth City: ${isOtherPerson ? 'See birth positions below' : (userProfile?.birthDetails?.city || 'Unknown')}
+
+${formatReferenceDateBlock(referenceDate, locationLabel)}
 
 NATAL CHART (Birth Positions):
 ${birthPositions ? JSON.stringify(formatPositions(birthPositions), null, 2) : 'Not available'}
@@ -78,6 +112,7 @@ INTERPRETATION GUIDELINES:
 - Use traditional Vedic terminology (Lagna, Rashi, Nakshatra, Bhava, Graha) with clear English explanations.
 - Consider planetary dignities (Exalted, Debilitated, Own Sign) as primary indicators of strength.
 - Analyze natal-transit relationships for timing insights.
+- When discussing current transits, dashas, or timing, anchor all answers to the REFERENCE DATE above.
 - Use markdown formatting (headings, bullet points, bold) for clear, structured responses.
 - Be professional, compassionate, and insightful.`;
 }

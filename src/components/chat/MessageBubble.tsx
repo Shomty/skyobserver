@@ -30,19 +30,21 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, i
         </div>
       )}
       <div className={cn(
-        'relative group max-w-[85%] lg:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
+        'relative group max-w-[85%] lg:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm',
         isUser
-          ? 'bg-jyotish-gold/10 border border-jyotish-gold/20'
-          : isDark ? 'bg-white/5 border border-white/10' : 'bg-slate-50 border border-slate-200'
+          ? 'bg-jyotish-gold/12 border border-jyotish-gold/25'
+          : isDark
+            ? 'bg-white/5 border border-white/10'
+            : 'bg-surface-card border border-border-gold'
       )}>
         {isUser ? (
-          <p className={isDark ? 'text-white' : 'text-slate-900'}>{message.content}</p>
+          <p className={isDark ? 'text-white/95' : 'text-ink-primary'}>{message.content}</p>
         ) : (
           <div className={cn(
             'prose prose-sm max-w-none',
             isDark
               ? 'prose-invert prose-headings:text-jyotish-gold prose-strong:text-jyotish-gold/90 prose-p:text-white/80 prose-li:text-white/80'
-              : 'prose-headings:text-amber-700 prose-strong:text-amber-700/90'
+              : 'prose-headings:text-jyotish-gold prose-strong:text-jyotish-gold prose-p:text-ink-secondary prose-li:text-ink-secondary prose-a:text-cosmic-deep'
           )}>
             <ReactMarkdown>{message.content}</ReactMarkdown>
           </div>
@@ -50,16 +52,17 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, i
 
         {canSave && (
           <>
-            {/* Hover save button (top-right) */}
             <button
               onClick={() => onSave(message.content, message.id)}
               disabled={message.isSaved || isSaving}
               className={cn(
                 'absolute -right-8 top-0 p-1.5 rounded-full border opacity-0 group-hover:opacity-100 transition-all',
-                isDark ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-slate-200 hover:bg-slate-50 shadow-sm',
-                message.isSaved && 'opacity-100 text-green-500'
+                isDark
+                  ? 'bg-white/5 border-white/10 hover:bg-white/10'
+                  : 'bg-surface-card border-border-gold hover:bg-surface-muted shadow-sm',
+                message.isSaved && 'opacity-100 text-green-600'
               )}
-              title={message.isSaved ? 'Saved to Profile' : 'Save Interpretation'}
+              title={message.isSaved ? 'Saved to Journal' : 'Save to Journal'}
             >
               {message.isSaved ? (
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -70,16 +73,17 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, i
               )}
             </button>
 
-            {/* Bottom save bar */}
-            <div className={cn('mt-3 pt-3 border-t flex justify-end', isDark ? 'border-white/5' : 'border-slate-200')}>
+            <div className={cn('mt-3 pt-3 border-t flex justify-end', isDark ? 'border-white/5' : 'border-border-gold')}>
               <button
                 onClick={() => onSave(message.content, message.id)}
                 disabled={message.isSaved || isSaving}
                 className={cn(
-                  'flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] uppercase tracking-wider font-mono transition-all',
+                  'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] uppercase tracking-wider font-mono transition-all',
                   message.isSaved
-                    ? 'text-green-500 bg-green-500/10'
-                    : isDark ? 'text-white/40 hover:text-white/60 hover:bg-white/5' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                    ? 'text-green-600 bg-green-500/10'
+                    : isDark
+                      ? 'text-white/40 hover:text-white/60 hover:bg-white/5'
+                      : 'text-ink-muted hover:text-ink-primary hover:bg-surface-muted'
                 )}
               >
                 {message.isSaved ? (
@@ -87,7 +91,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, i
                 ) : isSaving ? (
                   <><Loader2 className="w-3 h-3 animate-spin" />Saving...</>
                 ) : (
-                  <><Bookmark className="w-3 h-3" />Save Insight</>
+                  <><Bookmark className="w-3 h-3" />Save to Journal</>
                 )}
               </button>
             </div>

@@ -333,7 +333,7 @@ const AdminPage: React.FC<AdminPageProps> = ({ user, userProfile, theme, onClose
 
   if (!isAdmin) {
     return (
-      <div className={cn('min-h-screen flex flex-col items-center justify-center gap-4', isDark ? 'bg-[#050505] text-white' : 'bg-slate-50 text-slate-900')}>
+      <div className={cn('flex-1 min-h-0 flex flex-col items-center justify-center gap-4', isDark ? 'text-white' : 'text-slate-900')}>
         <ShieldAlert className="w-12 h-12 text-red-500" />
         <p className="font-mono text-sm uppercase tracking-widest text-red-400">Access Denied</p>
         <button onClick={onClose} className="mt-4 text-xs font-mono uppercase tracking-widest text-white/40 hover:text-white/60 transition-colors">← Back</button>
@@ -347,7 +347,7 @@ const AdminPage: React.FC<AdminPageProps> = ({ user, userProfile, theme, onClose
   ];
 
   return (
-    <div className={cn('min-h-screen font-sans transition-colors duration-500', isDark ? 'bg-[#050505] text-white' : 'bg-slate-50 text-slate-900')}>
+    <div className={cn('flex-1 min-h-0 flex flex-col overflow-y-auto font-sans transition-colors duration-500', isDark ? 'bg-[#050505] text-white' : 'bg-slate-50 text-slate-900')}>
 
       {/* Toast */}
       <AnimatePresence>

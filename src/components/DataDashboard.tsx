@@ -27,6 +27,21 @@ import { generateNatalPlanetPlacementInsights } from '../services/geminiService'
 import { callGeminiProxy, getErrorMessage, withRetry } from '../lib/api-utils';
 import { APIErrorMessage } from './APIErrorMessage';
 import DivisionalCharts from './DivisionalCharts';
+import { SavSummaryTile } from './overview/SavSummaryTile';
+import {
+  KARAKA_DEFINITIONS,
+  LAGNA_DEFINITIONS,
+  getKarakaInterpretation,
+  getLagnaInterpretation,
+  getSphutaInterpretation,
+  getDhoomaInterpretation,
+  getIshtaInterpretation,
+  getDharmaInterpretation,
+  type KarakaKey,
+  MUHURTA_OVERVIEW,
+  MUHURTA_ENGINE_NOTE,
+  getMuhurtaEmptyMessage,
+} from '../lib/blueprintInterpretations';
 import { DashaTimelineLoader } from './DashaTimeline';
 import { 
   PlanetPosition, TransitEvent, TransitPrediction, NatalComparisonResult, 
@@ -34,7 +49,7 @@ import {
   Ashtakavarga, getTarabala, TarabalaResult, calculateDashaLevels, 
   getDeeptadiAwastha, getShayanadiAwastha, DashaPeriod, detectYogas, isConjunct,
   getDashaWarning, SpecialPointsResultV2, BhriguBinduResult, getDignityInterpretation,
-  NAKSHATRA_DATA
+  NAKSHATRA_DATA, injectKaalVelaPoints, analyzeLagnaLord, getVargottamaPlanets,
 } from '../vedic-utils';
 
 // Fallback strings that indicate a failed AI call — never serve or save these as cached values
@@ -89,7 +104,7 @@ interface DataDashboardProps {
   panchang: PanchangData | null;
   birthPanchang: PanchangData | null;
   sunTimes: any;
-  ashtakavarga: any;
+  ashtakavarga: Ashtakavarga;
   viewMode: 'transit' | 'natal';
   handleAutoSelectNatal: () => void;
   switchToTransitMode: () => void;
@@ -232,7 +247,7 @@ const BhriguBinduAnalysis: React.FC<{
           <div className="text-[10px] uppercase tracking-widest font-mono opacity-40 mb-3 flex items-center gap-1.5">
             <Brain className="w-3 h-3" /> Soul Interpretation
           </div>
-          <p className={cn("text-[13px] leading-relaxed italic font-serif", theme === 'dark' ? "text-white/80" : "text-slate-700")}>
+          <p className={cn("text-[13px] leading-relaxed", theme === 'dark' ? "text-white" : "text-slate-600")}>
             "Bhrigu Bindu marks the specific zodiacal degree where your emotional self (Moon) perfectly balances with your soul's karmic evolution (Rahu). Transits over this point essentially act as 'destiny switches'—opening doors to events that feel fated or profoundly purposeful."
           </p>
         </div>
@@ -370,7 +385,9 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
   const RASHIS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 
   const [selectedBavPlanet, setSelectedBavPlanet] = React.useState<string>("Sun");
-  const [ashtakavargaMode, setAshtakavargaMode] = React.useState<'transit' | 'natal'>('transit');
+  const [ashtakavargaMode, setAshtakavargaMode] = React.useState<'transit' | 'natal'>(() =>
+    natalAshtakavarga ? 'natal' : 'transit'
+  );
   const [muhurtaEventType, setMuhurtaEventType] = React.useState<EventCategory>('GENERAL');
   const [muhurtaDays, setMuhurtaDays] = React.useState<number>(30);
   const [isMuhurtaCalculating, setIsMuhurtaCalculating] = React.useState(false);
@@ -612,13 +629,16 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       let prompt = `As a master Jyotish expert, provide a profound interpretation for this auspicious Muhurta window.
       Event Category: ${muhurtaEventType}
       Window: ${format(window.start, 'MMM d, h:mm a')} to ${format(window.end, 'h:mm a')}
+      Panchanga: Tithi ${window.panchang.tithi.name}, ${window.panchang.vara}, Nakshatra ${window.panchang.nakshatra.name}, Yoga ${window.panchang.yoga.name}, Karana ${window.panchang.karana.name}
+      Tarabala: ${window.tarabala.name} (${window.tarabala.quality}) — ${window.tarabala.meaning}
+      Chandrabala: ${window.chandrabala.description} (${window.chandrabala.position} from natal Moon)
       Initial Scoring Factors: ${window.reasons.join(', ')}
       Vargottama Highlights: ${window.vargottamaLagna ? 'Lagna (Ascendant) is Vargottama' : ''} ${window.vargottamaMoon ? 'Moon is Vargottama' : ''}
       
       CRITICAL CONTEXT (User's Current Dasha): ${currentDasha.lord}-${antardasha.lord} period.
       
       Deliver the following sections:
-      1. THE "WHY" (Qualitative Translation): Explain in 2-3 sentences why this time carries specific cosmic weight for the ${muhurtaEventType}.
+      1. THE "WHY" (Qualitative Translation): Explain in 2-3 sentences why this time carries specific cosmic weight for the ${muhurtaEventType}, referencing Panchanga and personal Tarabala/Chandrabala.
       2. DASHA CONTEXT WARNING: Provide a specific note based on their ${currentDasha.lord}-${antardasha.lord} period to manage expectations (e.g., if it's a Saturn period, suggest patience).
       
       Keep it high-vibration, mystical yet technically grounded. Plain text only. No markdown headers.`;
@@ -949,8 +969,28 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 
   const currentAshtakavarga = ashtakavargaMode === 'natal' && natalAshtakavarga ? natalAshtakavarga : ashtakavarga;
 
+  const vargaBirthPositions = React.useMemo(() => {
+    if (!birthPositions) return null;
+    if (birthSpecialPoints?.kaalVelas) {
+      return injectKaalVelaPoints(birthPositions, birthSpecialPoints.kaalVelas);
+    }
+    return birthPositions;
+  }, [birthPositions, birthSpecialPoints]);
+
+  const lagnaLordAnalysis = React.useMemo(
+    () => (birthPositions ? analyzeLagnaLord(birthPositions) : null),
+    [birthPositions],
+  );
+
+  const vargottamaPlanets = React.useMemo(
+    () => (birthPositions ? getVargottamaPlanets(birthPositions) : []),
+    [birthPositions],
+  );
+
   const [muhurtaSearch, setMuhurtaSearch] = React.useState<MuhurtaSearchResult | null>(null);
   const muhurtaResults: MuhurtaWindow[] | null = muhurtaSearch ? muhurtaSearch.windows : null;
+  const hasNatalAscendant = Boolean(birthPositions?.some(p => p.name === 'Ascendant'));
+  const canCalculateMuhurta = Boolean(birthPositions && location && currentDashas && hasNatalAscendant);
 
   // Reset results whenever the user changes search parameters so stale data is not shown
   React.useEffect(() => {
@@ -1068,11 +1108,16 @@ Respond ONLY with valid JSON (no markdown, no backticks):
     else if (currentTarabala.score >= 50) mindContent += "Your mind is active but may require conscious effort to stay grounded.";
     else mindContent += "You might feel emotionally sensitive today. Avoid impulsive decisions and prioritize self-care.";
     
-    if (ashtakavarga && transitMoon) {
-      const moonRashiIdx = RASHIS.indexOf(transitMoon.rashi);
-      const moonSAV = ashtakavarga.sav[moonRashiIdx];
-      if (moonSAV >= 30) mindContent += " The high SAV score in your current lunar sign supports emotional resilience.";
-      else if (moonSAV < 25) mindContent += " The low SAV score suggests a need for extra rest and mental peace.";
+    if (natalAshtakavarga) {
+      const natalMoon = birthPositions.find(p => p.name === 'Moon');
+      if (natalMoon) {
+        const moonRashiIdx = RASHIS.indexOf(natalMoon.rashi);
+        if (moonRashiIdx !== -1) {
+          const moonSAV = natalAshtakavarga.sav[moonRashiIdx];
+          if (moonSAV >= 30) mindContent += " The high SAV score in your natal lunar sign supports emotional resilience.";
+          else if (moonSAV < 25) mindContent += " The low SAV score in your natal chart suggests a need for extra rest and mental peace.";
+        }
+      }
     }
     
     insights.push({
@@ -1094,11 +1139,16 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       }
     }
     
-    if (transitSun) {
-      const sunRashiIdx = RASHIS.indexOf(transitSun.rashi);
-      const sunSAV = ashtakavarga?.sav[sunRashiIdx];
-      if (sunSAV >= 30) careerContent += "Transit Sun is in a strong position, favoring leadership and recognition.";
-      else careerContent += "Focus on steady progress rather than major career shifts today.";
+    if (natalAshtakavarga) {
+      const natalSun = birthPositions.find(p => p.name === 'Sun');
+      if (natalSun) {
+        const sunRashiIdx = RASHIS.indexOf(natalSun.rashi);
+        if (sunRashiIdx !== -1) {
+          const sunSAV = natalAshtakavarga.sav[sunRashiIdx];
+          if (sunSAV >= 30) careerContent += "Your natal Sun sign carries a strong SAV score, favoring leadership and recognition over time.";
+          else if (sunSAV < 25) careerContent += "Your natal Sun sign SAV suggests steady, patient progress serves you better than bold leaps.";
+        }
+      }
     }
     
     insights.push({
@@ -1110,7 +1160,9 @@ Respond ONLY with valid JSON (no markdown, no backticks):
     });
 
     // 3. Health
-    let healthContent = "Vitality is influenced by the Sun and your Ascendant lord. ";
+    let healthContent = lagnaLordAnalysis
+      ? `${lagnaLordAnalysis.summary} `
+      : "Vitality is influenced by the Sun and your Ascendant lord. ";
     if (transitSun) {
       if (transitSun.rashi === "Aries" || transitSun.rashi === "Leo") healthContent += "The Sun's strong placement boosts your physical energy and immunity.";
       else if (transitSun.rashi === "Libra") healthContent += "The Sun is currently weakened; prioritize rest and avoid overexertion.";
@@ -1174,7 +1226,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
     }
 
     return insights;
-  }, [birthPositions, panchang, currentTarabala, positions, ashtakavarga, currentDashas]);
+  }, [birthPositions, panchang, currentTarabala, positions, natalAshtakavarga, currentDashas, lagnaLordAnalysis]);
 
   return (
     <div className="flex flex-col h-full">
@@ -1418,6 +1470,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                   }
                 />
               )}
+              <SavSummaryTile natalAshtakavarga={natalAshtakavarga} birthPositions={birthPositions} />
               {(() => {
                 const bb = positions.find(p => p.name === "Bhrigu Bindu");
                 if (!bb) return null;
@@ -1602,6 +1655,9 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                               {p.isRetrograde && !["Rahu", "Ketu"].includes(p.name) && (
                                 <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-jyotish-gold/20 text-jyotish-gold border border-jyotish-gold/20 font-bold">Rx</span>
                               )}
+                              {viewMode === 'natal' && vargottamaPlanets.includes(p.name) && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-green-500/20 text-green-400 border border-green-500/20 font-bold">V</span>
+                              )}
                             </div>
                             <div className={cn("text-[10px] font-mono uppercase tracking-wider mt-0.5", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
                               {p.rashi} • {p.nakshatra} <span className={cn("normal-case", theme === 'dark' ? "text-jyotish-gold/50" : "text-orange-400")}>P{p.pada}</span>
@@ -1657,7 +1713,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 
                               {activePlanetDrishti.aspects.length > 0 && (
                                 <div className="pt-2 border-t border-jyotish-gold/10">
-                                  <div className="text-[9px] uppercase tracking-widest text-white/30 mb-1.5 font-mono">Aspected Planets</div>
+                                  <div className={cn("text-[9px] uppercase tracking-widest mb-1.5 font-mono", theme === 'dark' ? "text-white/30" : "text-ink-faint")}>Aspected Planets</div>
                                   <div className="flex flex-wrap gap-1.5">
                                     {Array.from(new Set(activePlanetDrishti.aspects)).map((name: string) => (
                                       <span key={name} className="px-2 py-0.5 rounded-full bg-jyotish-gold/10 text-jyotish-gold text-[9px] font-bold border border-jyotish-gold/20 flex items-center gap-1.5">
@@ -1736,7 +1792,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                       <item.icon className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="text-[8px] uppercase tracking-widest font-mono text-white/30">{item.label}</div>
+                      <div className={cn("text-[8px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/30" : "text-ink-faint")}>{item.label}</div>
                       <div className={cn("text-base font-bold italic font-serif", item.color)}>{item.value}</div>
                     </div>
                   </div>
@@ -1758,12 +1814,14 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 
         {activeTab === 'vargas' && (
           <div className="pb-6">
-            {birthPositions && birthPositions.length > 0 ? (
+            {vargaBirthPositions && vargaBirthPositions.length > 0 ? (
               <DivisionalCharts
-                birthPositions={birthPositions}
+                birthPositions={vargaBirthPositions}
                 user={user}
                 userProfile={userProfile}
                 birthFingerprint={birthFingerprint}
+                vargottamaPlanets={vargottamaPlanets}
+                charakarakas={birthSpecialPoints?.charakarakas ?? null}
               />
             ) : (
               <div className={cn("flex flex-col items-center justify-center py-24 gap-3", theme === 'dark' ? "text-white/30" : "text-slate-400")}>
@@ -1776,6 +1834,14 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 
         {activeTab === 'ashtakavarga' && currentAshtakavarga && (
           <div className="space-y-8 pb-8">
+            {!currentAshtakavarga.hasAscendant && (
+              <div className={cn(
+                "p-3 rounded-xl border text-sm font-mono",
+                theme === 'dark' ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-800"
+              )}>
+                Add your birth location for a complete Ashtakavarga — Lagna contributions are missing.
+              </div>
+            )}
             {/* Mode Toggle */}
             <div className="flex p-1 rounded-xl bg-black/20 border border-white/5">
               <button
@@ -1859,7 +1925,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
               <div className={cn("p-4 rounded-2xl border", theme === 'dark' ? "bg-white/5 border-white/10" : "bg-white border-slate-200 shadow-sm")}>
                 <div className={cn("text-[10px] uppercase tracking-widest font-mono mb-3", theme === 'dark' ? "text-white/40" : "text-slate-500")}>Trikon Shodhana (Trine Reduction)</div>
                 <div className="grid grid-cols-4 gap-2 mb-4">
-                  {currentAshtakavarga.trikonReduced?.map((score, i) => (
+                  {currentAshtakavarga.trikonReduced.map((score, i) => (
                     <div key={i} className="text-center">
                       <div className={cn("text-[8px] font-mono uppercase", theme === 'dark' ? "text-white/30" : "text-slate-400")}>{RASHIS[i].substring(0, 3)}</div>
                       <div className="text-sm font-mono font-bold text-jyotish-gold">{score}</div>
@@ -1868,7 +1934,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                 </div>
                 <div className={cn("text-[10px] uppercase tracking-widest font-mono mb-3 pt-3 border-t", theme === 'dark' ? "text-white/40 border-white/5" : "text-slate-500 border-slate-100")}>Ekadhipatya Shodhana</div>
                 <div className="grid grid-cols-4 gap-2">
-                  {currentAshtakavarga.ekadhipatyaReduced?.map((score, i) => (
+                  {currentAshtakavarga.ekadhipatyaReduced.map((score, i) => (
                     <div key={i} className="text-center">
                       <div className={cn("text-[8px] font-mono uppercase", theme === 'dark' ? "text-white/30" : "text-slate-400")}>{RASHIS[i].substring(0, 3)}</div>
                       <div className="text-sm font-mono font-bold text-orange-500">{score}</div>
@@ -2601,7 +2667,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                   <Brain className="w-4 h-4 text-jyotish-gold" />
                   <span className="text-[10px] font-bold uppercase tracking-widest text-jyotish-gold/80">Individual Interpretation</span>
                 </div>
-                <p className={cn("text-sm leading-relaxed italic font-serif relative z-10", theme === 'dark' ? "text-white/90" : "text-slate-800")}>
+                <p className={cn("text-[13px] leading-relaxed relative z-10", theme === 'dark' ? "text-white" : "text-slate-600")}>
                   "{transitImpactInsight}"
                 </p>
               </motion.div>
@@ -2804,8 +2870,8 @@ Respond ONLY with valid JSON (no markdown, no backticks):
               <LifeBlueprintSection result={birthSpecialPoints} birthPositions={birthPositions} />
             ) : (
               <div className="flex flex-col items-center justify-center p-12 text-center">
-                <Compass className="w-12 h-12 text-white/20 mb-4" />
-                <p className="text-white/40">Enter birth details to unlock your cosmic blueprint.</p>
+                <Compass className={cn("w-12 h-12 mb-4", theme === 'dark' ? "text-white/20" : "text-ink-faint")} />
+                <p className={theme === 'dark' ? "text-white/40" : "text-ink-muted"}>Enter birth details to unlock your cosmic blueprint.</p>
               </div>
             )}
           </div>
@@ -2937,7 +3003,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                           <Brain className="w-3 h-3 text-jyotish-gold" />
                           <span className="text-[10px] font-bold uppercase tracking-widest text-jyotish-gold/60">Vedic Insight (AI)</span>
                         </div>
-                        <p className={cn("text-xs leading-relaxed italic font-serif", theme === 'dark' ? "text-white/80" : "text-slate-700")}>
+                        <p className={cn("text-[13px] leading-relaxed", theme === 'dark' ? "text-white" : "text-slate-600")}>
                           "{yogaInterpretations[yoga.name]}"
                         </p>
                       </motion.div>
@@ -2969,7 +3035,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                 </div>
               );
             })}
-            {(isBirthMode ? natalYogas : yogas).length === 0 && <div className="text-center text-white/40 text-sm py-12 px-6">No yogas detected in this chart.</div>}
+            {(isBirthMode ? natalYogas : yogas).length === 0 && <div className={cn("text-center text-sm py-12 px-6", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>No yogas detected in this chart.</div>}
           </div>
         )}
 
@@ -3284,6 +3350,9 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 
         {activeTab === 'muhurta' && (
           <div className="space-y-6 pb-20">
+            <div className={cn("p-4 rounded-2xl border text-xs leading-relaxed", theme === 'dark' ? "bg-white/[0.02] border-white/5 text-white/60" : "bg-slate-50 border-slate-100 text-slate-600")}>
+              <p>{MUHURTA_OVERVIEW}</p>
+            </div>
             <div className={cn("p-5 rounded-3xl border space-y-6", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-white border-slate-100 shadow-sm")}>
               <div>
                 <label className={cn("block text-[10px] font-mono uppercase tracking-widest mb-3", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Step 1: Event Category</label>
@@ -3349,18 +3418,27 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
-                <div className="text-[10px] uppercase tracking-widest font-mono text-white/40">Parashari Synthesis (Top Windows)</div>
+                <div className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>Parashari Synthesis (Top Windows)</div>
                 {muhurtaResults && muhurtaResults.length > 0 && <span className="text-[9px] font-mono text-jyotish-gold/60">{muhurtaResults.length} windows found</span>}
               </div>
 
               {muhurtaSearch && (
-                <div className="flex items-center justify-between px-1 text-[9px] font-mono text-white/30">
+                <div className={cn("flex items-center justify-between px-1 text-[9px] font-mono", theme === 'dark' ? "text-white/30" : "text-ink-faint")}>
                   <span>Scanned at {muhurtaSearch.stepMinutes}-minute resolution</span>
                   {muhurtaSearch.truncated && (
                     <span className="text-amber-400/70">
                       Range too long — searched through {format(muhurtaSearch.scannedThrough, 'd MMM yyyy')}
                     </span>
                   )}
+                </div>
+              )}
+
+              {muhurtaSearch && muhurtaSearch.expandedFromDays !== undefined && muhurtaResults && muhurtaResults.length > 0 && (
+                <div className={cn("p-4 rounded-2xl border flex items-start gap-3", theme === 'dark' ? "bg-amber-500/5 border-amber-500/20" : "bg-amber-50 border-amber-200")}>
+                  <Info className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className={cn("text-xs leading-relaxed", theme === 'dark' ? "text-amber-200/80" : "text-amber-800")}>
+                    No windows in your {muhurtaSearch.expandedFromDays}-day request — search auto-expanded and found {muhurtaResults.length} window{muhurtaResults.length === 1 ? '' : 's'} through {format(muhurtaSearch.scannedThrough, 'd MMM yyyy')}.
+                  </p>
                 </div>
               )}
 
@@ -3426,7 +3504,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                           />
                        </div>
                        <div className="text-[8px] font-mono opacity-30 uppercase tracking-tighter truncate">
-                          Panchang: {result.panchang.tithi.name}, {result.panchang.vara}
+                          Panchang: {result.panchang.tithi.name}, {result.panchang.vara}, {result.panchang.nakshatra.name}
                        </div>
                     </div>
                     <div className="space-y-2">
@@ -3442,13 +3520,29 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                           />
                        </div>
                        <div className="text-[8px] font-mono opacity-30 uppercase tracking-tighter truncate">
-                          Chart authority applied
+                          Tarabala: {result.tarabala.name} · Chandrabala: {result.chandrabala.description}
                        </div>
                     </div>
                   </div>
                   
                   <div className="space-y-4 relative z-10">
                     <div className="flex flex-wrap gap-1.5">
+                      {result.tarabala && (
+                        <span className={cn("px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest border flex items-center gap-1",
+                          result.tarabala.score >= 80 ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-orange-500/10 text-orange-400 border-orange-500/20"
+                        )}>
+                          Tara: {result.tarabala.name}
+                        </span>
+                      )}
+                      {result.chandrabala && (
+                        <span className={cn("px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest border flex items-center gap-1",
+                          result.chandrabala.score >= 80 ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                          result.chandrabala.score >= 50 ? "bg-jyotish-gold/10 text-jyotish-gold border-jyotish-gold/20" :
+                          "bg-orange-500/10 text-orange-400 border-orange-500/20"
+                        )}>
+                          Chandra: {result.chandrabala.description}
+                        </span>
+                      )}
                       {result.vargottamaLagna && (
                         <span className="px-2 py-0.5 rounded-md bg-jyotish-gold/10 text-jyotish-gold text-[9px] font-bold uppercase tracking-widest border border-jyotish-gold/20 flex items-center gap-1">
                           <Sparkles className="w-2.5 h-2.5" /> Vargottama Lagna
@@ -3475,7 +3569,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                         <div className="flex items-center gap-1.5 opacity-60 text-[9px] font-bold uppercase tracking-widest text-jyotish-gold">
                           <Brain className="w-3.5 h-3.5" /> Muhurta Insight (AI)
                         </div>
-                        <p className={cn("text-xs leading-relaxed italic font-serif", theme === 'dark' ? "text-white/80" : "text-slate-800")}>
+                        <p className={cn("text-[13px] leading-relaxed", theme === 'dark' ? "text-white" : "text-slate-600")}>
                           {muhurtaInterpretations[result.start.toISOString()]}
                         </p>
                       </motion.div>
@@ -3516,13 +3610,19 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                   <h4 className={cn("text-sm font-bold mb-2", theme === 'dark' ? "text-white/70" : "text-slate-700")}>Ready to Find Auspicious Windows</h4>
                   <p className={cn("text-xs opacity-50 max-w-xs mx-auto mb-6", theme === 'dark' ? "text-white" : "text-slate-500")}>
                     Select your event category and time window above, then tap Calculate to find your best Muhurta windows.
+                    {!hasNatalAscendant && birthPositions && (
+                      <span className="block mt-2 text-amber-500/80">Birth place is required — add your birth city in the Natal tab to compute your Ascendant.</span>
+                    )}
+                    {hasNatalAscendant && !currentDashas && (
+                      <span className="block mt-2 text-amber-500/80">Dasha timeline is loading — wait a moment before calculating.</span>
+                    )}
                   </p>
                   <button
                     onClick={handleCalculateMuhurta}
-                    disabled={!birthPositions || !location}
+                    disabled={!canCalculateMuhurta}
                     className={cn(
                       "inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-widest transition-all border shadow-lg active:scale-95",
-                      birthPositions && location
+                      canCalculateMuhurta
                         ? "bg-jyotish-gold text-black border-jyotish-gold hover:bg-jyotish-gold/90 shadow-jyotish-gold/30"
                         : theme === 'dark' ? "bg-white/5 border-white/10 text-white/30 cursor-not-allowed" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                     )}
@@ -3549,8 +3649,8 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                     <CalendarDays className="w-8 h-8 opacity-20" />
                   </div>
                   <h4 className={cn("text-sm font-bold mb-2", theme === 'dark' ? "text-white/60" : "text-slate-600")}>No Auspicious Windows Found</h4>
-                  <p className={cn("text-xs opacity-50 max-w-xs mx-auto mb-4", theme === 'dark' ? "text-white" : "text-slate-500")}>
-                    The elimination filters are currently very strict. Try a different event category or expand your search window.
+                  <p className={cn("text-xs opacity-50 max-w-sm mx-auto mb-4 leading-relaxed", theme === 'dark' ? "text-white" : "text-slate-500")}>
+                    {muhurtaSearch ? getMuhurtaEmptyMessage(muhurtaSearch) : 'No windows passed all electional filters in this range.'}
                   </p>
                   <button
                     onClick={handleCalculateMuhurta}
@@ -3566,7 +3666,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
             <div className={cn("p-4 rounded-2xl border text-[10px] leading-relaxed flex items-start gap-3", theme === 'dark' ? "bg-blue-500/5 border-blue-500/20 text-blue-400/80" : "bg-blue-50 border-blue-200 text-blue-600")}>
                <Info className="w-4 h-4 shrink-0 mt-0.5" />
                <div>
-                  <span className="font-bold underline">Engine Note:</span> Every window above has survived deep vetoes including Tarabala, Chandrabala, Rahu Kaal, and Rikta Tithi filters. Scores are then generated using Parashari synthesis of Ascendant strength, Vargottama status, and specific event indicators.
+                  <span className="font-bold underline">Engine Note:</span> {MUHURTA_ENGINE_NOTE}
                </div>
             </div>
           </div>
@@ -3574,9 +3674,9 @@ Respond ONLY with valid JSON (no markdown, no backticks):
         {activeTab === 'dashas' && (
           <div className="space-y-6 pb-20">
             {!isBirthMode || !birthPositions ? (
-              <div className="text-center text-white/40 text-sm py-12 px-6">
-                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Zap className="w-8 h-8 opacity-20" />
+              <div className={cn("text-center text-sm py-12 px-6", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>
+                <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4", theme === 'dark' ? "bg-white/5" : "bg-surface-muted")}>
+                  <Zap className={cn("w-8 h-8 opacity-20", theme === 'dark' ? "" : "text-ink-faint")} />
                 </div>
                 Please enter your birth details in the Natal tab to view your Vimshottari Dasha.
               </div>
@@ -3654,12 +3754,12 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                             <div className="flex items-center justify-between mb-2">
                               <span className={cn(
                                 "text-[8px] uppercase tracking-widest font-mono",
-                                idx === 0 ? "text-jyotish-gold font-bold" : "text-white/40"
+                                idx === 0 ? "text-jyotish-gold font-bold" : theme === 'dark' ? "text-white/40" : "text-ink-muted"
                               )}>
                                 {idx === 0 ? 'Mahadasha' : idx === 1 ? 'Antardasha' : idx === 2 ? 'Pratyantardasha' : idx === 3 ? 'Sookshmadasha' : 'Pranadasha'}
                               </span>
                               <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-mono text-white/30">
+                                <span className={cn("text-[9px] font-mono", theme === 'dark' ? "text-white/30" : "text-ink-faint")}>
                                   {format(dasha.start, 'dd MMM yyyy')} — {format(dasha.end, 'dd MMM yyyy')}
                                 </span>
                               </div>
@@ -3669,7 +3769,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                               <div className="flex flex-col gap-1">
                                 <span className={cn(
                                   "font-bold flex items-center gap-2",
-                                  idx === 0 ? "text-2xl text-white" : "text-lg text-white/90"
+                                  idx === 0 ? (theme === 'dark' ? "text-2xl text-white" : "text-2xl text-ink-primary") : (theme === 'dark' ? "text-lg text-white/90" : "text-lg text-ink-secondary")
                                 )}>
                                   <PlanetGlyph name={dasha.lord} className={cn("opacity-80", idx === 0 ? "text-3xl" : "text-xl")} />
                                   {dasha.lord}
@@ -3689,7 +3789,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                                 )}>
                                   {daysRemaining.toLocaleString()} days
                                 </div>
-                                <div className="text-[8px] font-mono uppercase tracking-tighter text-white/20">
+                                <div className={cn("text-[8px] font-mono uppercase tracking-tighter", theme === 'dark' ? "text-white/20" : "text-ink-faint")}>
                                   remaining
                                 </div>
                               </div>
@@ -3808,27 +3908,27 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                         const details = getDashaLordDetails(currentDashas[0].lord)!;
                         return (
                           <div className="space-y-3 text-sm">
-                            <div className="flex justify-between border-b border-white/5 pb-2">
-                              <span className="text-white/40">Strength</span>
+                            <div className={cn("flex justify-between border-b pb-2", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
+                              <span className={theme === 'dark' ? "text-white/40" : "text-ink-muted"}>Strength</span>
                               <span className={details.strength.includes("Poorna") ? "text-green-400" : details.strength.includes("Rikta") ? "text-red-400" : "text-jyotish-gold"}>{details.strength.split(' - ')[0]}</span>
                             </div>
-                            <div className="flex justify-between border-b border-white/5 pb-2">
-                              <span className="text-white/40">Placement</span>
-                              <span className="text-white/80">{details.planet.rashi} ({details.planet.nakshatra})</span>
+                            <div className={cn("flex justify-between border-b pb-2", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
+                              <span className={theme === 'dark' ? "text-white/40" : "text-ink-muted"}>Placement</span>
+                              <span className={theme === 'dark' ? "text-white/80" : "text-ink-secondary"}>{details.planet.rashi} ({details.planet.nakshatra})</span>
                             </div>
-                            <div className="flex justify-between border-b border-white/5 pb-2">
-                              <span className="text-white/40">House</span>
-                              <span className="text-white/80">House {details.planet.house}</span>
+                            <div className={cn("flex justify-between border-b pb-2", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
+                              <span className={theme === 'dark' ? "text-white/40" : "text-ink-muted"}>House</span>
+                              <span className={theme === 'dark' ? "text-white/80" : "text-ink-secondary"}>House {details.planet.house}</span>
                             </div>
-                            <div className="flex justify-between border-b border-white/5 pb-2">
-                              <span className="text-white/40">Deeptadi Awastha</span>
-                              <span className="text-white/80 text-right">{details.deeptadi.split(' - ')[0]}</span>
+                            <div className={cn("flex justify-between border-b pb-2", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
+                              <span className={theme === 'dark' ? "text-white/40" : "text-ink-muted"}>Deeptadi Awastha</span>
+                              <span className={cn("text-right", theme === 'dark' ? "text-white/80" : "text-ink-secondary")}>{details.deeptadi.split(' - ')[0]}</span>
                             </div>
                             <div className="flex justify-between pb-1">
-                              <span className="text-white/40">Shayanadi Awastha</span>
-                              <span className="text-white/80 text-right">{details.shayanadi.split(' - ')[0]}</span>
+                              <span className={theme === 'dark' ? "text-white/40" : "text-ink-muted"}>Shayanadi Awastha</span>
+                              <span className={cn("text-right", theme === 'dark' ? "text-white/80" : "text-ink-secondary")}>{details.shayanadi.split(' - ')[0]}</span>
                             </div>
-                            <div className="pt-2 text-xs text-white/50 italic">
+                            <div className={cn("pt-2 text-xs italic", theme === 'dark' ? "text-white/50" : "text-ink-muted")}>
                               {details.deeptadi.split(' - ')[1]}. {details.shayanadi.split(' - ')[1]}.
                             </div>
                           </div>
@@ -3848,27 +3948,27 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                         const details = getDashaLordDetails(currentDashas[1].lord)!;
                         return (
                           <div className="space-y-3 text-sm">
-                            <div className="flex justify-between border-b border-white/5 pb-2">
-                              <span className="text-white/40">Strength</span>
+                            <div className={cn("flex justify-between border-b pb-2", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
+                              <span className={theme === 'dark' ? "text-white/40" : "text-ink-muted"}>Strength</span>
                               <span className={details.strength.includes("Poorna") ? "text-green-400" : details.strength.includes("Rikta") ? "text-red-400" : "text-jyotish-gold"}>{details.strength.split(' - ')[0]}</span>
                             </div>
-                            <div className="flex justify-between border-b border-white/5 pb-2">
-                              <span className="text-white/40">Placement</span>
-                              <span className="text-white/80">{details.planet.rashi} ({details.planet.nakshatra})</span>
+                            <div className={cn("flex justify-between border-b pb-2", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
+                              <span className={theme === 'dark' ? "text-white/40" : "text-ink-muted"}>Placement</span>
+                              <span className={theme === 'dark' ? "text-white/80" : "text-ink-secondary"}>{details.planet.rashi} ({details.planet.nakshatra})</span>
                             </div>
-                            <div className="flex justify-between border-b border-white/5 pb-2">
-                              <span className="text-white/40">House</span>
-                              <span className="text-white/80">House {details.planet.house}</span>
+                            <div className={cn("flex justify-between border-b pb-2", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
+                              <span className={theme === 'dark' ? "text-white/40" : "text-ink-muted"}>House</span>
+                              <span className={theme === 'dark' ? "text-white/80" : "text-ink-secondary"}>House {details.planet.house}</span>
                             </div>
-                            <div className="flex justify-between border-b border-white/5 pb-2">
-                              <span className="text-white/40">Deeptadi Awastha</span>
-                              <span className="text-white/80 text-right">{details.deeptadi.split(' - ')[0]}</span>
+                            <div className={cn("flex justify-between border-b pb-2", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
+                              <span className={theme === 'dark' ? "text-white/40" : "text-ink-muted"}>Deeptadi Awastha</span>
+                              <span className={cn("text-right", theme === 'dark' ? "text-white/80" : "text-ink-secondary")}>{details.deeptadi.split(' - ')[0]}</span>
                             </div>
                             <div className="flex justify-between pb-1">
-                              <span className="text-white/40">Shayanadi Awastha</span>
-                              <span className="text-white/80 text-right">{details.shayanadi.split(' - ')[0]}</span>
+                              <span className={theme === 'dark' ? "text-white/40" : "text-ink-muted"}>Shayanadi Awastha</span>
+                              <span className={cn("text-right", theme === 'dark' ? "text-white/80" : "text-ink-secondary")}>{details.shayanadi.split(' - ')[0]}</span>
                             </div>
-                            <div className="pt-2 text-xs text-white/50 italic">
+                            <div className={cn("pt-2 text-xs italic", theme === 'dark' ? "text-white/50" : "text-ink-muted")}>
                               {details.deeptadi.split(' - ')[1]}. {details.shayanadi.split(' - ')[1]}.
                             </div>
                           </div>
@@ -3902,7 +4002,7 @@ const SpecialPointCard: React.FC<{
         <div className="flex flex-wrap gap-1 justify-end">
           {tags?.map((tag, i) => (
             <span key={i} className={cn("px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-tighter", 
-              tag.type === 'success' ? "bg-green-500/20 text-green-500" : "bg-white/10 text-white/40")}>
+              tag.type === 'success' ? "bg-green-500/20 text-green-500" : theme === 'dark' ? "bg-white/10 text-white/40" : "bg-surface-muted text-ink-faint")}>
               {tag.label}
             </span>
           ))}
@@ -3912,11 +4012,11 @@ const SpecialPointCard: React.FC<{
         <span className={cn("px-2 py-0.5 rounded-lg text-[10px] font-mono", theme === 'dark' ? "bg-jyotish-gold/20 text-jyotish-gold" : "bg-orange-100 text-orange-600")}>
           {RASHIS[sign - 1]}
         </span>
-        <span className="text-[12px] font-mono text-white/60">
+        <span className={cn("text-[12px] font-mono", theme === 'dark' ? "text-white/60" : "text-ink-muted")}>
           {degree.toFixed(2)}°
         </span>
       </div>
-      <p className="text-[13px] text-white/40 leading-relaxed font-sans">{meaning}</p>
+      <p className={cn("text-[13px] leading-relaxed font-sans", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>{meaning}</p>
     </div>
   );
 };
@@ -4119,32 +4219,33 @@ const BlueprintCard: React.FC<{
   name: string;
   sign: number;
   degree: number;
-  meaning: string;
+  concept: string;
+  interpretation: string;
   tags?: { label: string; type: 'success' | 'neutral' | 'warning' }[];
   planet?: string;
-}> = ({ name, sign, degree, meaning, tags, planet }) => {
+}> = ({ name, sign, degree, concept, interpretation, tags, planet }) => {
   const { theme } = useTheme();
   const RASHIS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
   return (
     <div className={cn(
-      "rounded-2xl border p-4 flex flex-col gap-3 min-w-0 transition-colors duration-500",
+      "rounded-2xl border p-4 sm:p-5 flex flex-col gap-3 min-w-0 transition-colors duration-500",
       theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-white border-slate-200 shadow-sm"
     )}>
       <div className="flex items-start justify-between gap-2 min-w-0">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="font-serif font-bold text-base sm:text-lg text-jyotish-gold leading-tight flex items-center gap-2 min-w-0">
-            <PlanetGlyph name={name} className="text-jyotish-gold/60 shrink-0" />
-            <span className="truncate">{name}</span>
+            <PlanetGlyph name={planet ?? name} className="text-jyotish-gold/60 shrink-0" />
+            <span className="break-words">{name}</span>
           </div>
           {planet && (
             <div className={cn("text-sm font-bold mt-1 tracking-wide flex items-center gap-1.5", theme === 'dark' ? "text-white/80" : "text-slate-700")}>
               <PlanetGlyph name={planet} className="scale-75 opacity-70 shrink-0" />
-              <span className="truncate">{planet}</span>
+              <span>{planet}</span>
             </div>
           )}
         </div>
         {tags && tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 justify-end shrink-0">
+          <div className="flex flex-wrap gap-1.5 justify-end shrink-0 max-w-[45%]">
             {tags.map((tag, i) => (
               <span key={i} className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap",
                 tag.type === 'success' ? "bg-green-500/10 text-green-500 border border-green-500/20" :
@@ -4160,26 +4261,42 @@ const BlueprintCard: React.FC<{
         <span className={cn("inline-flex px-2.5 py-1 rounded-lg text-xs font-mono font-bold shadow-sm", theme === 'dark' ? "bg-jyotish-gold/20 text-jyotish-gold" : "bg-orange-100 text-orange-600")}>
           {RASHIS[sign - 1]}
         </span>
-        <span className={cn("text-[12px] font-mono", theme === 'dark' ? "text-white/60" : "text-slate-500")}>{degree.toFixed(2)}°</span>
+        {degree > 0 && (
+          <span className={cn("text-[12px] font-mono", theme === 'dark' ? "text-white/60" : "text-slate-500")}>{degree.toFixed(2)}°</span>
+        )}
       </div>
-      <p className={cn("text-[13px] leading-relaxed break-words", theme === 'dark' ? "text-white/70" : "text-slate-600")}>{meaning}</p>
+      <div className="space-y-3 pt-1 border-t border-white/5">
+        <div>
+          <span className={cn("text-[10px] font-bold uppercase tracking-widest block mb-1.5", theme === 'dark' ? "text-white/35" : "text-slate-400")}>What it is</span>
+          <p className={cn("text-[13px] sm:text-sm leading-relaxed break-words", theme === 'dark' ? "text-white/65" : "text-slate-600")}>{concept}</p>
+        </div>
+        <div className={cn("p-3 rounded-xl", theme === 'dark' ? "bg-jyotish-gold/[0.06] border border-jyotish-gold/10" : "bg-orange-50/80 border border-orange-100")}>
+          <span className={cn("text-[10px] font-bold uppercase tracking-widest block mb-1.5", theme === 'dark' ? "text-jyotish-gold/60" : "text-orange-600/70")}>In your chart</span>
+          <p className={cn("text-[13px] sm:text-sm leading-relaxed break-words", theme === 'dark' ? "text-white/85" : "text-slate-700")}>{interpretation}</p>
+        </div>
+      </div>
     </div>
   );
 };
 
 const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPosition[] | null }> = ({ result, birthPositions }) => {
   const { theme } = useTheme();
-  const RASHIS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+
+  const ascSignNumber = React.useMemo(() => {
+    const asc = birthPositions?.find(p => p.name === 'Ascendant');
+    if (!asc) return undefined;
+    return Math.floor(asc.siderealLongitude / 30) + 1;
+  }, [birthPositions]);
   
-  const charaKarakas = [
-    { key: 'AK', label: 'Atmakaraka', meaning: 'Primary soul indicator; your internal nature and path.' },
-    { key: 'AmK', label: 'Amatyakaraka', meaning: 'Professional indicator; career trajectory and resources.' },
-    { key: 'BK', label: 'Bhratrukaraka', meaning: 'Siblings, coworkers, and immediate surroundings.' },
-    { key: 'MK', label: 'Matrukaraka', meaning: 'Roots, happiness, and connection to the mother.' },
-    { key: 'PiK', label: 'Pitrukaraka', meaning: 'Authority figures and the influence of the father.' },
-    { key: 'PuK', label: 'Putrakaraka', meaning: 'Creativity, children, and specialized knowledge.' },
-    { key: 'GK', label: 'Gnatikaraka', meaning: 'Karmic tests, rivals, and structural obstacles.' },
-    { key: 'DK', label: 'Darakaraka', meaning: 'Nature of partnerships and soulmate resonances.' },
+  const charaKarakas: { key: KarakaKey; label: string }[] = [
+    { key: 'AK', label: 'Atmakaraka' },
+    { key: 'AmK', label: 'Amatyakaraka' },
+    { key: 'BK', label: 'Bhratrukaraka' },
+    { key: 'MK', label: 'Matrukaraka' },
+    { key: 'PiK', label: 'Pitrukaraka' },
+    { key: 'PuK', label: 'Putrakaraka' },
+    { key: 'GK', label: 'Gnatikaraka' },
+    { key: 'DK', label: 'Darakaraka' },
   ];
 
   return (
@@ -4190,14 +4307,16 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
                 const planetName = result.charakarakas[ck.key];
                 const pos = birthPositions?.find(p => p.name === planetName);
                 if (!pos) return null;
+                const sign = Math.floor(pos.siderealLongitude / 30) + 1;
                 return (
                   <BlueprintCard 
                     key={ck.key}
                     name={ck.label}
                     planet={planetName}
-                    sign={Math.floor(pos.siderealLongitude / 30) + 1}
+                    sign={sign}
                     degree={pos.siderealLongitude % 30}
-                    meaning={ck.meaning}
+                    concept={KARAKA_DEFINITIONS[ck.key]}
+                    interpretation={getKarakaInterpretation(ck.key, planetName, sign, ascSignNumber)}
                   />
                 );
               })}
@@ -4207,34 +4326,39 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
                 name="Ghati Lagna"
                 sign={result.ghatiLagna.ghatiLagnaSignNumber}
                 degree={result.ghatiLagna.ghatiLagnaDegree}
-                meaning="Power, authority, and professional influence."
+                concept={LAGNA_DEFINITIONS['Ghati Lagna']}
+                interpretation={getLagnaInterpretation('Ghati Lagna', result.ghatiLagna.ghatiLagnaSignNumber, ascSignNumber)}
                 tags={[{ label: result.ghatiLagna.isDayBirth ? 'Day Birth' : 'Night Birth', type: 'neutral' }]}
               />
               <BlueprintCard 
                 name="Hora Lagna"
                 sign={result.horaLagna.horaLagnaSignNumber}
                 degree={result.horaLagna.horaLagnaDegree}
-                meaning="Wealth potential, financial status, and prosperity."
+                concept={LAGNA_DEFINITIONS['Hora Lagna']}
+                interpretation={getLagnaInterpretation('Hora Lagna', result.horaLagna.horaLagnaSignNumber, ascSignNumber)}
                 tags={[{ label: result.horaLagna.isDayBirth ? 'Day Birth' : 'Night Birth', type: 'neutral' }]}
               />
               <BlueprintCard 
                 name="Bhava Lagna"
                 sign={result.bhavaLagna.bhavaLagnaSignNumber}
                 degree={result.bhavaLagna.bhavaLagnaDegree}
-                meaning="Physical body and life circumstances."
+                concept={LAGNA_DEFINITIONS['Bhava Lagna']}
+                interpretation={getLagnaInterpretation('Bhava Lagna', result.bhavaLagna.bhavaLagnaSignNumber, ascSignNumber)}
               />
               <BlueprintCard 
                 name="Pranapada Lagna"
                 sign={result.pranapada.pranapadalagnaSignNumber}
                 degree={result.pranapada.pranapadalagnaDegree}
-                meaning="Auspiciousness of birth and overall life vitality."
+                concept={LAGNA_DEFINITIONS['Pranapada Lagna']}
+                interpretation={getLagnaInterpretation('Pranapada Lagna', result.pranapada.pranapadalagnaSignNumber, ascSignNumber)}
                 tags={[{ label: result.pranapada.isFortunate ? 'Fortunate' : 'Neutral', type: result.pranapada.isFortunate ? 'success' : 'neutral' }]}
               />
               <BlueprintCard 
                 name="Sree Lagna"
                 sign={result.sreeLagna.signNumber}
                 degree={0}
-                meaning="Potential for cumulative wealth and abundance."
+                concept={LAGNA_DEFINITIONS['Sree Lagna']}
+                interpretation={getLagnaInterpretation('Sree Lagna', result.sreeLagna.signNumber, ascSignNumber)}
               />
 
               {/* Arudha Lagnas */}
@@ -4242,16 +4366,28 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
                 name="Arudha Lagna"
                 sign={result.arudhaLagna.signNumber}
                 degree={0}
-                meaning="Social image, status, and how the world perceives you."
+                concept={LAGNA_DEFINITIONS['Arudha Lagna']}
+                interpretation={getLagnaInterpretation('Arudha Lagna', result.arudhaLagna.signNumber, ascSignNumber)}
                 tags={[{ label: 'AL', type: 'neutral' }]}
               />
               <BlueprintCard 
                 name="Upapada Lagna"
                 sign={result.upapadaLagna.signNumber}
                 degree={0}
-                meaning="Marriage, partnership, and nature of the spouse."
+                concept={LAGNA_DEFINITIONS['Upapada Lagna']}
+                interpretation={getLagnaInterpretation('Upapada Lagna', result.upapadaLagna.signNumber, ascSignNumber)}
                 tags={[{ label: 'UL', type: 'neutral' }]}
               />
+              {result.upapadaLagna.secondFromUL && (
+                <BlueprintCard
+                  name="2nd from Upapada Lagna"
+                  sign={result.upapadaLagna.secondFromUL.signNumber}
+                  degree={0}
+                  concept={LAGNA_DEFINITIONS['2nd from Upapada Lagna']}
+                  interpretation={`${getLagnaInterpretation('2nd from Upapada Lagna', result.upapadaLagna.secondFromUL.signNumber, ascSignNumber)} ${result.upapadaLagna.secondFromUL.interpretation}`}
+                  tags={[{ label: result.upapadaLagna.secondFromUL.influence, type: result.upapadaLagna.secondFromUL.influence === 'benefic' ? 'success' : result.upapadaLagna.secondFromUL.influence === 'malefic' ? 'warning' : 'neutral' }]}
+                />
+              )}
 
               {/* Kaal Velas */}
               {result.kaalVelas && (
@@ -4259,15 +4395,17 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
                   <BlueprintCard 
                     name="Gulika"
                     sign={result.kaalVelas.gulika.signNumber}
-                    degree={0}
-                    meaning="Point of deep karmic entanglement for the house it occupies."
+                    degree={result.kaalVelas.gulika.longitude % 30}
+                    concept={LAGNA_DEFINITIONS.Gulika}
+                    interpretation={getLagnaInterpretation('Gulika', result.kaalVelas.gulika.signNumber, ascSignNumber)}
                     tags={[{ label: 'Severe Malefic', type: 'warning' }]}
                   />
                   <BlueprintCard 
                     name="Maandi"
                     sign={result.kaalVelas.maandi.signNumber}
-                    degree={0}
-                    meaning="Strongest secondary malefic focus (Midpoint of Saturn's portion)."
+                    degree={result.kaalVelas.maandi.longitude % 30}
+                    concept={LAGNA_DEFINITIONS.Maandi}
+                    interpretation={getLagnaInterpretation('Maandi', result.kaalVelas.maandi.signNumber, ascSignNumber)}
                     tags={[{ label: 'Severe Malefic', type: 'warning' }]}
                   />
                 </>
@@ -4278,14 +4416,16 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
                 name="Beeja Sphuta"
                 sign={result.beejaSphuata.signNumber}
                 degree={result.beejaSphuata.degree}
-                meaning="Fertility and creative vitality (Male / Solar seed)."
+                concept={LAGNA_DEFINITIONS['Beeja Sphuta']}
+                interpretation={getSphutaInterpretation('Beeja Sphuta', result.beejaSphuata.signNumber, result.beejaSphuata.isAuspicious, ascSignNumber)}
                 tags={[{ label: result.beejaSphuata.isAuspicious ? 'Strong' : 'Weak', type: result.beejaSphuata.isAuspicious ? 'success' : 'neutral' }]}
               />
               <BlueprintCard 
                 name="Ksheetra Sphuta"
                 sign={result.kshetraSphuta.signNumber}
                 degree={result.kshetraSphuta.degree}
-                meaning="Fertility and creative potential (Female / Lunar field)."
+                concept={LAGNA_DEFINITIONS['Ksheetra Sphuta']}
+                interpretation={getSphutaInterpretation('Ksheetra Sphuta', result.kshetraSphuta.signNumber, result.kshetraSphuta.isAuspicious, ascSignNumber)}
                 tags={[{ label: result.kshetraSphuta.isAuspicious ? 'Strong' : 'Weak', type: result.kshetraSphuta.isAuspicious ? 'success' : 'neutral' }]}
               />
 
@@ -4294,31 +4434,68 @@ const LifeBlueprintSection: React.FC<{ result: any; birthPositions: PlanetPositi
                 name="Bhrigu Bindu"
                 sign={result.bhriguBindu.signNumber}
                 degree={result.bhriguBindu.degree}
-                meaning="Highly sensitive karmic focal point between Moon and Rahu."
+                concept={LAGNA_DEFINITIONS['Bhrigu Bindu']}
+                interpretation={getLagnaInterpretation('Bhrigu Bindu', result.bhriguBindu.signNumber, ascSignNumber)}
                 tags={[{ label: 'Destiny Hub', type: 'success' }]}
               />
+
+              {/* Spiritual indicators */}
+              {result.ishtaDevata && (() => {
+                const pos = birthPositions?.find(p => p.name === result.ishtaDevata);
+                if (!pos) return null;
+                const sign = Math.floor(pos.siderealLongitude / 30) + 1;
+                return (
+                  <BlueprintCard
+                    name="Ishta Devata"
+                    planet={result.ishtaDevata}
+                    sign={sign}
+                    degree={pos.siderealLongitude % 30}
+                    concept="Ishta Devata is your chosen deity or spiritual protector — the divine energy most aligned with your soul's path and worship."
+                    interpretation={getIshtaInterpretation(result.ishtaDevata, sign, ascSignNumber)}
+                    tags={[{ label: 'Spiritual', type: 'success' }]}
+                  />
+                );
+              })()}
+              {result.dharmaChakra && (() => {
+                const pos = birthPositions?.find(p => p.name === result.dharmaChakra);
+                if (!pos) return null;
+                const sign = Math.floor(pos.siderealLongitude / 30) + 1;
+                return (
+                  <BlueprintCard
+                    name="Dharma Chakra"
+                    planet={result.dharmaChakra}
+                    sign={sign}
+                    degree={pos.siderealLongitude % 30}
+                    concept="Dharma Chakra reveals the planet guiding your ethical duty, social contribution, and righteous path in this lifetime."
+                    interpretation={getDharmaInterpretation(result.dharmaChakra, sign, ascSignNumber)}
+                    tags={[{ label: 'Dharma', type: 'neutral' }]}
+                  />
+                );
+              })()}
       </div>
 
-      {/* Dhooma Chain - Still nice in grid for "Non-Luminous" vibe, or I can add to table */}
-      <div className={cn("p-6 rounded-3xl border mt-6", theme === 'dark' ? "bg-white/[0.01] border-white/5" : "bg-slate-50 border-slate-100")}>
+      {/* Dhooma Chain */}
+      <div className={cn("p-4 sm:p-6 rounded-3xl border mt-6", theme === 'dark' ? "bg-white/[0.01] border-white/5" : "bg-slate-50 border-slate-100")}>
         <div className="flex items-center gap-2 mb-4">
-          <CircleDot className="w-4 h-4 text-jyotish-gold" />
-          <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-white/30">Dhooma Chain (Intense Karmic Points)</h3>
+          <CircleDot className="w-4 h-4 text-jyotish-gold shrink-0" />
+          <h3 className={cn("text-xs font-mono uppercase tracking-[0.2em]", theme === 'dark' ? "text-white/30" : "text-slate-400")}>Dhooma Chain (Intense Karmic Points)</h3>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-          {[
-            { label: 'Dhooma', data: result.dhoomaChain.dhooma, desc: 'Fiery/Obstructive' },
-            { label: 'Vyatipata', data: result.dhoomaChain.vyatipata, desc: 'Misfortune' },
-            { label: 'Parivesha', data: result.dhoomaChain.parivesha, desc: 'Eclipse focus' },
-            { label: 'Indra Chapa', data: result.dhoomaChain.indraChapa, desc: 'Indra\'s Bow' },
-            { label: 'Upaketu', data: result.dhoomaChain.upaketu, desc: 'Dissolution' }
-          ].map((pt, i) => (
-            <div key={i} className="text-center group">
-              <div className="text-[10px] font-bold text-jyotish-gold mb-1 group-hover:text-white transition-colors">{pt.label}</div>
-              <div className="text-[12px] font-serif text-white/80 mb-0.5">{RASHIS[pt.data.signNumber-1]}</div>
-              <div className="text-[9px] font-mono text-white/20">{pt.data.degree.toFixed(1)}°</div>
-              <div className="text-[8px] mt-1 text-white/10 uppercase tracking-tighter">{pt.desc}</div>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {([
+            { label: 'Dhooma' as const, data: result.dhoomaChain.dhooma },
+            { label: 'Vyatipata' as const, data: result.dhoomaChain.vyatipata },
+            { label: 'Parivesha' as const, data: result.dhoomaChain.parivesha },
+            { label: 'Indra Chapa' as const, data: result.dhoomaChain.indraChapa },
+            { label: 'Upaketu' as const, data: result.dhoomaChain.upaketu },
+          ]).map((pt) => (
+            <BlueprintCard
+              key={pt.label}
+              name={pt.label}
+              sign={pt.data.signNumber}
+              degree={pt.data.degree}
+              concept={LAGNA_DEFINITIONS[pt.label]}
+              interpretation={getDhoomaInterpretation(pt.label, pt.data.signNumber, ascSignNumber)}
+            />
           ))}
         </div>
       </div>

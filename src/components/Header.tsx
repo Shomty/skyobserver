@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Compass, MapPin, Loader2, Moon, Sun, User as UserIcon, LogIn, Sparkles, BookOpen, LogOut, Settings, ChevronDown, MessageSquare, Users, ShieldAlert } from 'lucide-react';
+import { Compass, MapPin, Loader2, User as UserIcon, LogIn, Sparkles, BookOpen, LogOut, Settings, ChevronDown, MessageSquare, Users, ShieldAlert } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 import type { User } from 'firebase/auth';
@@ -46,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
   handleAutoSelectNatal,
   isAdmin = false,
 }) => {
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
@@ -66,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className={cn(
       "relative z-40 px-4 py-3 lg:px-6 lg:py-4 flex items-center justify-between border-b backdrop-blur-xl sticky top-0 transition-colors duration-500",
-      theme === 'dark' ? "border-jyotish-gold/10 bg-mystic-purple/60" : "border-slate-200 bg-white/80"
+      theme === 'dark' ? "border-jyotish-gold/10 bg-mystic-purple/60" : "border-border-gold bg-surface-card/80"
     )}>
       <div className="flex items-center gap-2 lg:gap-4">
         <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-xl border border-jyotish-gold/30 flex items-center justify-center bg-jyotish-gold/10 shadow-[0_0_15px_rgba(212,175,55,0.1)]">
@@ -74,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         <div className="flex flex-col">
           <h1 className="text-sm lg:text-xl font-bold tracking-tighter uppercase italic font-serif leading-none gold-gradient-text">Vedic Sky</h1>
-          <p className={cn("hidden sm:block text-caption uppercase tracking-[0.2em] font-mono mt-0.5 lg:mt-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-slate-400")}>Sidereal Engine</p>
+          <p className={cn("hidden sm:block text-caption uppercase tracking-[0.2em] font-mono mt-0.5 lg:mt-1", theme === 'dark' ? "text-jyotish-gold/40" : "text-ink-faint")}>Sidereal Engine</p>
         </div>
       </div>
       
@@ -87,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({
             "lg:hidden flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-[13px] font-mono font-bold transition-all active:scale-95 shrink-0",
             theme === 'dark'
               ? "bg-white/5 border-white/10 text-jyotish-gold hover:bg-white/10"
-              : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"
+              : "bg-surface-muted border-border-gold text-ink-secondary hover:bg-surface-elevated"
           )}
           title="Detect Current GPS Location"
         >
@@ -102,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Location & Time - Desktop Only */}
         <div className="hidden lg:flex items-center gap-6 font-mono text-sm">
           <div className="flex flex-col items-end">
-            <span className={cn("text-[10px] uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Observer</span>
+            <span className={cn("text-[10px] uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Observer</span>
             <div className="flex items-center gap-2">
               {isLocating ? (
                 <span className="text-jyotish-gold flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Locating...</span>
@@ -113,18 +114,18 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
           </div>
-          <div className={cn("w-px h-8", theme === 'dark' ? "bg-jyotish-gold/10" : "bg-slate-200")} />
+          <div className={cn("w-px h-8", theme === 'dark' ? "bg-jyotish-gold/10" : "bg-border-gold")} />
           <div className="flex flex-col items-end">
-            <span className={cn("text-[10px] uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Epoch</span>
+            <span className={cn("text-[10px] uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Epoch</span>
             <span className="text-jyotish-gold">{format(viewMode === 'natal' && birthTime ? birthTime : currentTime, 'HH:mm:ss')}</span>
           </div>
-          <div className={cn("w-px h-8", theme === 'dark' ? "bg-jyotish-gold/10" : "bg-slate-200")} />
+          <div className={cn("w-px h-8", theme === 'dark' ? "bg-jyotish-gold/10" : "bg-border-gold")} />
         </div>
 
         {/* Natal/Transit toggle — desktop only; mobile uses controls sheet */}
         <div className={cn(
           "hidden lg:flex items-center gap-0.5 lg:gap-1 rounded-lg p-0.5 lg:p-1 border transition-colors duration-500",
-          theme === 'dark' ? "bg-mystic-purple/40 border-jyotish-gold/10" : "bg-slate-100 border-slate-200"
+          theme === 'dark' ? "bg-mystic-purple/40 border-jyotish-gold/10" : "bg-surface-muted border-border-gold"
         )}>
           <button
             onClick={handleAutoSelectNatal}
@@ -133,7 +134,7 @@ export const Header: React.FC<HeaderProps> = ({
               "min-h-[36px] px-2 py-1 lg:px-3 lg:py-1.5 rounded-md text-caption font-semibold transition-all flex items-center gap-1.5",
               viewMode === 'natal'
                 ? "bg-jyotish-gold text-black shadow-[0_0_15px_rgba(212,175,55,0.2)]"
-                : theme === 'dark' ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-700"
+                : theme === 'dark' ? "text-white/40 hover:text-white" : "text-ink-muted hover:text-ink-primary"
             )}
           >
             <Sparkles className={cn("w-3 h-3", viewMode === 'natal' && "animate-pulse")} />
@@ -150,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({
               "min-h-[36px] px-2 py-1 lg:px-3 lg:py-1.5 rounded-md text-caption font-semibold transition-all flex items-center gap-1.5",
               viewMode === 'transit'
                 ? "bg-jyotish-gold text-black shadow-[0_0_15px_rgba(212,175,55,0.2)]"
-                : theme === 'dark' ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-700"
+                : theme === 'dark' ? "text-white/40 hover:text-white" : "text-ink-muted hover:text-ink-primary"
             )}
           >
             <Compass className={cn("w-3 h-3", viewMode === 'transit' && "animate-spin-slow")} />
@@ -158,21 +159,10 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        <div className={cn("w-px h-8 hidden sm:block", theme === 'dark' ? "bg-jyotish-gold/10" : "bg-slate-200")} />
+        <div className={cn("w-px h-8 hidden sm:block", theme === 'dark' ? "bg-jyotish-gold/10" : "bg-border-gold")} />
 
         {/* Theme Toggle */}
-        <button 
-          onClick={toggleTheme}
-          className={cn(
-            "p-2 rounded-lg border transition-all duration-300",
-            theme === 'dark' 
-              ? "bg-mystic-purple/40 border-jyotish-gold/20 text-jyotish-gold hover:bg-mystic-purple/60" 
-              : "bg-white border-slate-200 text-orange-600 hover:bg-slate-50 shadow-sm"
-          )}
-          title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
-        >
-          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-        </button>
+        <ThemeToggle />
         
         {/* Auth & Profile */}
         <div className="relative" ref={dropdownRef}>
@@ -197,7 +187,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   )}
                 </div>
-                <ChevronDown className={cn("w-3 h-3 transition-transform duration-300", isDropdownOpen ? "rotate-180" : "", theme === 'dark' ? "text-jyotish-gold/50" : "text-slate-400")} />
+                <ChevronDown className={cn("w-3 h-3 transition-transform duration-300", isDropdownOpen ? "rotate-180" : "", theme === 'dark' ? "text-jyotish-gold/50" : "text-ink-faint")} />
               </button>
 
               <AnimatePresence>
@@ -212,9 +202,9 @@ export const Header: React.FC<HeaderProps> = ({
                       theme === 'dark' ? "bg-mystic-purple/95 border-jyotish-gold/20 shadow-black/50" : "bg-white/95 border-slate-200 shadow-slate-200/50"
                     )}
                   >
-                    <div className={cn("p-4 border-b", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
-                      <p className={cn("text-body font-semibold truncate", theme === 'dark' ? "text-white/90" : "text-slate-900")}>{user.displayName}</p>
-                      <p className={cn("text-caption font-mono truncate mt-0.5", theme === 'dark' ? "text-white/40" : "text-slate-400")}>{user.email}</p>
+                    <div className={cn("p-4 border-b", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
+                      <p className={cn("text-body font-semibold truncate", theme === 'dark' ? "text-white/90" : "text-ink-primary")}>{user.displayName}</p>
+                      <p className={cn("text-caption font-mono truncate mt-0.5", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>{user.email}</p>
                     </div>
 
                     <div className="p-2 space-y-1">

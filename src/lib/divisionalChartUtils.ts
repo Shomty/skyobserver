@@ -1,4 +1,4 @@
-import { PlanetPosition, RASHIS } from '../vedic-utils';
+import { PlanetPosition, RASHIS, countSignsBetween, SignNumber } from '../vedic-utils';
 
 // ─── Pure-math divisional chart engine ───────────────────────────────────────
 // Ported from openastrology-library formulas to avoid the swisseph native-addon
@@ -259,6 +259,11 @@ function capitalizeSign(signIdx: number): string {
   return RASHIS[signIdx] ?? 'Aries';
 }
 
+export interface DivisionalChartResult {
+  positions: PlanetPosition[];
+  hasVargaLagna: boolean;
+}
+
 /**
  * Compute divisional chart positions from a set of birth positions.
  * Returns the same PlanetPosition[] shape so NorthIndianChart can render it directly.
@@ -267,8 +272,22 @@ function capitalizeSign(signIdx: number): string {
 export function computeDivisionalChart(
   birthPositions: PlanetPosition[],
   chartType: DivisionalChartType,
-): PlanetPosition[] {
-  if (chartType === 'D1') return birthPositions;
+): DivisionalChartResult {
+  if (chartType === 'D1') {
+    return {
+      positions: birthPositions,
+      hasVargaLagna: birthPositions.some(p => p.name === 'Ascendant'),
+    };
+  }
+
+  const asc = birthPositions.find(p => p.name === 'Ascendant');
+  const hasVargaLagna = !!asc;
+
+  let vargaLagnaSign: SignNumber | null = null;
+  if (asc) {
+    const ascVargaLon = applyFormula(asc.siderealLongitude, chartType);
+    vargaLagnaSign = ((Math.floor(ascVargaLon / 30) % 12) + 1) as SignNumber;
+  }
 
   const divisionalPositions: PlanetPosition[] = [];
 
@@ -279,6 +298,10 @@ export function computeDivisionalChart(
     const deg = Math.floor(degFloat);
     const min = Math.round((degFloat - deg) * 60);
     const { nakshatra, pada } = getNakshatraFromLon(newLon);
+    const planetSign = (signIdx + 1) as SignNumber;
+    const house = hasVargaLagna && vargaLagnaSign
+      ? countSignsBetween(vargaLagnaSign, planetSign)
+      : p.house;
 
     divisionalPositions.push({
       ...p,
@@ -288,8 +311,9 @@ export function computeDivisionalChart(
       minute: min,
       nakshatra,
       pada,
+      house,
     });
   }
 
-  return divisionalPositions;
+  return { positions: divisionalPositions, hasVargaLagna };
 }

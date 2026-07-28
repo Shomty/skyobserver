@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useCallback } from 'react';
 import { Sparkles, RefreshCw, Loader2, ChevronDown, ChevronUp, Star } from 'lucide-react';
-import { PlanetPosition, NAKSHATRA_DATA } from '../vedic-utils';
+import { PlanetPosition, NAKSHATRA_DATA, CharakarakaSetResult } from '../vedic-utils';
 import { cn } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -27,6 +27,8 @@ interface DivisionalChartsProps {
   lockedChart?: DivisionalChartType;
   /** Sticky short link at the bottom of the viewport (e.g. Kundli → Vargas). */
   footerLink?: { label: string; onClick: () => void };
+  vargottamaPlanets?: string[];
+  charakarakas?: CharakarakaSetResult | null;
 }
 
 const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
@@ -37,6 +39,8 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
   initialChart = 'D9',
   lockedChart,
   footerLink,
+  vargottamaPlanets = [],
+  charakarakas = null,
 }) => {
   const { theme } = useTheme();
   const [selected, setSelected] = React.useState<DivisionalChartType>(
@@ -52,10 +56,17 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
   const [aiOutdated, setAiOutdated] = React.useState(false);
   const [aiExpanded, setAiExpanded] = React.useState(true);
 
-  const divisionalPositions = useMemo(
+  const { positions: divisionalPositions, hasVargaLagna } = useMemo(
     () => computeDivisionalChart(birthPositions, selected),
     [birthPositions, selected],
   );
+
+  const amkD10 = useMemo(() => {
+    if (selected !== 'D10' || !charakarakas?.AmK) return null;
+    const amkPos = divisionalPositions.find(p => p.name === charakarakas.AmK);
+    if (!amkPos) return null;
+    return { sign: amkPos.rashi, house: amkPos.house };
+  }, [selected, charakarakas, divisionalPositions]);
 
   const info = DIVISIONAL_CHART_INFO[selected];
   const cacheDocId = `divisional-nakshatra-${selected}`;
@@ -165,6 +176,16 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
           )}>
             {info.purpose}
           </div>
+          {!hasVargaLagna && selected !== 'D1' && (
+            <div className={cn('text-xs mt-2 font-mono', isDark ? 'text-amber-400/80' : 'text-amber-700')}>
+              House numbers may reflect D1 — add birth location for varga Lagna.
+            </div>
+          )}
+          {amkD10 && (
+            <div className={cn('text-xs mt-2 p-2 rounded-xl border', isDark ? 'bg-jyotish-gold/10 border-jyotish-gold/20 text-jyotish-gold' : 'bg-orange-50 border-orange-200 text-orange-700')}>
+              Amatyakaraka ({charakarakas!.AmK}) in D10: {amkD10.sign}, house {amkD10.house} — professional soul-purpose anchor.
+            </div>
+          )}
         </div>
       </div>
 
@@ -220,6 +241,11 @@ const DivisionalCharts: React.FC<DivisionalChartsProps> = ({
                     </span>
                     {p.isRetrograde && (
                       <span className="text-[9px] text-jyotish-gold font-bold">R</span>
+                    )}
+                    {selected === 'D9' && vargottamaPlanets.includes(p.name) && (
+                      <span className={cn('text-[9px] font-bold px-1 rounded', isDark ? 'bg-jyotish-gold/20 text-jyotish-gold' : 'bg-orange-100 text-orange-600')}>
+                        V
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-1 mt-0.5">

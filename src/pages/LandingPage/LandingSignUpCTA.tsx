@@ -1,21 +1,31 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowUpRight, LockKeyhole } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
+import { cn } from '../../lib/utils';
 
 interface LandingSignUpCTAProps {
   onOpenAuth: (mode: 'signin' | 'signup') => void;
 }
 
 export const LandingSignUpCTA: React.FC<LandingSignUpCTAProps> = ({ onOpenAuth }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   return (
-    <section className="landing-section-cta relative z-10 px-5 py-20 md:px-8 md:py-24">
+    <section className={cn('landing-section-cta relative z-10 px-5 py-20 md:px-8 md:py-24', isDark ? 'dark' : 'light')}>
       <div className="mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="relative overflow-hidden rounded-2xl border border-cosmic-accent/20 bg-[linear-gradient(135deg,#2e1065_0%,#1a0b2e_45%,#0f051d_100%)] px-7 py-12 text-white md:px-14 md:py-16"
+          className={cn(
+            'relative overflow-hidden rounded-2xl border px-7 py-12 md:px-14 md:py-16',
+            isDark
+              ? 'border-cosmic-accent/20 bg-[linear-gradient(135deg,#2e1065_0%,#1a0b2e_45%,#0f051d_100%)] text-white'
+              : 'border-border-gold bg-[linear-gradient(135deg,#fff9f0_0%,#fffcf7_45%,#f4f0e8_100%)] text-ink-primary',
+          )}
         >
           <div className="relative z-10 grid gap-9 md:grid-cols-[1fr_auto] md:items-end">
             <div>
@@ -23,7 +33,7 @@ export const LandingSignUpCTA: React.FC<LandingSignUpCTAProps> = ({ onOpenAuth }
               <h2 className="mt-4 max-w-3xl font-serif text-5xl font-medium italic leading-[0.92] md:text-7xl">
                 Your pattern is not a verdict. It is a map.
               </h2>
-              <div className="mt-6 flex items-center gap-2 text-sm text-white/60">
+              <div className={cn('mt-6 flex items-center gap-2 text-sm', isDark ? 'text-white/60' : 'text-ink-secondary')}>
                 <LockKeyhole className="h-4 w-4" />
                 New accounts require approval before full access.
               </div>
@@ -37,7 +47,12 @@ export const LandingSignUpCTA: React.FC<LandingSignUpCTAProps> = ({ onOpenAuth }
               </button>
               <button
                 onClick={() => onOpenAuth('signin')}
-                className="rounded-full border border-white/20 px-6 py-4 font-medium text-white/85 transition hover:border-cosmic-accent/50 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-accent"
+                className={cn(
+                  'rounded-full border px-6 py-4 font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-accent',
+                  isDark
+                    ? 'border-white/20 text-white/85 hover:border-cosmic-accent/50 hover:bg-white/5'
+                    : 'border-border-gold text-ink-secondary hover:border-jyotish-gold/50 hover:bg-surface-muted',
+                )}
               >
                 Sign in
               </button>

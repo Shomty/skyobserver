@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTheme } from '../context/ThemeContext';
 
 interface CelestialBackgroundProps {}
 
@@ -10,6 +11,9 @@ const DRIFT_PARTICLES = [
 ];
 
 export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   const stars = useMemo(() => {
     return Array.from({ length: 72 }).map((_, i) => ({
       id: i,
@@ -18,9 +22,31 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
       size: (i % 5) * 0.24 + 0.5,
       duration: (i % 4) + 3,
       delay: (i % 7) * 0.55,
-      color: i % 13 === 0 ? '#9d7cff' : '#ede8f5'
+      color: i % 13 === 0 ? '#9d7cff' : '#ede8f5',
     }));
   }, []);
+
+  if (!isDark) {
+    return (
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <style>{`
+          @keyframes light-glow-drift {
+            0%, 100% { transform: translate(0px, 0px) scale(1); opacity: 0.35; }
+            50% { transform: translate(30px, -20px) scale(1.08); opacity: 0.5; }
+          }
+        `}</style>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#faf6ef] via-[#f4f0e8] to-[#ebe4d6]" />
+        <div
+          style={{ animation: 'light-glow-drift 80s linear infinite' }}
+          className="absolute -top-[10%] right-[-5%] h-[70%] w-[70%] rounded-full bg-jyotish-gold/15 blur-[120px]"
+        />
+        <div
+          style={{ animation: 'light-glow-drift 100s linear infinite reverse' }}
+          className="absolute bottom-[-15%] left-[-10%] h-[60%] w-[60%] rounded-full bg-cosmic-accent/10 blur-[130px]"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -49,12 +75,10 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
         }
       `}</style>
 
-      {/* Deep Space Base Gradients */}
       <div className="absolute inset-0 opacity-100">
         <div className="absolute inset-0 bg-gradient-to-br from-[#08050d] via-[#140a20] to-[#050407]" />
       </div>
 
-      {/* Atmospheric Nebula Effects */}
       <div
         style={{ animation: 'nebula-drift-1 60s linear infinite' }}
         className="absolute left-[-10%] top-[-20%] h-[80%] w-[80%] rounded-full bg-mystic-purple opacity-[0.15] blur-[120px]"
@@ -65,7 +89,6 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
         className="absolute bottom-[-20%] right-[-10%] h-[90%] w-[90%] rounded-full bg-violet-700 opacity-[0.12] blur-[150px]"
       />
 
-      {/* Twinkling Stars */}
       <div className="absolute inset-0">
         {stars.map((star) => (
           <div
@@ -84,7 +107,6 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
         ))}
       </div>
 
-      {/* Subtle Drift Particles - for depth (3 particles) */}
       <div className="absolute inset-0">
         {DRIFT_PARTICLES.map((p, i) => (
           <div
@@ -102,7 +124,6 @@ export const CelestialBackground: React.FC<CelestialBackgroundProps> = () => {
         ))}
       </div>
 
-      {/* Vignette */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.48)_100%)]" />
     </div>
   );

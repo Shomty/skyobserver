@@ -58,9 +58,9 @@ export const MoreSheet: React.FC<MoreSheetProps> = ({ isOpen, onClose, activeTab
             </div>
 
             {user && (
-              <div className={cn("px-2 py-3 border-b mb-2", theme === 'dark' ? "border-white/5" : "border-slate-100")}>
-                <p className={cn("text-body font-semibold truncate", theme === 'dark' ? "text-white/90" : "text-slate-900")}>{user.displayName}</p>
-                <p className={cn("text-caption font-mono truncate mt-0.5", theme === 'dark' ? "text-white/40" : "text-slate-400")}>{user.email}</p>
+              <div className={cn("px-2 py-3 border-b mb-2", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
+                <p className={cn("text-body font-semibold truncate", theme === 'dark' ? "text-white/90" : "text-ink-primary")}>{user.displayName}</p>
+                <p className={cn("text-caption font-mono truncate mt-0.5", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>{user.email}</p>
               </div>
             )}
 
@@ -78,7 +78,7 @@ export const MoreSheet: React.FC<MoreSheetProps> = ({ isOpen, onClose, activeTab
                         : theme === 'dark' ? "text-white/70 hover:bg-white/5 hover:text-white" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     )}
                   >
-                    <Icon className={cn("w-5 h-5", isActive ? "text-jyotish-gold" : theme === 'dark' ? "text-white/30" : "text-slate-400")} />
+                    <Icon className={cn("w-5 h-5", isActive ? "text-jyotish-gold" : theme === 'dark' ? "text-white/30" : "text-ink-faint")} />
                     <span className="text-body font-medium">{label}</span>
                   </button>
                 );

@@ -30,6 +30,8 @@ import type { User } from 'firebase/auth';
 export interface AIAssistantProps {
   user: User | null;
   userProfile?: any;
+  referenceDate: Date;
+  locationLabel?: string;
   positions: PlanetPosition[];
   birthPositions?: PlanetPosition[] | null;
   birthYogas?: Yoga[];
@@ -43,6 +45,8 @@ export interface AIAssistantProps {
 const AIAssistant: React.FC<AIAssistantProps> = ({
   user,
   userProfile,
+  referenceDate,
+  locationLabel,
   positions,
   birthPositions,
   birthYogas = [],
@@ -127,6 +131,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
   const chatCtx: ChatContextProps = {
     userProfile,
+    referenceDate,
+    locationLabel,
     transitPositions: positions,
     birthPositions: birthPositions ?? null,
     birthYogas,
@@ -140,7 +146,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const systemInstruction = useCallback(
     () => buildSystemInstruction(chatCtx),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [userProfile, positions, birthPositions, birthYogas, yogas, transits, birthPanchang, panchang, birthSpecialPoints]
+    [userProfile, referenceDate.getTime(), locationLabel, positions, birthPositions, birthYogas, yogas, transits, birthPanchang, panchang, birthSpecialPoints]
   );
 
   const saveInterpretation = async (content: string, messageId: string) => {

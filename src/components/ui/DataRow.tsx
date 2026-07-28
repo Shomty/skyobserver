@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '../../lib/utils';
-import { useTheme } from '../../context/ThemeContext';
+import { useThemeClasses } from '../../lib/themeClasses';
 import { Label } from './Label';
 
 interface DataRowProps {
@@ -25,7 +25,7 @@ const ACCENT_CLASSES: Record<NonNullable<DataRowProps['accent']>, string> = {
  * Replaces ad-hoc flex rows with pervasive text-[10px] labels.
  */
 export function DataRow({ label, value, sublabel, numeric = false, accent = 'neutral', className }: DataRowProps) {
-  const { theme } = useTheme();
+  const tc = useThemeClasses();
 
   return (
     <div
@@ -37,7 +37,7 @@ export function DataRow({ label, value, sublabel, numeric = false, accent = 'neu
       <div className="min-w-0 flex flex-col justify-center">
         <Label muted>{label}</Label>
         {sublabel && (
-          <span className={cn('text-caption mt-0.5', theme === 'dark' ? 'text-white/40' : 'text-slate-400')}>
+          <span className={cn('text-caption mt-0.5', tc.textFaint)}>
             {sublabel}
           </span>
         )}
@@ -46,7 +46,7 @@ export function DataRow({ label, value, sublabel, numeric = false, accent = 'neu
         className={cn(
           'text-body font-medium text-right shrink-0',
           numeric && 'font-mono tabular',
-          accent !== 'neutral' ? ACCENT_CLASSES[accent] : theme === 'dark' ? 'text-white/90' : 'text-slate-900'
+          accent !== 'neutral' ? ACCENT_CLASSES[accent] : tc.textPrimary
         )}
       >
         {value}

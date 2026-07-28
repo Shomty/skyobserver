@@ -65,7 +65,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
   // We use the primary positions' ascendant as the base for the houses
   const activeAscendant = positions.find(p => p.name === "Ascendant");
 
-  if (!activeAscendant) return <div className={cn("italic", theme === 'dark' ? "text-white/20" : "text-slate-400")}>Calculating chart...</div>;
+  if (!activeAscendant) return <div className={cn("italic", theme === 'dark' ? "text-white/20" : "text-ink-faint")}>Calculating chart...</div>;
 
   const startRashiIdx = RASHIS.indexOf(activeAscendant.rashi);
 
@@ -161,7 +161,7 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
       ref={containerRef}
       className={cn(
         "relative w-full h-full aspect-square p-2 sm:p-4 rounded-3xl border shadow-2xl overflow-hidden transition-colors duration-500 mx-auto",
-        theme === 'dark' ? "bg-black/20 border-white/5" : "bg-white border-slate-200",
+        theme === 'dark' ? "bg-black/20 border-white/5" : "bg-surface-card border-border-gold",
         className
       )}
     >
@@ -559,12 +559,12 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
             style={{ left: `${percentX}%`, top: `${percentY}%`, transform: 'translate(-50%, -50%)' }}
           >
             <div className="text-[13px] font-bold uppercase tracking-wide text-orange-500">{seg.name}</div>
-            <div className={cn("mt-1 space-y-0.5 text-[9px] font-mono", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
+            <div className={cn("mt-1 space-y-0.5 text-[9px] font-mono", theme === 'dark' ? "text-white/70" : "text-ink-secondary")}>
               <div><span className="opacity-60">Lord:</span> {data.lord}</div>
               <div><span className="opacity-60">Deity:</span> {data.deity}</div>
               <div><span className="opacity-60">Symbol:</span> {data.symbol}</div>
             </div>
-            <div className={cn("mt-1.5 text-[9px] leading-snug", theme === 'dark' ? "text-white/60" : "text-slate-500")}>
+            <div className={cn("mt-1.5 text-[9px] leading-snug", theme === 'dark' ? "text-white/60" : "text-ink-muted")}>
               {data.characteristics}
             </div>
           </div>
@@ -574,12 +574,12 @@ const NorthIndianChart: React.FC<NorthIndianChartProps> = ({
       {/* Legend */}
       <div className="absolute bottom-2 left-4 flex gap-4">
         {(!isBirthMode || viewMode !== 'natal') && (
-          <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+          <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
             <div className="w-2 h-2 rounded bg-orange-500/20 border border-orange-500/40" /> Transit
           </div>
         )}
         {isBirthMode && (
-          <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+          <div className={cn("flex items-center gap-1.5 text-[8px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
             <div className="w-2 h-2 rounded-full border border-orange-500/40" /> Natal
           </div>
         )}

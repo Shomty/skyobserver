@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Activity, LocateFixed, MapPin } from 'lucide-react';
 import { calculatePanchang, calculatePositions } from '../../../vedic-utils';
 import type { PanchangData } from '../../../vedic-utils';
+import { useTheme } from '../../../context/ThemeContext';
+import { cn } from '../../../lib/utils';
 import { presentMoodLedger } from './moodLedgerPresentation';
 
 interface Coordinates {
@@ -18,11 +20,11 @@ const DEFAULT_LOCATION: Coordinates = {
 
 type LocationStatus = 'idle' | 'requesting' | 'active' | 'approximate' | 'denied';
 
-const MoodDatum: React.FC<{ label: string; value: string; detail?: string }> = ({ label, value, detail }) => (
-  <div className="dashboard-stat">
+const MoodDatum: React.FC<{ label: string; value: string; detail?: string; isDark: boolean }> = ({ label, value, detail, isDark }) => (
+  <div className={cn('dashboard-stat', isDark ? 'dark' : 'light')}>
     <dt className="dashboard-stat-label">{label}</dt>
-    <dd className="dashboard-stat-value">{value}</dd>
-    {detail && <dd className="mt-1 text-[13px] leading-5 text-white/35">{detail}</dd>}
+    <dd className={cn('dashboard-stat-value', isDark ? 'dark' : 'light')}>{value}</dd>
+    {detail && <dd className={cn('mt-1 text-[13px] leading-5', isDark ? 'text-white/35' : 'text-ink-faint')}>{detail}</dd>}
   </div>
 );
 
@@ -50,6 +52,8 @@ async function resolveLocationLabel(lat: number, lon: number): Promise<string> {
 }
 
 export const CurrentPanchangTeaser: React.FC = () => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [now, setNow] = useState(() => new Date());
   const [coordinates, setCoordinates] = useState<Coordinates>(DEFAULT_LOCATION);
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
@@ -144,17 +148,17 @@ export const CurrentPanchangTeaser: React.FC = () => {
   })();
 
   return (
-    <section aria-labelledby="daily-mood-title" className="dashboard-panel">
+    <section aria-labelledby="daily-mood-title" className={cn('dashboard-panel', isDark ? 'dark' : 'light')}>
       <div className="grid lg:grid-cols-[0.72fr_1.28fr]">
         <header className="relative flex min-h-64 flex-col justify-between overflow-hidden border-b border-cosmic-accent/12 p-6 lg:border-b-0 lg:border-r sm:p-8">
           <div aria-hidden="true" className="absolute -right-20 -top-24 h-64 w-64 rounded-full border border-cosmic-accent/15 shadow-[0_0_80px_rgba(157,124,255,0.12)]" />
           <div className="relative flex items-start justify-between gap-4">
             <div>
               <p className="landing-kicker">Panel · mood ledger</p>
-              <h2 id="daily-mood-title" className="mt-3 max-w-sm font-serif text-3xl font-semibold leading-none text-white sm:text-4xl">
+              <h2 id="daily-mood-title" className={cn('mt-3 max-w-sm font-serif text-3xl font-semibold leading-none sm:text-4xl', isDark ? 'text-white' : 'text-ink-primary')}>
                 Daily <span className="italic text-jyotish-gold">emotional weather</span>
               </h2>
-              <p className="mt-4 text-sm leading-6 text-white/45">
+              <p className={cn('mt-4 text-sm leading-6', isDark ? 'text-white/45' : 'text-ink-muted')}>
                 Live snapshot of today's rhythm — lunar tone, weekday energy, and the mood of the moment.
               </p>
             </div>
@@ -164,7 +168,7 @@ export const CurrentPanchangTeaser: React.FC = () => {
           </div>
 
           <div className="relative mt-8">
-            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/65">
+            <div className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-xs', isDark ? 'border-white/10 bg-white/[0.03] text-white/65' : 'border-border-gold bg-surface-muted text-ink-secondary')}>
               <MapPin size={14} className="text-jyotish-gold" aria-hidden="true" />
               <span>{coordinates.label}</span>
             </div>
@@ -172,12 +176,17 @@ export const CurrentPanchangTeaser: React.FC = () => {
               type="button"
               onClick={requestLocation}
               disabled={locationStatus === 'requesting'}
-              className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/15 bg-white/[0.03] px-4 font-mono text-[10px] uppercase tracking-[0.14em] text-white/60 transition-colors hover:border-jyotish-gold/50 hover:text-white disabled:cursor-wait disabled:opacity-50 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jyotish-gold/70"
+              className={cn(
+                'mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border px-4 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors disabled:cursor-wait disabled:opacity-50 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jyotish-gold/70',
+                isDark
+                  ? 'border-white/15 bg-white/[0.03] text-white/60 hover:border-jyotish-gold/50 hover:text-white'
+                  : 'border-border-gold bg-surface-muted text-ink-muted hover:border-jyotish-gold/50 hover:text-ink-primary',
+              )}
             >
               <LocateFixed size={14} aria-hidden="true" />
               {locationStatus === 'requesting' ? 'Awaiting permission…' : 'Use my location'}
             </button>
-            <p className="mt-2 min-h-4 text-[10px] text-white/30" role="status">
+            <p className={cn('mt-2 min-h-4 text-[10px]', isDark ? 'text-white/30' : 'text-ink-faint')} role="status">
               {statusMessage}
             </p>
           </div>
@@ -185,8 +194,8 @@ export const CurrentPanchangTeaser: React.FC = () => {
 
         <div className="p-6 sm:p-8">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-2 border-b border-cosmic-accent/20 pb-5">
-            <p className="font-serif text-2xl text-white/90">{formattedDate}</p>
-            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/30">
+            <p className={cn('font-serif text-2xl', isDark ? 'text-white/90' : 'text-ink-primary')}>{formattedDate}</p>
+            <p className={cn('font-mono text-[9px] uppercase tracking-[0.18em]', isDark ? 'text-white/30' : 'text-ink-faint')}>
               {coordinates.latitude.toFixed(2)}° · {coordinates.longitude.toFixed(2)}°
             </p>
           </div>
@@ -194,14 +203,14 @@ export const CurrentPanchangTeaser: React.FC = () => {
           {panchang ? (
             <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {moodRows.map((row) => (
-                <MoodDatum key={row.label} label={row.label} value={row.value} detail={row.detail} />
+                <MoodDatum key={row.label} label={row.label} value={row.value} detail={row.detail} isDark={isDark} />
               ))}
             </dl>
           ) : (
             <p role="alert" className="py-16 text-center text-sm text-rose-200/70">{panchangResult.error}</p>
           )}
 
-          <p className="mt-5 border-t border-white/10 pt-4 text-[10px] leading-5 text-white/25">
+          <p className={cn('mt-5 border-t pt-4 text-[10px] leading-5', isDark ? 'border-white/10 text-white/25' : 'border-border-gold text-ink-faint')}>
             A concise mood snapshot for reflection — not a substitute for major life decisions.
           </p>
         </div>

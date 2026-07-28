@@ -289,13 +289,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({
             </div>
             <h2 className={cn(
               "text-4xl lg:text-5xl font-bold tracking-tighter uppercase italic font-serif leading-none transition-colors duration-500",
-              theme === 'dark' ? "text-white" : "text-slate-900"
+              theme === 'dark' ? "text-white" : "text-ink-primary"
             )}>
               Personal <span className="gold-gradient-text italic">Identity</span>
             </h2>
             <p className={cn(
               "text-sm font-mono transition-colors duration-500",
-              theme === 'dark' ? "text-white/40" : "text-slate-500"
+              theme === 'dark' ? "text-white/40" : "text-ink-muted"
             )}>
               Refine your digital presence within the Vedic Sky ecosystem.
             </p>
@@ -356,10 +356,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                   </div>
                   
                   <div className="space-y-1">
-                    <h3 className={cn("text-xl font-serif italic font-bold", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                    <h3 className={cn("text-xl font-serif italic font-bold", theme === 'dark' ? "text-white" : "text-ink-primary")}>
                       {displayName || "Seeker"}
                     </h3>
-                    <p className={cn("text-xs font-mono uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                    <p className={cn("text-xs font-mono uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
                       Verified Observer
                     </p>
                   </div>
@@ -369,7 +369,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                 <div className="md:col-span-2 space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
                         First Name
                       </label>
                       <div className="relative group">
@@ -390,7 +390,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                     </div>
 
                     <div className="space-y-2">
-                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
                         Last Name
                       </label>
                       <div className="relative group">
@@ -411,7 +411,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                     </div>
 
                     <div className="space-y-2">
-                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
                         Display Name
                       </label>
                       <div className="relative group">
@@ -438,7 +438,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                     </div>
 
                     <div className="space-y-2">
-                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
                         Primary Email
                       </label>
                       <div className="relative opacity-60 cursor-not-allowed">
@@ -457,7 +457,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                     </div>
 
                     <div className="space-y-2">
-                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
                         Gender
                       </label>
                       <div className="relative group">
@@ -509,7 +509,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
                     <div className="space-y-2 relative">
                       <div className="flex items-center justify-between ml-1">
-                        <label className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                        <label className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
                           Birth Place
                         </label>
                         <div className="flex items-center gap-3">
@@ -572,7 +572,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                             exit={{ opacity: 0, y: -10 }}
                             className={cn(
                               "absolute z-50 left-0 right-0 mt-2 rounded-xl border shadow-xl overflow-hidden max-h-60 overflow-y-auto custom-scrollbar",
-                              theme === 'dark' ? "bg-[#0a0a0a] border-white/10" : "bg-white border-slate-200"
+                              theme === 'dark' ? "bg-[#0a0a0a] border-white/10" : "bg-surface-card border-border-gold"
                             )}
                           >
                             {citySuggestions.map((city, idx) => (
@@ -606,10 +606,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                         >
                           <div className={cn(
                             "p-4 rounded-2xl border",
-                            theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-slate-50 border-slate-100"
+                            theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-surface-muted border-border-gold"
                           )}>
                             <div className="flex items-center justify-between mb-4">
-                              <span className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                              <span className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
                                 Manual Coordinates
                               </span>
                               <button 
@@ -681,7 +681,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                     </AnimatePresence>
 
                     <div className="space-y-2">
-                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                      <label className={cn("text-[10px] uppercase tracking-widest font-mono ml-1", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
                         Default Tracking City
                       </label>
                       <div className="relative group">
@@ -755,7 +755,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
               )}>
                 <div className="flex items-center gap-3">
                   <Bell className="w-5 h-5 text-jyotish-gold" />
-                  <h3 className={cn("text-lg font-serif italic font-bold", theme === 'dark' ? "text-white" : "text-slate-900")}>Notifications</h3>
+                  <h3 className={cn("text-lg font-serif italic font-bold", theme === 'dark' ? "text-white" : "text-ink-primary")}>Notifications</h3>
                 </div>
                 
                 <div className="space-y-4">
@@ -772,7 +772,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                         )}>
                           <item.icon className="w-4 h-4" />
                         </div>
-                        <span className={cn("text-sm font-medium", theme === 'dark' ? "text-white/80" : "text-slate-700")}>{item.label}</span>
+                        <span className={cn("text-sm font-medium", theme === 'dark' ? "text-white/80" : "text-ink-secondary")}>{item.label}</span>
                       </div>
                       <button 
                         type="button"
@@ -803,9 +803,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                 <div className="flex flex-col gap-2 flex-1">
                   <div className="flex items-center gap-3">
                     <BookOpen className="w-5 h-5 text-jyotish-gold" />
-                    <h3 className={cn("text-lg font-serif italic font-bold", theme === 'dark' ? "text-white" : "text-slate-900")}>AI Interpretations</h3>
+                    <h3 className={cn("text-lg font-serif italic font-bold", theme === 'dark' ? "text-white" : "text-ink-primary")}>AI Interpretations</h3>
                   </div>
-                  <p className={cn("text-xs font-mono", theme === 'dark' ? "text-white/40" : "text-slate-500")}>
+                  <p className={cn("text-xs font-mono", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>
                     Your saved readings from the celestial mirror.
                   </p>
                 </div>
@@ -832,8 +832,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           theme === 'dark' ? "border-red-500/10 bg-red-500/[0.02]" : "border-slate-200 bg-slate-50"
         )}>
           <div className="space-y-1">
-            <h4 className={cn("text-sm font-bold font-serif italic", theme === 'dark' ? "text-red-500" : "text-slate-700")}>Erase All Memory</h4>
-            <p className={cn("text-xs font-mono", theme === 'dark' ? "text-white/20" : "text-slate-400")}>This will permanently delete your saved charts and historical interpretations.</p>
+            <h4 className={cn("text-sm font-bold font-serif italic", theme === 'dark' ? "text-red-500" : "text-ink-secondary")}>Erase All Memory</h4>
+            <p className={cn("text-xs font-mono", theme === 'dark' ? "text-white/20" : "text-ink-faint")}>This will permanently delete your saved charts and historical interpretations.</p>
           </div>
           <button className={cn(
             "px-6 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all",

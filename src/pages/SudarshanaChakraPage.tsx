@@ -1,21 +1,30 @@
-import React, { useMemo, useEffect, useCallback } from 'react';
-import { ArrowLeft, Sparkles, Loader2, RefreshCw, CircleDot, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useMemo, useEffect, useCallback, useRef } from 'react';
+import {
+  ArrowLeft, Sparkles, Loader2, RefreshCw, CircleDot,
+  ChevronDown, ChevronUp, Users, Check,
+} from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
+import { differenceInYears } from 'date-fns';
 import { cn } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
 import {
   PlanetPosition,
   calculateSudarshanaChakra,
+  calculateSudarshanaActiveHouse,
   SudarshanaChakraResult,
-  SudarshanaLayer,
+  calculatePositions,
+  RASHIS,
 } from '../vedic-utils';
+import { fetchPlanetPositions } from '../services/positionsService';
 import { getPerAccountReport, savePerAccountReport } from '../services/aiReportService';
 import {
   generateSudarshanaChakraInterpretation,
+  normalizeCachedSudarshanaInterpretation,
   SudarshanaChakraInterpretations,
 } from '../services/geminiService';
 import type { User } from 'firebase/auth';
+import type { ChildProfile } from './ProfilesPage';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -37,8 +46,15 @@ const PLANET_COLORS: Record<string, string> = {
   Jupiter: '#F59E0B', Venus: '#EC4899', Saturn: '#8B5CF6', Rahu: '#7C3AED', Ketu: '#9CA3AF',
 };
 
-const CACHE_DOC_ID = 'sudarshana-chakra';
 const CX = 320, CY = 320;
+
+const AI_SECTIONS: { key: keyof SudarshanaChakraInterpretations; label: string; color: string }[] = [
+  { key: 'threefoldCore',              label: 'I. Threefold Core',              color: '#D4AF37' },
+  { key: 'careerActionAxis',           label: 'II. Career & Action',            color: '#F97316' },
+  { key: 'relationshipsPeaceOfMind',   label: 'III. Relationships & Mind',      color: '#60A5FA' },
+  { key: 'activeSudarshanaYear',       label: 'IV. Active Year',                color: '#10B981' },
+  { key: 'remedialGrowthGuidance',     label: 'V. Remedial Guidance',           color: '#F59E0B' },
+];
 
 // ─── SVG Helpers ───────────────────────────────────────────────────────────────
 
@@ -63,6 +79,15 @@ function sectorPath(cx: number, cy: number, r1: number, r2: number, startDeg: nu
   ].join(' ');
 }
 
+function formatPlanetList(planets: PlanetPosition[]): string {
+  if (planets.length === 0) return '—';
+  return planets.map(p => {
+    const glyph = PLANET_GLYPHS[p.name] || p.name.slice(0, 2);
+    const extras = [p.dignity, p.isRetrograde ? 'Rx' : null].filter(Boolean).join(' ');
+    return extras ? `${glyph} ${extras}` : glyph;
+  }).join(' ');
+}
+
 // ─── Wheel Component ───────────────────────────────────────────────────────────
 
 interface WheelProps {
@@ -71,6 +96,7 @@ interface WheelProps {
   hoveredHouse: number | null;
   onHoverHouse: (h: number | null) => void;
   convergenceHouses: Set<number>;
+  activeHouse: number;
 }
 
 const SudarshanaWheel: React.FC<WheelProps> = ({
@@ -79,6 +105,7 @@ const SudarshanaWheel: React.FC<WheelProps> = ({
   hoveredHouse,
   onHoverHouse,
   convergenceHouses,
+  activeHouse,
 }) => {
   return (
     <svg viewBox="0 0 640 640" className="w-full h-full" style={{ overflow: 'visible' }}>
@@ -98,20 +125,11 @@ const SudarshanaWheel: React.FC<WheelProps> = ({
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <filter id="sc-softglow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="5" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
       </defs>
 
-      {/* Outer background disc */}
       <circle cx={CX} cy={CY} r={316} fill="url(#sc-bgGrad)" />
       <circle cx={CX} cy={CY} r={316} fill="none" stroke="rgba(212,175,55,0.08)" strokeWidth="1" />
 
-      {/* Three rings */}
       {LAYER_CONFIG.map((ring) => {
         const layer = chakra[ring.key];
         const visible = layerVisible[ring.key];
@@ -126,18 +144,13 @@ const SudarshanaWheel: React.FC<WheelProps> = ({
               const hasPlanets = planets.length > 0;
               const isHovered = hoveredHouse === h;
               const isConvergence = convergenceHouses.has(h);
+              const isActive = activeHouse === h;
 
-              const fillOpacity = hasPlanets
-                ? isHovered ? 0.42 : isConvergence ? 0.28 : 0.16
-                : isHovered ? 0.1 : 0.04;
-
-              const strokeOpacity = isHovered ? 0.7 : hasPlanets ? 0.3 : 0.12;
-              const strokeWidth = isHovered ? 1.5 : 0.8;
-
-              // Planet placement within the ring
-              const ringH = ring.r2 - ring.r1;
-              const midR = (ring.r1 + ring.r2) / 2;
-              const fontSize = ringH > 80 ? 16 : ringH > 60 ? 14 : 12;
+              const fillOpacity = isActive
+                ? isHovered ? 0.5 : 0.35
+                : hasPlanets
+                  ? isHovered ? 0.42 : isConvergence ? 0.28 : 0.16
+                  : isHovered ? 0.1 : 0.04;
 
               return (
                 <g
@@ -146,18 +159,16 @@ const SudarshanaWheel: React.FC<WheelProps> = ({
                   onMouseLeave={() => onHoverHouse(null)}
                   style={{ cursor: 'default' }}
                 >
-                  {/* Sector fill */}
                   <path
                     d={sectorPath(CX, CY, ring.r1, ring.r2, startDeg, endDeg)}
-                    fill={ring.stroke}
+                    fill={isActive ? '#D4AF37' : ring.stroke}
                     fillOpacity={fillOpacity}
-                    stroke={ring.stroke}
-                    strokeOpacity={strokeOpacity}
-                    strokeWidth={strokeWidth}
+                    stroke={isActive ? '#D4AF37' : ring.stroke}
+                    strokeOpacity={isHovered ? 0.7 : hasPlanets ? 0.3 : 0.12}
+                    strokeWidth={isActive ? 2 : isHovered ? 1.5 : 0.8}
                     strokeLinejoin="round"
                   />
 
-                  {/* Convergence glow ring */}
                   {isConvergence && hasPlanets && (
                     <path
                       d={sectorPath(CX, CY, ring.r1 + 2, ring.r2 - 2, startDeg, endDeg)}
@@ -169,16 +180,12 @@ const SudarshanaWheel: React.FC<WheelProps> = ({
                     />
                   )}
 
-                  {/* Planet glyphs */}
                   {planets.map((planet, pi) => {
+                    const ringH = ring.r2 - ring.r1;
+                    const midR = (ring.r1 + ring.r2) / 2;
+                    const fontSize = ringH > 80 ? 16 : ringH > 60 ? 14 : 12;
                     const total = planets.length;
-                    let rPos: number;
-                    if (total === 1) {
-                      rPos = midR;
-                    } else {
-                      const step = ringH / (total + 1);
-                      rPos = ring.r1 + step * (pi + 1);
-                    }
+                    const rPos = total === 1 ? midR : ring.r1 + (ringH / (total + 1)) * (pi + 1);
                     const pos = polar(CX, CY, rPos, midDeg);
                     return (
                       <text
@@ -203,34 +210,26 @@ const SudarshanaWheel: React.FC<WheelProps> = ({
         );
       })}
 
-      {/* Ring separator circles */}
       {[80, 165, 248, 305].map(r => (
         <circle key={r} cx={CX} cy={CY} r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
       ))}
 
-      {/* Radial dividers (12 spokes) */}
       {Array.from({ length: 12 }, (_, i) => {
         const angleDeg = i * 30 - 90;
         const p1 = polar(CX, CY, 80, angleDeg);
         const p2 = polar(CX, CY, 305, angleDeg);
         return (
-          <line
-            key={i}
-            x1={p1.x} y1={p1.y}
-            x2={p2.x} y2={p2.y}
-            stroke="rgba(255,255,255,0.1)"
-            strokeWidth="1"
-          />
+          <line key={i} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
         );
       })}
 
-      {/* House number labels (outer rim) */}
       {Array.from({ length: 12 }, (_, i) => {
         const h = i + 1;
         const midDeg = i * 30 - 90 + 15;
         const pos = polar(CX, CY, 313, midDeg);
         const isHovered = hoveredHouse === h;
         const isConvergence = convergenceHouses.has(h);
+        const isActive = activeHouse === h;
         return (
           <text
             key={h}
@@ -241,22 +240,20 @@ const SudarshanaWheel: React.FC<WheelProps> = ({
             fontSize="9"
             fontFamily="monospace"
             fill={
+              isActive ? 'rgba(212,175,55,1)' :
               isConvergence ? 'rgba(212,175,55,0.9)' :
               isHovered ? 'rgba(255,255,255,0.8)' :
               'rgba(255,255,255,0.28)'
             }
-            fontWeight={isConvergence ? 'bold' : 'normal'}
+            fontWeight={isActive || isConvergence ? 'bold' : 'normal'}
           >
             {h}
           </text>
         );
       })}
 
-      {/* Center circle */}
       <circle cx={CX} cy={CY} r={80} fill="url(#sc-centerGrad)" />
       <circle cx={CX} cy={CY} r={80} fill="none" stroke="rgba(212,175,55,0.25)" strokeWidth="1.5" />
-
-      {/* Center: reference sign labels */}
       <text x={CX} y={CY - 32} textAnchor="middle" dominantBaseline="central" fontSize="9" fill="rgba(212,175,55,0.55)" fontFamily="monospace" letterSpacing="1">SUDARSHANA</text>
       <text x={CX} y={CY - 14} textAnchor="middle" dominantBaseline="central" fontSize="13" fill="#F97316" fontWeight="bold">
         {chakra.lagnaChakra.referenceSign.slice(0, 3).toUpperCase()}
@@ -268,87 +265,103 @@ const SudarshanaWheel: React.FC<WheelProps> = ({
         {chakra.suryaChakra.referenceSign.slice(0, 3).toUpperCase()}
       </text>
       <text x={CX} y={CY + 42} textAnchor="middle" dominantBaseline="central" fontSize="9" fill="rgba(212,175,55,0.35)" fontFamily="monospace">✦</text>
-
-      {/* Outer decorative ring */}
       <circle cx={CX} cy={CY} r={320} fill="none" stroke="rgba(212,175,55,0.06)" strokeWidth="3" />
     </svg>
   );
 };
 
-// ─── Hover Info Panel ─────────────────────────────────────────────────────────
+// ─── Data Validation Table ─────────────────────────────────────────────────────
 
-const HoverPanel: React.FC<{
-  house: number | null;
+const PlanetsInHousesTable: React.FC<{
   chakra: SudarshanaChakraResult;
-}> = ({ house, chakra }) => {
-  if (!house) return (
-    <div className="h-12 flex items-center justify-center">
-      <p className="text-[10px] font-mono uppercase tracking-widest text-white/20">Hover a house sector</p>
+  activeHouse: number;
+  isDark: boolean;
+}> = ({ chakra, activeHouse, isDark }) => (
+  <div className={cn(
+    'rounded-xl border overflow-hidden',
+    isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-white'
+  )}>
+    <div className={cn(
+      'px-3 py-2 border-b flex items-center justify-between',
+      isDark ? 'border-white/5' : 'border-slate-100'
+    )}>
+      <p className={cn('text-[10px] font-mono uppercase tracking-widest font-bold', isDark ? 'text-jyotish-gold/70' : 'text-jyotish-gold')}>
+        Planets in Houses — Data Validation
+      </p>
+      <div className="flex gap-3 text-[9px] font-mono">
+        <span style={{ color: '#F97316' }}>Lagna: {chakra.lagnaChakra.referenceSign}</span>
+        <span style={{ color: '#60A5FA' }}>Chandra: {chakra.chandraChakra.referenceSign}</span>
+        <span style={{ color: '#F59E0B' }}>Surya: {chakra.suryaChakra.referenceSign}</span>
+      </div>
     </div>
-  );
-
-  const rows = LAYER_CONFIG.map(l => ({
-    label: l.label,
-    color: l.stroke,
-    planets: chakra[l.key].houses[house]?.planets ?? [],
-  }));
-
-  return (
-    <motion.div
-      key={house}
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.15 }}
-      className="flex items-center justify-center gap-6 h-12 px-4"
-    >
-      <span className="text-xs font-mono text-jyotish-gold font-bold">H{house}</span>
-      {rows.map(row => (
-        <div key={row.label} className="flex items-center gap-1.5">
-          <span className="text-[9px] font-mono uppercase tracking-wide" style={{ color: row.color }}>{row.label}</span>
-          <span className="text-sm">
-            {row.planets.length === 0
-              ? <span className="text-white/20 text-[10px]">—</span>
-              : row.planets.map(p => (
-                  <span key={p.name} style={{ color: PLANET_COLORS[p.name] || '#9CA3AF' }}>
-                    {PLANET_GLYPHS[p.name] || p.name.slice(0, 2)}
-                  </span>
-                ))}
-          </span>
-        </div>
-      ))}
-    </motion.div>
-  );
-};
-
-// ─── AI Sections ──────────────────────────────────────────────────────────────
-
-const AI_SECTIONS: { key: keyof SudarshanaChakraInterpretations; label: string; color: string }[] = [
-  { key: 'overview',             label: 'Overview',              color: '#D4AF37' },
-  { key: 'lagnaChakra',          label: 'Lagna Chakra',          color: '#F97316' },
-  { key: 'chandraChakra',        label: 'Chandra Chakra',        color: '#60A5FA' },
-  { key: 'suryaChakra',          label: 'Surya Chakra',          color: '#F59E0B' },
-  { key: 'crossLayerHighlights', label: 'Cross-Layer Highlights', color: '#10B981' },
-];
+    <div className="overflow-x-auto">
+      <table className="w-full text-[11px]">
+        <thead>
+          <tr className={cn('border-b', isDark ? 'border-white/5 text-white/40' : 'border-slate-100 text-slate-500')}>
+            <th className="px-2 py-1.5 text-left font-mono w-10">H</th>
+            <th className="px-2 py-1.5 text-left font-mono">Sign</th>
+            <th className="px-2 py-1.5 text-left" style={{ color: '#F97316' }}>Lagna</th>
+            <th className="px-2 py-1.5 text-left" style={{ color: '#60A5FA' }}>Chandra</th>
+            <th className="px-2 py-1.5 text-left" style={{ color: '#F59E0B' }}>Surya</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 12 }, (_, i) => {
+            const h = i + 1;
+            const sign = RASHIS[(chakra.lagnaChakra.referenceSignIndex + h - 1) % 12];
+            const isActive = h === activeHouse;
+            return (
+              <tr
+                key={h}
+                className={cn(
+                  'border-b transition-colors',
+                  isDark ? 'border-white/[0.03]' : 'border-slate-50',
+                  isActive && (isDark ? 'bg-jyotish-gold/10' : 'bg-orange-50')
+                )}
+              >
+                <td className={cn('px-2 py-1 font-mono font-bold', isActive && 'text-jyotish-gold')}>{h}</td>
+                <td className={cn('px-2 py-1 font-mono', isDark ? 'text-white/50' : 'text-slate-500')}>{sign.slice(0, 3)}</td>
+                <td className="px-2 py-1">{formatPlanetList(chakra.lagnaChakra.houses[h]?.planets ?? [])}</td>
+                <td className="px-2 py-1">{formatPlanetList(chakra.chandraChakra.houses[h]?.planets ?? [])}</td>
+                <td className="px-2 py-1">{formatPlanetList(chakra.suryaChakra.houses[h]?.planets ?? [])}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 interface SudarshanaChakraPageProps {
   birthPositions: PlanetPosition[];
+  birthTime: Date | null;
+  birthFingerprint: string | null;
   user: User;
   userProfile: any;
-  birthFingerprint: string | null;
+  childProfiles: ChildProfile[];
   onClose: () => void;
 }
 
 const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
   birthPositions,
+  birthTime,
+  birthFingerprint,
   user,
   userProfile,
-  birthFingerprint,
+  childProfiles,
   onClose,
 }) => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+
+  const [subjectProfileId, setSubjectProfileId] = React.useState<string | null>(null);
+  const [profileSelectorOpen, setProfileSelectorOpen] = React.useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = React.useState(false);
+  const [subjectPositions, setSubjectPositions] = React.useState<PlanetPosition[] | null>(null);
+  const profileSelectorRef = useRef<HTMLDivElement>(null);
 
   const [layerVisible, setLayerVisible] = React.useState<Record<LayerKey, boolean>>({
     lagnaChakra: true,
@@ -356,18 +369,86 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
     suryaChakra: true,
   });
   const [hoveredHouse, setHoveredHouse] = React.useState<number | null>(null);
-
   const [aiData, setAiData] = React.useState<SudarshanaChakraInterpretations | null>(null);
   const [isAiLoading, setIsAiLoading] = React.useState(false);
   const [aiError, setAiError] = React.useState<string | null>(null);
-  const [aiOutdated, setAiOutdated] = React.useState(false);
-  const [expandedSection, setExpandedSection] = React.useState<string | null>('overview');
+  const [isReportCached, setIsReportCached] = React.useState(false);
+  const [expandedSection, setExpandedSection] = React.useState<string | null>('threefoldCore');
+  const reportRequestIdRef = useRef(0);
 
-  // ── Calculation ──────────────────────────────────────────────────────────────
+  const activeChildProfile = subjectProfileId
+    ? childProfiles.find(p => p.id === subjectProfileId) ?? null
+    : null;
+
+  // Close profile selector on outside click
+  useEffect(() => {
+    if (!profileSelectorOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (profileSelectorRef.current && !profileSelectorRef.current.contains(e.target as Node)) {
+        setProfileSelectorOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [profileSelectorOpen]);
+
+  // Load positions for child profile
+  useEffect(() => {
+    if (!subjectProfileId) {
+      setSubjectPositions(null);
+      return;
+    }
+    const profile = childProfiles.find(p => p.id === subjectProfileId);
+    if (!profile) return;
+
+    let cancelled = false;
+    setIsLoadingProfile(true);
+    const birthTimeObj = new Date(profile.birthTime);
+    const { lat, lon } = profile;
+
+    fetchPlanetPositions(birthTimeObj, lat, lon)
+      .catch(() => calculatePositions(birthTimeObj, lat, lon))
+      .then(pos => {
+        if (!cancelled) {
+          setSubjectPositions(pos);
+          setIsLoadingProfile(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsLoadingProfile(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [subjectProfileId, childProfiles]);
+
+  const resolvedPositions = subjectProfileId ? subjectPositions : birthPositions;
+  const resolvedBirthTime = activeChildProfile
+    ? new Date(activeChildProfile.birthTime)
+    : birthTime;
+
+  const subjectFingerprint = useMemo(() => {
+    if (activeChildProfile) {
+      return `${activeChildProfile.birthTime}_${activeChildProfile.lat.toFixed(3)}_${activeChildProfile.lon.toFixed(3)}`;
+    }
+    return birthFingerprint;
+  }, [activeChildProfile, birthFingerprint]);
+
+  const cacheDocId = subjectProfileId
+    ? `sudarshana-chakra-${subjectProfileId}`
+    : 'sudarshana-chakra';
+
+  const currentAge = useMemo(() => {
+    if (!resolvedBirthTime) return 0;
+    return Math.max(0, differenceInYears(new Date(), resolvedBirthTime));
+  }, [resolvedBirthTime]);
+
+  const activeHouse = useMemo(() => calculateSudarshanaActiveHouse(currentAge), [currentAge]);
+
   const chakra = useMemo<SudarshanaChakraResult | null>(() => {
-    try { return calculateSudarshanaChakra(birthPositions); }
+    if (!resolvedPositions) return null;
+    try { return calculateSudarshanaChakra(resolvedPositions); }
     catch { return null; }
-  }, [birthPositions]);
+  }, [resolvedPositions]);
 
   const convergenceHouses = useMemo<Set<number>>(() => {
     const set = new Set<number>();
@@ -379,261 +460,408 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
     return set;
   }, [chakra]);
 
-  // ── AI Cache ─────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    setAiData(null); setAiError(null); setAiOutdated(false);
-    if (!user?.uid || !birthFingerprint) return;
-    (async () => {
-      const cached = await getPerAccountReport(user.uid, CACHE_DOC_ID);
-      if (!cached) return;
-      if (cached.fingerprint === birthFingerprint) {
-        setAiData(cached.data as SudarshanaChakraInterpretations);
-      } else {
-        setAiOutdated(true);
-      }
-    })();
-  }, [birthFingerprint, user?.uid]);
+  const isChartLoading = subjectProfileId != null && (isLoadingProfile || !subjectPositions);
 
-  const handleGenerateAI = useCallback(async () => {
-    if (!chakra || !user?.uid || !birthFingerprint) return;
-    setIsAiLoading(true); setAiError(null); setAiOutdated(false);
+  // Clear displayed report when subject / birth fingerprint changes
+  useEffect(() => {
+    setAiData(null);
+    setAiError(null);
+    setIsReportCached(false);
+  }, [subjectFingerprint, cacheDocId]);
+
+  const ensureSudarshanaReport = useCallback(async (options?: { force?: boolean }) => {
+    if (!chakra || !user?.uid || !subjectFingerprint || !resolvedPositions) return;
+
+    const requestId = ++reportRequestIdRef.current;
+
+    if (!options?.force) {
+      try {
+        const cached = await getPerAccountReport(user.uid, cacheDocId);
+        if (requestId !== reportRequestIdRef.current) return;
+
+        if (cached?.data && cached.fingerprint === subjectFingerprint) {
+          const normalized = normalizeCachedSudarshanaInterpretation(cached.data);
+          if (normalized) {
+            setAiData(normalized);
+            setIsReportCached(true);
+            setAiError(null);
+            return;
+          }
+        }
+      } catch {
+        // Fall through to generation on cache read failure
+      }
+    }
+
+    setIsAiLoading(true);
+    setAiError(null);
+    setIsReportCached(false);
+
     try {
-      const profile = { firstName: userProfile?.firstName, gender: userProfile?.gender };
-      const result = await generateSudarshanaChakraInterpretation(chakra, profile);
+      const profile = {
+        firstName: activeChildProfile?.name ?? userProfile?.firstName ?? userProfile?.displayName,
+        gender: userProfile?.gender,
+      };
+      const result = await generateSudarshanaChakraInterpretation(
+        chakra,
+        profile,
+        { currentAge, activeHouse, birthPositions: resolvedPositions }
+      );
+      if (requestId !== reportRequestIdRef.current) return;
+
+      await savePerAccountReport(user.uid, cacheDocId, result, subjectFingerprint);
       setAiData(result);
-      await savePerAccountReport(user.uid, CACHE_DOC_ID, result, birthFingerprint);
+      setIsReportCached(true);
     } catch (err: any) {
+      if (requestId !== reportRequestIdRef.current) return;
       setAiError(err?.message || 'Failed to generate interpretation');
     } finally {
-      setIsAiLoading(false);
+      if (requestId === reportRequestIdRef.current) setIsAiLoading(false);
     }
-  }, [chakra, user?.uid, birthFingerprint, userProfile]);
+  }, [
+    chakra, user?.uid, subjectFingerprint, resolvedPositions, activeChildProfile,
+    userProfile, currentAge, activeHouse, cacheDocId,
+  ]);
+
+  // Load from cache or generate once; only hits Gemini when cache miss or birth data changed
+  useEffect(() => {
+    if (!chakra || !user?.uid || !subjectFingerprint || isChartLoading) return;
+    ensureSudarshanaReport();
+  }, [chakra, user?.uid, subjectFingerprint, cacheDocId, isChartLoading, ensureSudarshanaReport]);
 
   const toggleLayer = (key: LayerKey) =>
     setLayerVisible(prev => ({ ...prev, [key]: !prev[key] }));
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const subjectName = activeChildProfile?.name ?? userProfile?.displayName ?? userProfile?.name ?? 'Your Chart';
+
   return (
     <div className={cn(
-      'min-h-screen font-sans selection:bg-jyotish-gold/30 transition-colors duration-500',
+      'flex-1 min-h-0 flex flex-col overflow-hidden font-sans selection:bg-jyotish-gold/30 transition-colors duration-500',
       isDark ? 'bg-[#050505] text-white' : 'bg-[#f0f0f0] text-slate-900'
     )}>
-
       {/* Header */}
       <div className={cn(
-        'sticky top-0 z-40 px-4 py-3 lg:px-6 flex items-center justify-between border-b backdrop-blur-xl',
+        'flex-shrink-0 z-40 px-4 py-3 lg:px-6 flex items-center gap-3 border-b backdrop-blur-xl',
         isDark ? 'border-jyotish-gold/10 bg-black/60' : 'border-slate-200 bg-white/80'
       )}>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onClose}
-            className={cn(
-              'w-9 h-9 rounded-xl flex items-center justify-center border transition-all active:scale-90',
-              isDark ? 'border-white/10 text-white/60 hover:text-white hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-            )}
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className={cn('w-px h-6', isDark ? 'bg-white/10' : 'bg-slate-200')} />
-          <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', isDark ? 'bg-jyotish-gold/10' : 'bg-orange-50')}>
-            <CircleDot className="w-5 h-5 text-jyotish-gold" />
-          </div>
-          <div>
-            <h1 className={cn('text-base font-bold leading-none', isDark ? 'text-white' : 'text-slate-900')}>Sudarshana Chakra</h1>
-            <p className="text-[10px] uppercase tracking-widest font-mono text-jyotish-gold/60 mt-0.5">Three-Layer Life Wheel</p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Big Wheel ── */}
-      <div className="flex items-center justify-center py-6 px-4">
-        <div
-          className="mx-auto"
-          style={{ width: 'min(92vw, calc(100vh - 220px))', aspectRatio: '1 / 1' }}
+        <button
+          onClick={onClose}
+          className={cn(
+            'w-9 h-9 rounded-xl flex items-center justify-center border transition-all active:scale-90',
+            isDark ? 'border-white/10 text-white/60 hover:text-white hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+          )}
         >
-          {chakra ? (
-            <SudarshanaWheel
-              chakra={chakra}
-              layerVisible={layerVisible}
-              hoveredHouse={hoveredHouse}
-              onHoverHouse={setHoveredHouse}
-              convergenceHouses={convergenceHouses}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <p className="text-sm text-white/30">Requires birth chart data</p>
-            </div>
-          )}
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <div className={cn('w-px h-6', isDark ? 'bg-white/10' : 'bg-slate-200')} />
+        <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', isDark ? 'bg-jyotish-gold/10' : 'bg-orange-50')}>
+          <CircleDot className="w-5 h-5 text-jyotish-gold" />
         </div>
-      </div>
-
-      {/* Hover info */}
-      {chakra && (
-        <div className={cn(
-          'border-t border-b mx-4 rounded-xl mb-4 transition-colors',
-          isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-white'
-        )}>
-          <HoverPanel house={hoveredHouse} chakra={chakra} />
+        <div className="min-w-0">
+          <h1 className={cn('text-base font-bold leading-none truncate', isDark ? 'text-white' : 'text-slate-900')}>
+            Sudarshana Chakra
+          </h1>
+          <p className="text-[10px] uppercase tracking-widest font-mono text-jyotish-gold/60 mt-0.5">Three-Layer Life Wheel</p>
         </div>
-      )}
 
-      {/* Convergence legend dot */}
-      <div className="flex items-center justify-center gap-2 mb-4 px-4">
-        <span className="w-2 h-2 rounded-full bg-jyotish-gold/70 inline-block" />
-        <span className="text-[10px] font-mono uppercase tracking-widest text-jyotish-gold/50">Convergence — same house active in 2+ layers</span>
-      </div>
-
-      {/* Layer Pills */}
-      <div className="flex gap-2 px-4 mb-6 justify-center flex-wrap">
-        {LAYER_CONFIG.map(l => {
-          const on = layerVisible[l.key];
-          return (
+        {childProfiles.length > 0 && (
+          <div className="relative ml-auto" ref={profileSelectorRef}>
             <button
-              key={l.key}
-              onClick={() => toggleLayer(l.key)}
+              onClick={() => setProfileSelectorOpen(s => !s)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-bold uppercase tracking-wide transition-all active:scale-95',
-                on
-                  ? 'bg-white/5 border-white/20'
-                  : 'bg-transparent border-white/5 opacity-35'
+                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] uppercase tracking-widest font-bold transition-all',
+                isDark
+                  ? 'bg-white/5 border-white/10 text-jyotish-gold hover:bg-white/10'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
               )}
-              style={{ color: on ? l.stroke : '#666' }}
+              aria-label="Switch analysis subject"
             >
-              <span
-                className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0"
-                style={{ background: l.stroke, opacity: on ? 1 : 0.3 }}
-              />
-              {l.label}
-              <span className="text-[9px] font-normal tracking-normal opacity-60 hidden sm:inline">{l.subtitle}</span>
+              {isLoadingProfile ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Users className="w-3 h-3" />
+              )}
+              <span className="hidden sm:inline max-w-[120px] truncate">{subjectName}</span>
+              <ChevronDown className={cn('w-3 h-3 transition-transform', profileSelectorOpen && 'rotate-180')} />
             </button>
-          );
-        })}
-      </div>
 
-      {/* AI Panel */}
-      <div className={cn(
-        'mx-4 mb-24 rounded-2xl border overflow-hidden',
-        isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-100 shadow-sm'
-      )}>
-        <div className={cn(
-          'px-4 py-4 flex items-center justify-between border-b',
-          isDark ? 'border-white/5' : 'border-slate-100'
-        )}>
-          <div className="flex items-center gap-3">
-            <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', isDark ? 'bg-jyotish-gold/10' : 'bg-orange-50')}>
-              <Sparkles className="w-4 h-4 text-jyotish-gold" />
-            </div>
-            <div>
-              <p className={cn('text-sm font-bold', isDark ? 'text-white' : 'text-slate-900')}>AI Interpretation</p>
-              <p className="text-[10px] uppercase tracking-widest font-mono text-jyotish-gold/60 mt-0.5">Three-Layer Reading by Gemini</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {aiData && !isAiLoading && (
-              <button
-                onClick={handleGenerateAI}
-                className={cn('w-8 h-8 flex items-center justify-center rounded-xl transition-all active:scale-95', isDark ? 'text-white/40 hover:text-white/70 hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100')}
-                title="Regenerate"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
-            )}
-            {!aiData && !isAiLoading && (
-              <button
-                onClick={handleGenerateAI}
-                disabled={!user || !birthFingerprint}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all active:scale-95',
-                  'bg-jyotish-gold/20 text-jyotish-gold hover:bg-jyotish-gold/30 border border-jyotish-gold/20',
-                  (!user || !birthFingerprint) && 'opacity-40 cursor-not-allowed'
-                )}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                Generate
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="p-4">
-          {isAiLoading && (
-            <div className="flex items-center gap-3 py-8 justify-center">
-              <Loader2 className="w-5 h-5 text-jyotish-gold animate-spin" />
-              <p className={cn('text-sm', isDark ? 'text-white/40' : 'text-slate-500')}>Reading your cosmic layers…</p>
-            </div>
-          )}
-
-          {aiOutdated && !isAiLoading && !aiData && (
-            <div className={cn(
-              'flex items-center justify-between p-3 rounded-xl border mb-3 text-xs',
-              isDark ? 'bg-yellow-500/5 border-yellow-500/20 text-yellow-400' : 'bg-yellow-50 border-yellow-200 text-yellow-700'
-            )}>
-              <span>Interpretation outdated — birth details changed</span>
-              <button onClick={handleGenerateAI} className="font-bold underline">Regenerate</button>
-            </div>
-          )}
-
-          {aiError && !isAiLoading && (
-            <div className={cn(
-              'p-3 rounded-xl border text-xs mb-3',
-              isDark ? 'bg-red-500/5 border-red-500/20 text-red-400' : 'bg-red-50 border-red-200 text-red-700'
-            )}>
-              {aiError}
-            </div>
-          )}
-
-          {!aiData && !isAiLoading && !aiOutdated && (
-            <div className="py-8 text-center">
-              <CircleDot className="w-10 h-10 mx-auto mb-3 opacity-10" />
-              <p className={cn('text-sm', isDark ? 'text-white/30' : 'text-slate-400')}>
-                Generate your personalised three-layer Sudarshana reading
-              </p>
-            </div>
-          )}
-
-          {aiData && !isAiLoading && (
-            <div className="space-y-2">
-              {AI_SECTIONS.map(sec => {
-                const content = aiData[sec.key];
-                const isOpen = expandedSection === sec.key;
-                return (
-                  <div key={sec.key} className={cn('rounded-xl border overflow-hidden', isDark ? 'border-white/[0.06]' : 'border-slate-100')}>
+            <AnimatePresence>
+              {profileSelectorOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                  transition={{ duration: 0.12 }}
+                  className={cn(
+                    'absolute top-full mt-2 right-0 z-50 min-w-[180px] rounded-2xl border shadow-xl overflow-hidden',
+                    isDark ? 'bg-[#0f0f1a] border-jyotish-gold/20' : 'bg-white border-slate-200 shadow-lg'
+                  )}
+                >
+                  <div className={cn('px-3 py-2 text-[9px] uppercase tracking-widest font-mono border-b', isDark ? 'text-white/30 border-white/5' : 'text-slate-400 border-slate-100')}>
+                    Analyze whose chart?
+                  </div>
+                  <button
+                    onClick={() => { setSubjectProfileId(null); setProfileSelectorOpen(false); }}
+                    className={cn(
+                      'w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors text-left',
+                      isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50',
+                      !subjectProfileId ? 'text-jyotish-gold' : (isDark ? 'text-white/70' : 'text-slate-600')
+                    )}
+                  >
+                    {!subjectProfileId ? <Check className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 shrink-0" />}
+                    <span className="truncate font-semibold">{userProfile?.displayName || userProfile?.name || 'Your Chart'}</span>
+                    <span className={cn('text-[9px] ml-auto shrink-0', isDark ? 'text-white/30' : 'text-slate-400')}>You</span>
+                  </button>
+                  {childProfiles.map(profile => (
                     <button
-                      onClick={() => setExpandedSection(isOpen ? null : sec.key)}
+                      key={profile.id}
+                      onClick={() => { setSubjectProfileId(profile.id); setProfileSelectorOpen(false); }}
                       className={cn(
-                        'w-full flex items-center justify-between px-4 py-3 text-left transition-colors',
-                        isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50'
+                        'w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors text-left',
+                        isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50',
+                        subjectProfileId === profile.id ? 'text-jyotish-gold' : (isDark ? 'text-white/70' : 'text-slate-600')
                       )}
                     >
-                      <span className="text-xs font-bold uppercase tracking-widest" style={{ color: sec.color }}>{sec.label}</span>
-                      {isOpen
-                        ? <ChevronUp className="w-3.5 h-3.5 opacity-40 flex-shrink-0" />
-                        : <ChevronDown className="w-3.5 h-3.5 opacity-40 flex-shrink-0" />}
+                      {subjectProfileId === profile.id ? <Check className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 shrink-0" />}
+                      <span className="truncate font-semibold">{profile.name}</span>
+                      <span className={cn('text-[9px] ml-auto shrink-0 truncate max-w-[60px]', isDark ? 'text-white/30' : 'text-slate-400')}>{profile.city}</span>
                     </button>
-                    <AnimatePresence initial={false}>
-                      {isOpen && (
-                        <motion.div
-                          key="body"
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden"
-                        >
-                          <div className={cn(
-                            'px-4 pb-4 text-sm leading-relaxed prose prose-sm max-w-none',
-                            isDark ? 'prose-invert text-white/70' : 'text-slate-700'
-                          )}>
-                            <ReactMarkdown>{content}</ReactMarkdown>
-                          </div>
-                        </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+
+      {/* 50/50 Split Body */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+        {/* Left — Chart */}
+        <div className={cn(
+          'lg:w-1/2 flex-shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r overflow-y-auto',
+          isDark ? 'border-white/5' : 'border-slate-200'
+        )}>
+          <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-[320px] lg:min-h-0">
+            {isChartLoading ? (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="w-8 h-8 text-jyotish-gold animate-spin" />
+                <p className={cn('text-sm', isDark ? 'text-white/40' : 'text-slate-500')}>Loading chart…</p>
+              </div>
+            ) : chakra ? (
+              <div className="w-full max-w-[min(92vw,480px)] aspect-square">
+                <SudarshanaWheel
+                  chakra={chakra}
+                  layerVisible={layerVisible}
+                  hoveredHouse={hoveredHouse}
+                  onHoverHouse={setHoveredHouse}
+                  convergenceHouses={convergenceHouses}
+                  activeHouse={activeHouse}
+                />
+              </div>
+            ) : (
+              <p className={cn('text-sm', isDark ? 'text-white/30' : 'text-slate-400')}>Requires birth chart data</p>
+            )}
+          </div>
+
+          {chakra && (
+            <>
+              <div className={cn('mx-4 mb-3 rounded-xl border', isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-white')}>
+                <div className="flex items-center justify-center gap-6 h-10 px-4">
+                  {hoveredHouse ? (
+                    <>
+                      <span className="text-xs font-mono text-jyotish-gold font-bold">H{hoveredHouse}</span>
+                      {LAYER_CONFIG.map(l => (
+                        <div key={l.key} className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-mono uppercase" style={{ color: l.stroke }}>{l.label}</span>
+                          <span className="text-sm">
+                            {(chakra[l.key].houses[hoveredHouse]?.planets ?? []).length === 0
+                              ? <span className="text-white/20 text-[10px]">—</span>
+                              : (chakra[l.key].houses[hoveredHouse]?.planets ?? []).map(p => (
+                                  <span key={p.name} style={{ color: PLANET_COLORS[p.name] || '#9CA3AF' }}>
+                                    {PLANET_GLYPHS[p.name] || p.name.slice(0, 2)}
+                                  </span>
+                                ))}
+                          </span>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <p className="text-[10px] font-mono uppercase tracking-widest text-white/20">Hover a house sector</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-2 px-4 mb-4 justify-center flex-wrap">
+                {LAYER_CONFIG.map(l => {
+                  const on = layerVisible[l.key];
+                  return (
+                    <button
+                      key={l.key}
+                      onClick={() => toggleLayer(l.key)}
+                      className={cn(
+                        'flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wide transition-all active:scale-95',
+                        on ? (isDark ? 'bg-white/5 border-white/20' : 'bg-white border-slate-200') : 'bg-transparent border-white/5 opacity-35'
                       )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })}
-            </div>
+                      style={{ color: on ? l.stroke : '#666' }}
+                    >
+                      <span className="w-2 h-2 rounded-full inline-block" style={{ background: l.stroke, opacity: on ? 1 : 0.3 }} />
+                      {l.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center justify-center gap-4 mb-4 px-4 text-[9px] font-mono uppercase tracking-widest">
+                <span className="flex items-center gap-1.5 text-jyotish-gold/50">
+                  <span className="w-2 h-2 rounded-full bg-jyotish-gold/70 inline-block" /> Convergence
+                </span>
+                <span className="flex items-center gap-1.5 text-jyotish-gold">
+                  <span className="w-2 h-2 rounded-sm bg-jyotish-gold/40 inline-block border border-jyotish-gold" /> Active H{activeHouse}
+                </span>
+              </div>
+            </>
           )}
+        </div>
+
+        {/* Right — Data & AI */}
+        <div className="lg:w-1/2 flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          {chakra && (
+            <>
+              {/* Active year badge */}
+              <div className={cn(
+                'flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl border',
+                isDark ? 'bg-jyotish-gold/5 border-jyotish-gold/20' : 'bg-orange-50 border-orange-200'
+              )}>
+                <div>
+                  <p className="text-[9px] font-mono uppercase tracking-widest text-jyotish-gold/60">Sudarshana Dasha</p>
+                  <p className={cn('text-sm font-bold', isDark ? 'text-white' : 'text-slate-900')}>
+                    Age {currentAge} · Active House {activeHouse}
+                  </p>
+                </div>
+                <div className={cn('text-[10px] font-mono', isDark ? 'text-white/40' : 'text-slate-500')}>
+                  Lagna: {formatPlanetList(chakra.lagnaChakra.houses[activeHouse]?.planets ?? [])} ·
+                  Chandra: {formatPlanetList(chakra.chandraChakra.houses[activeHouse]?.planets ?? [])} ·
+                  Surya: {formatPlanetList(chakra.suryaChakra.houses[activeHouse]?.planets ?? [])}
+                </div>
+              </div>
+
+              <PlanetsInHousesTable chakra={chakra} activeHouse={activeHouse} isDark={isDark} />
+            </>
+          )}
+
+          {/* AI Panel */}
+          <div className={cn(
+            'rounded-2xl border overflow-hidden',
+            isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-100 shadow-sm'
+          )}>
+            <div className={cn(
+              'px-4 py-4 flex items-center justify-between border-b',
+              isDark ? 'border-white/5' : 'border-slate-100'
+            )}>
+              <div className="flex items-center gap-3">
+                <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', isDark ? 'bg-jyotish-gold/10' : 'bg-orange-50')}>
+                  <Sparkles className="w-4 h-4 text-jyotish-gold" />
+                </div>
+                <div>
+                  <p className={cn('text-sm font-bold', isDark ? 'text-white' : 'text-slate-900')}>Jyotish Gem Reading</p>
+                  <p className="text-[10px] uppercase tracking-widest font-mono text-jyotish-gold/60 mt-0.5">Parashari Sudarshana Analysis</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {isReportCached && aiData && !isAiLoading && (
+                  <span className={cn(
+                    'text-[9px] font-mono uppercase tracking-widest px-2 py-1 rounded-lg border',
+                    isDark ? 'text-jyotish-gold/60 border-jyotish-gold/20 bg-jyotish-gold/5' : 'text-jyotish-gold border-orange-200 bg-orange-50'
+                  )}>
+                    Saved
+                  </span>
+                )}
+                {aiError && !isAiLoading && (
+                  <button
+                    onClick={() => ensureSudarshanaReport({ force: true })}
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide transition-all active:scale-95',
+                      'bg-jyotish-gold/20 text-jyotish-gold hover:bg-jyotish-gold/30 border border-jyotish-gold/20'
+                    )}
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Retry
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4">
+              {isAiLoading && (
+                <div className="flex items-center gap-3 py-8 justify-center">
+                  <Loader2 className="w-5 h-5 text-jyotish-gold animate-spin" />
+                  <p className={cn('text-sm', isDark ? 'text-white/40' : 'text-slate-500')}>Reading your cosmic layers…</p>
+                </div>
+              )}
+
+              {aiError && !isAiLoading && (
+                <div className={cn(
+                  'p-3 rounded-xl border text-xs mb-3',
+                  isDark ? 'bg-red-500/5 border-red-500/20 text-red-400' : 'bg-red-50 border-red-200 text-red-700'
+                )}>
+                  {aiError}
+                </div>
+              )}
+
+              {!aiData && !isAiLoading && !aiError && (
+                <div className="py-8 text-center">
+                  <CircleDot className="w-10 h-10 mx-auto mb-3 opacity-10" />
+                  <p className={cn('text-sm', isDark ? 'text-white/30' : 'text-slate-400')}>
+                    Preparing Sudarshana reading for {subjectName}…
+                  </p>
+                </div>
+              )}
+
+              {aiData && !isAiLoading && (
+                <div className="space-y-2">
+                  {AI_SECTIONS.map(sec => {
+                    const content = aiData[sec.key];
+                    const isOpen = expandedSection === sec.key;
+                    return (
+                      <div key={sec.key} className={cn('rounded-xl border overflow-hidden', isDark ? 'border-white/[0.06]' : 'border-slate-100')}>
+                        <button
+                          onClick={() => setExpandedSection(isOpen ? null : sec.key)}
+                          className={cn(
+                            'w-full flex items-center justify-between px-4 py-3 text-left transition-colors',
+                            isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50'
+                          )}
+                        >
+                          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: sec.color }}>{sec.label}</span>
+                          {isOpen
+                            ? <ChevronUp className="w-3.5 h-3.5 opacity-40 flex-shrink-0" />
+                            : <ChevronDown className="w-3.5 h-3.5 opacity-40 flex-shrink-0" />}
+                        </button>
+                        <AnimatePresence initial={false}>
+                          {isOpen && (
+                            <motion.div
+                              key="body"
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className={cn(
+                                'px-4 pb-4 text-sm leading-relaxed prose prose-sm max-w-none',
+                                isDark ? 'prose-invert text-white/70' : 'text-slate-700'
+                              )}>
+                                <ReactMarkdown>{content}</ReactMarkdown>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

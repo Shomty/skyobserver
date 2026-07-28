@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowDownRight, Orbit } from 'lucide-react';
+import { cn } from '../../lib/utils';
+import { useTheme } from '../../context/ThemeContext';
 import { CelestialBackground } from '../../components/CelestialBackground';
 
 interface LandingHeroProps {
@@ -8,7 +10,7 @@ interface LandingHeroProps {
   children?: React.ReactNode;
 }
 
-function LiveClock() {
+function LiveClock({ isDark }: { isDark: boolean }) {
   const [time, setTime] = useState(() => new Date());
 
   useEffect(() => {
@@ -20,17 +22,20 @@ function LiveClock() {
   const utc = `${pad(time.getUTCHours())}:${pad(time.getUTCMinutes())}:${pad(time.getUTCSeconds())}`;
 
   return (
-    <p className="font-mono text-[10px] text-white/50 tracking-[0.22em] uppercase tabular">
+    <p className={cn('font-mono text-[10px] tracking-[0.22em] uppercase tabular', isDark ? 'text-white/50' : 'text-ink-muted')}>
       Live cosmos · UTC {utc}
     </p>
   );
 }
 
 export const LandingHero: React.FC<LandingHeroProps> = ({ onOpenAuth, children }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   return (
     <section id="top" className="relative min-h-screen overflow-hidden px-5 pb-16 pt-32 md:px-8 md:pb-20 md:pt-40">
       <CelestialBackground />
-      <div aria-hidden="true" className="landing-hero-bottom-fade" />
+      <div aria-hidden="true" className={cn('landing-hero-bottom-fade', isDark ? 'dark' : 'light')} />
 
       <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[0.82fr_1.18fr]">
         <div>
@@ -40,7 +45,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onOpenAuth, children }
             </span>
             <div>
               <p className="landing-kicker">Your personal pattern studio</p>
-              <LiveClock />
+              <LiveClock isDark={isDark} />
             </div>
           </motion.div>
 
@@ -48,7 +53,10 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onOpenAuth, children }
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.75, ease: 'easeOut' }}
-            className="max-w-3xl font-serif text-[clamp(4rem,9vw,7.7rem)] font-medium italic leading-[0.82] tracking-[-0.045em] text-[#ede8f5]"
+            className={cn(
+              'max-w-3xl font-serif text-[clamp(4rem,9vw,7.7rem)] font-medium italic leading-[0.82] tracking-[-0.045em]',
+              isDark ? 'text-[#ede8f5]' : 'text-ink-primary'
+            )}
           >
             See the pattern behind your time.
           </motion.h1>
@@ -57,7 +65,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onOpenAuth, children }
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.35, duration: 0.7 }}
-            className="mt-8 max-w-xl text-base leading-7 text-white/65 md:text-lg"
+            className={cn('mt-8 max-w-xl text-base leading-7 md:text-lg', isDark ? 'text-white/65' : 'text-ink-secondary')}
           >
             Map your personality blueprint, life chapters, and daily emotional weather
             in one calm, precise workspace — grounded in psychology and real astronomy.
@@ -73,12 +81,12 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onOpenAuth, children }
               Create your profile
               <ArrowDownRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:translate-y-0.5" />
             </button>
-            <button onClick={() => onOpenAuth('signin')} className="landing-btn-secondary">
+            <button onClick={() => onOpenAuth('signin')} className={cn('landing-btn-secondary', isDark ? 'dark' : 'light')}>
               I already have an account
             </button>
           </motion.div>
 
-          <div className="mt-10 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[9px] uppercase tracking-[0.18em] text-white/45">
+          <div className={cn('mt-10 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[9px] uppercase tracking-[0.18em]', isDark ? 'text-white/45' : 'text-ink-muted')}>
             <span>Precision astronomy</span>
             <span>Private by default</span>
             <span>Reflective AI guidance</span>

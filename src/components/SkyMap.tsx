@@ -129,7 +129,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
       {/* Mobile Controls Bar — zoom/fullscreen only; chart type comes from bottom nav */}
       <div className={cn(
         "lg:hidden flex items-center justify-end px-4 py-2.5 border-b transition-colors duration-500 z-20",
-        theme === 'dark' ? "bg-mystic-purple/80 border-white/5" : "bg-white/80 border-slate-200"
+        theme === 'dark' ? "bg-mystic-purple/80 border-white/5" : "bg-surface-card/80 border-border-gold"
       )}>
         <div className={cn(
           "flex items-center p-0.5 rounded-lg border",
@@ -201,7 +201,10 @@ export const SkyMap: React.FC<SkyMapProps> = ({
 
         return (
           <div className="hidden lg:block flex-shrink-0 px-3 pt-3 z-10">
-            <div className="backdrop-blur-md border rounded-xl p-2 flex items-center justify-between pointer-events-auto bg-black/80 border-white/10 min-h-[44px]">
+            <div className={cn(
+              "backdrop-blur-md border rounded-xl p-2 flex items-center justify-between pointer-events-auto min-h-[44px]",
+              theme === 'dark' ? "bg-black/80 border-white/10" : "bg-surface-card/95 border-border-gold shadow-sm"
+            )}>
               <AnimatePresence mode="wait">
                 {planet ? (
                   <motion.div
@@ -220,14 +223,14 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                         {planet.symbol}
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="font-semibold text-sm text-white leading-none truncate">{planet.name}</span>
-                        <span className="text-[9px] uppercase tracking-widest font-mono text-white/40 mt-0.5">
+                        <span className={cn("font-semibold text-sm leading-none truncate", theme === 'dark' ? "text-white" : "text-ink-primary")}>{planet.name}</span>
+                        <span className={cn("text-[9px] uppercase tracking-widest font-mono mt-0.5", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>
                           {planet.rashi}{planet.house ? ` · House ${planet.house}` : ''}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                      <span className="font-mono text-xs text-white">{planet.degree}°{planet.minute}'</span>
+                      <span className={cn("font-mono text-xs", theme === 'dark' ? "text-white" : "text-ink-primary")}>{planet.degree}°{planet.minute}'</span>
                       <div className="flex flex-wrap justify-end gap-1">
                         {planet.dignity && (
                           <span className={cn(
@@ -235,7 +238,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                             planet.dignity === 'Exalted' ? "bg-green-500/20 text-green-400" :
                             planet.dignity === 'Debilitated' ? "bg-red-500/20 text-red-400" :
                             planet.dignity === 'Own Sign' ? "bg-blue-500/20 text-blue-400" :
-                            "bg-white/10 text-white/60"
+                            theme === 'dark' ? "bg-white/10 text-white/60" : "bg-surface-muted text-ink-muted"
                           )}>
                             {planet.dignity}
                           </span>
@@ -255,12 +258,12 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                     className="flex items-center justify-between w-full"
                   >
                     <div className="flex flex-col">
-                      <span className="text-[9px] uppercase tracking-widest font-mono text-white/40">{getOrdinal(hoveredHouse)} House</span>
-                      <span className="font-semibold text-sm text-white">{houseRashi}</span>
+                      <span className={cn("text-[9px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>{getOrdinal(hoveredHouse)} House</span>
+                      <span className={cn("font-semibold text-sm", theme === 'dark' ? "text-white" : "text-ink-primary")}>{houseRashi}</span>
                     </div>
                     <div className="flex flex-col items-end">
-                      <span className="text-[9px] uppercase tracking-widest font-mono text-white/40">Lord</span>
-                      <span className="text-orange-400 font-semibold text-sm">{houseLord}</span>
+                      <span className={cn("text-[9px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>Lord</span>
+                      <span className="text-jyotish-gold font-semibold text-sm">{houseLord}</span>
                     </div>
                   </motion.div>
                 ) : (
@@ -272,8 +275,8 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                     transition={{ duration: 0.12 }}
                     className="flex items-center gap-2 w-full"
                   >
-                    <div className="w-7 h-7 rounded-lg border border-white/10 flex-shrink-0" />
-                    <span className="text-[10px] uppercase tracking-widest font-mono text-white/25">
+                    <div className={cn("w-7 h-7 rounded-lg flex-shrink-0", theme === 'dark' ? "border border-white/10" : "border border-border-gold")} />
+                    <span className={cn("text-[10px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/25" : "text-ink-faint")}>
                       Tap a planet or house to inspect
                     </span>
                   </motion.div>
@@ -306,7 +309,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
               >
                 <div className="flex items-center gap-2 mb-3">
                   <Shield className="w-4 h-4 text-orange-500" />
-                  <h3 className={cn("text-xs font-bold uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-slate-900")}>Enter Birth Details</h3>
+                  <h3 className={cn("text-xs font-bold uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-ink-primary")}>Enter Birth Details</h3>
                 </div>
                 <div className="space-y-3">
                   <div className="space-y-1">
@@ -321,7 +324,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className={cn("text-[9px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-500")}>City of birth</label>
+                    <label className={cn("text-[9px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>City of birth</label>
                     <input 
                       type="text" 
                       placeholder="City, Country"
@@ -432,7 +435,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
               exit={{ opacity: 0, scale: 0.95, x: 20 }}
               className={cn(
                 "hidden lg:block absolute top-24 right-4 z-30 w-56 backdrop-blur-xl border rounded-2xl p-5 shadow-2xl",
-                theme === 'dark' ? "bg-black/80 border-white/10" : "bg-white/90 border-slate-200"
+                theme === 'dark' ? "bg-black/80 border-white/10" : "bg-surface-card/90 border-border-gold"
               )}
             >
               {selectedPlanet ? (
@@ -441,11 +444,11 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Eye className="w-4 h-4 text-orange-500" />
-                      <h4 className={cn("text-xs font-bold uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                      <h4 className={cn("text-xs font-bold uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-ink-primary")}>
                         {selectedPlanet}
                       </h4>
                     </div>
-                    <button onClick={() => setSelectedPlanet(null)} className="text-white/20 hover:text-white/60">×</button>
+                    <button onClick={() => setSelectedPlanet(null)} className={theme === 'dark' ? "text-white/20 hover:text-white/60" : "text-ink-faint hover:text-ink-muted"}>×</button>
                   </div>
 
                   <div className="space-y-4">
@@ -455,23 +458,23 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                       if (!planetObj) return null;
                       const nakData = NAKSHATRA_DATA[planetObj.nakshatra as keyof typeof NAKSHATRA_DATA];
                       return (
-                        <div className={cn("p-2.5 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200")}>
-                          <div className={cn("text-[9px] uppercase tracking-widest font-bold mb-1.5", theme === 'dark' ? "text-jyotish-gold/50" : "text-orange-400")}>
+                        <div className={cn("p-2.5 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-surface-muted border-border-gold")}>
+                          <div className={cn("text-[9px] uppercase tracking-widest font-bold mb-1.5", theme === 'dark' ? "text-jyotish-gold/50" : "text-jyotish-gold/80")}>
                             Nakshatra
                           </div>
-                          <div className={cn("text-xs font-bold", theme === 'dark' ? "text-jyotish-gold" : "text-orange-600")}>
+                          <div className={cn("text-xs font-bold", theme === 'dark' ? "text-jyotish-gold" : "text-jyotish-gold")}>
                             {planetObj.nakshatra}
-                            <span className={cn("ml-1.5 text-[10px] font-normal", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                            <span className={cn("ml-1.5 text-[10px] font-normal", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
                               Pada {planetObj.pada}
                             </span>
                           </div>
                           {nakData && (
                             <>
-                              <div className={cn("text-[10px] mt-1", theme === 'dark' ? "text-white/40" : "text-slate-500")}>
-                                Lord: <span className={cn("font-medium", theme === 'dark' ? "text-white/60" : "text-slate-600")}>{nakData.lord}</span>
-                                {" · "}Deity: <span className={cn("font-medium", theme === 'dark' ? "text-white/60" : "text-slate-600")}>{nakData.deity}</span>
+                              <div className={cn("text-[10px] mt-1", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>
+                                Lord: <span className={cn("font-medium", theme === 'dark' ? "text-white/60" : "text-ink-secondary")}>{nakData.lord}</span>
+                                {" · "}Deity: <span className={cn("font-medium", theme === 'dark' ? "text-white/60" : "text-ink-secondary")}>{nakData.deity}</span>
                               </div>
-                              <p className={cn("text-[9px] italic mt-1 leading-relaxed", theme === 'dark' ? "text-white/30" : "text-slate-400")}>
+                              <p className={cn("text-[9px] italic mt-1 leading-relaxed", theme === 'dark' ? "text-white/30" : "text-ink-faint")}>
                                 {nakData.characteristics}
                               </p>
                             </>
@@ -503,7 +506,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                               {planetObj.dignity}
                             </span>
                           </div>
-                          <p className={cn("text-[10px] leading-relaxed", theme === 'dark' ? "text-white/60" : "text-slate-500")}>
+                          <p className={cn("text-[10px] leading-relaxed", theme === 'dark' ? "text-white/60" : "text-ink-muted")}>
                             {interpretation.description}
                           </p>
                         </div>
@@ -547,11 +550,11 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Home className="w-4 h-4 text-jyotish-gold" />
-                      <h4 className={cn("text-xs font-bold uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                      <h4 className={cn("text-xs font-bold uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-ink-primary")}>
                         {RASHIS[selectedZodiac]}
                       </h4>
                     </div>
-                    <button onClick={() => setSelectedZodiac(null)} className="text-white/20 hover:text-white/60">×</button>
+                    <button onClick={() => setSelectedZodiac(null)} className={theme === 'dark' ? "text-white/20 hover:text-white/60" : "text-ink-faint hover:text-ink-muted"}>×</button>
                   </div>
 
                   <div className="space-y-4">
@@ -566,14 +569,14 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                       
                       return (
                         <>
-                          <div className={cn("p-2.5 rounded-xl border bg-white/5 border-white/10 space-y-2")}>
+                          <div className={cn("p-2.5 rounded-xl border space-y-2", theme === 'dark' ? "bg-white/5 border-white/10" : "bg-surface-muted border-border-gold")}>
                             <div className="flex items-center justify-between">
-                              <span className="text-[9px] uppercase tracking-widest text-white/40">House</span>
+                              <span className={cn("text-[9px] uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>House</span>
                               <span className="text-[13px] font-bold text-jyotish-gold">{getOrdinal(houseNum)} House</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-[9px] uppercase tracking-widest text-white/40">Sign Lord</span>
-                              <span className="text-[13px] font-bold text-white">{lord}</span>
+                              <span className={cn("text-[9px] uppercase tracking-widest", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>Sign Lord</span>
+                              <span className={cn("text-[13px] font-bold", theme === 'dark' ? "text-white" : "text-ink-primary")}>{lord}</span>
                             </div>
                           </div>
 
@@ -581,33 +584,33 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                             <div className="space-y-2.5 pt-1">
                               <div className="space-y-1">
                                 <span className="text-[9px] uppercase tracking-widest text-jyotish-gold/60 font-bold">House Quality</span>
-                                <p className="text-[10px] leading-relaxed text-white/70 italic">{houseInfo.quality}</p>
+                                <p className={cn("text-[10px] leading-relaxed italic", theme === 'dark' ? "text-white/70" : "text-ink-secondary")}>{houseInfo.quality}</p>
                               </div>
                               <div className="space-y-1">
                                 <span className="text-[9px] uppercase tracking-widest text-emerald-500/60 font-bold">Growth Focus</span>
-                                <p className="text-[10px] leading-relaxed text-white/60">{houseInfo.workOn}</p>
+                                <p className={cn("text-[10px] leading-relaxed", theme === 'dark' ? "text-white/60" : "text-ink-muted")}>{houseInfo.workOn}</p>
                               </div>
                             </div>
                           )}
 
-                          <div className="space-y-2.5 pt-1 border-t border-white/5">
-                            <div className="text-[9px] uppercase tracking-widest text-white/40 font-bold">Occupants & Impacts</div>
+                          <div className={cn("space-y-2.5 pt-1 border-t", theme === 'dark' ? "border-white/5" : "border-border-gold")}>
+                            <div className={cn("text-[9px] uppercase tracking-widest font-bold", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>Occupants & Impacts</div>
                             {planetsInSign.length > 0 ? (
                               <div className="flex flex-col gap-2.5">
                                 {planetsInSign.map(p => (
-                                  <div key={p.name} className="space-y-1.5 p-2 rounded-lg bg-white/[0.03] border border-white/5">
+                                  <div key={p.name} className={cn("space-y-1.5 p-2 rounded-lg border", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-surface-muted border-border-gold")}>
                                     <div className="flex items-center justify-between">
-                                      <span className="text-[10px] font-bold text-white/90">{p.name}</span>
-                                      <span className="text-[9px] font-mono text-white/40">{p.degree}°{p.minute}'</span>
+                                      <span className={cn("text-[10px] font-bold", theme === 'dark' ? "text-white/90" : "text-ink-primary")}>{p.name}</span>
+                                      <span className={cn("text-[9px] font-mono", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>{p.degree}°{p.minute}'</span>
                                     </div>
-                                    <p className="text-[9px] leading-tight text-white/50 italic border-l-2 border-jyotish-gold/30 pl-2">
+                                    <p className={cn("text-[9px] leading-tight italic border-l-2 border-jyotish-gold/30 pl-2", theme === 'dark' ? "text-white/50" : "text-ink-muted")}>
                                       {getPlanetInHouseInterpretation(p.name, houseNum)}
                                     </p>
                                   </div>
                                 ))}
                               </div>
                             ) : (
-                              <div className="text-[10px] text-white/20 italic">No planets currently in {rashiName}</div>
+                              <div className={cn("text-[10px] italic", theme === 'dark' ? "text-white/20" : "text-ink-faint")}>No planets currently in {rashiName}</div>
                             )}
                           </div>
                         </>
@@ -693,10 +696,10 @@ export const SkyMap: React.FC<SkyMapProps> = ({
 
         {/* Legend - Desktop Only */}
         <div className="hidden lg:flex absolute bottom-4 lg:bottom-8 left-4 lg:left-8 flex-col gap-2">
-          <div className={cn("flex items-center gap-2 text-caption uppercase tracking-wide", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+          <div className={cn("flex items-center gap-2 text-caption uppercase tracking-wide", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
             <div className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-blue-500" /> Earth ({location ? "Topocentric" : "Geocentric"} Center)
           </div>
-          <div className={cn("flex items-center gap-2 text-caption uppercase tracking-wide", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+          <div className={cn("flex items-center gap-2 text-caption uppercase tracking-wide", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
             <div className={cn("w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full border", theme === 'dark' ? "border-white/20" : "border-slate-300")} /> Ecliptic Path (Sidereal)
           </div>
         </div>
@@ -706,13 +709,13 @@ export const SkyMap: React.FC<SkyMapProps> = ({
       {chartType === 'circle' && (
       <div className={cn(
         "lg:hidden min-h-[28px] py-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 border-t border-b flex-shrink-0 transition-colors duration-500",
-        theme === 'dark' ? "bg-black/35 border-white/5" : "bg-slate-50 border-slate-200"
+        theme === 'dark' ? "bg-black/35 border-white/5" : "bg-surface-muted border-border-gold"
       )}>
-        <div className={cn("flex items-center gap-1.5 text-caption uppercase tracking-wide font-semibold", theme === 'dark' ? "text-white/45" : "text-slate-500")}>
+        <div className={cn("flex items-center gap-1.5 text-caption uppercase tracking-wide font-semibold", theme === 'dark' ? "text-white/45" : "text-ink-muted")}>
           <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
           Earth ({location ? "Topocentric" : "Geocentric"})
         </div>
-        <div className={cn("flex items-center gap-1.5 text-caption uppercase tracking-wide font-semibold", theme === 'dark' ? "text-white/45" : "text-slate-500")}>
+        <div className={cn("flex items-center gap-1.5 text-caption uppercase tracking-wide font-semibold", theme === 'dark' ? "text-white/45" : "text-ink-muted")}>
           <div className={cn("w-1.5 h-1.5 rounded-full border", theme === 'dark' ? "border-white/20" : "border-slate-300")} />
           Ecliptic (Sidereal)
         </div>
@@ -749,7 +752,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className={cn("text-[9px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-slate-500")}>City of birth</label>
+                  <label className={cn("text-[9px] uppercase tracking-widest font-mono", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>City of birth</label>
                   <input 
                     type="text" 
                     placeholder="City, Country"
@@ -848,10 +851,10 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                             {planetObj.symbol}
                           </div>
                           <div>
-                            <h3 className={cn("text-base font-bold", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                            <h3 className={cn("text-base font-bold", theme === 'dark' ? "text-white" : "text-ink-primary")}>
                               {planetObj.name}
                             </h3>
-                            <p className={cn("text-xs font-mono uppercase tracking-widest font-bold", theme === 'dark' ? "text-jyotish-gold/70" : "text-orange-500")}>
+                            <p className={cn("text-xs font-mono uppercase tracking-widest font-bold", theme === 'dark' ? "text-jyotish-gold/70" : "text-jyotish-gold")}>
                               {planetObj.rashi} {planetObj.house ? `· House ${planetObj.house}` : ''}
                             </p>
                           </div>
@@ -867,17 +870,17 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                       {/* Data Grid */}
                       <div className="grid grid-cols-2 gap-2">
                         {/* Cell 1: Position */}
-                        <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200")}>
-                          <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Position</div>
-                          <div className={cn("text-xs font-mono font-bold", theme === 'dark' ? "text-white" : "text-slate-800")}>{planetObj.degree}°{planetObj.minute}'</div>
+                        <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-surface-muted border-border-gold")}>
+                          <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Position</div>
+                          <div className={cn("text-xs font-mono font-bold", theme === 'dark' ? "text-white" : "text-ink-primary")}>{planetObj.degree}°{planetObj.minute}'</div>
                           <div className={cn("text-[9px] font-bold font-mono mt-0.5", theme === 'dark' ? "text-jyotish-gold/60" : "text-orange-500/80")}>{planetObj.rashi}</div>
                         </div>
 
                         {/* Cell 2: Nakshatra */}
-                        <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200")}>
-                          <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Nakshatra</div>
-                          <div className={cn("text-xs font-bold truncate", theme === 'dark' ? "text-jyotish-gold" : "text-orange-600")}>{planetObj.nakshatra}</div>
-                          <div className={cn("text-[9px] mt-0.5 font-bold font-mono", theme === 'dark' ? "text-white/40" : "text-slate-500")}>Pada {planetObj.pada}</div>
+                        <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-surface-muted border-border-gold")}>
+                          <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Nakshatra</div>
+                          <div className={cn("text-xs font-bold truncate", theme === 'dark' ? "text-jyotish-gold" : "text-jyotish-gold")}>{planetObj.nakshatra}</div>
+                          <div className={cn("text-[9px] mt-0.5 font-bold font-mono", theme === 'dark' ? "text-white/40" : "text-ink-muted")}>Pada {planetObj.pada}</div>
                         </div>
 
                         {/* Cell 3: Dignity */}
@@ -885,15 +888,15 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                           <div className={cn("p-3 rounded-xl border col-span-2", 
                             dignityInterp?.type === 'positive' ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400" :
                             dignityInterp?.type === 'negative' ? "bg-rose-500/5 border-rose-500/20 text-rose-400" :
-                            theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200"
+                            theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-surface-muted border-border-gold"
                           )}>
-                            <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Dignity</div>
+                            <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Dignity</div>
                             <div className="text-xs font-bold flex items-center gap-1.5">
                               <Sparkles className="w-3.5 h-3.5" />
                               {planetObj.dignity}
                             </div>
                             {dignityInterp && (
-                              <p className={cn("text-[10px] mt-1 leading-relaxed", theme === 'dark' ? "text-white/60" : "text-slate-500")}>
+                              <p className={cn("text-[10px] mt-1 leading-relaxed", theme === 'dark' ? "text-white/60" : "text-ink-muted")}>
                                 {dignityInterp.description}
                               </p>
                             )}
@@ -904,12 +907,12 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                       {/* Nakshatra Lord / Deity */}
                       {nakData && (
                         <div className={cn("p-3.5 rounded-xl border", theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-slate-50/50 border-slate-100")}>
-                          <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1.5", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Nakshatra Energy</div>
-                          <div className={cn("text-[10px] font-bold grid grid-cols-2 gap-1 mb-2", theme === 'dark' ? "text-white/80" : "text-slate-700")}>
+                          <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1.5", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Nakshatra Energy</div>
+                          <div className={cn("text-[10px] font-bold grid grid-cols-2 gap-1 mb-2", theme === 'dark' ? "text-white/80" : "text-ink-secondary")}>
                             <div>Lord: <span className="text-jyotish-gold">{nakData.lord}</span></div>
                             <div>Deity: <span className="text-jyotish-gold">{nakData.deity}</span></div>
                           </div>
-                          <p className={cn("text-[10px] italic leading-relaxed", theme === 'dark' ? "text-white/50" : "text-slate-500")}>
+                          <p className={cn("text-[10px] italic leading-relaxed", theme === 'dark' ? "text-white/50" : "text-ink-muted")}>
                             {nakData.characteristics}
                           </p>
                         </div>
@@ -936,7 +939,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                         <div className="space-y-3 pt-2.5 border-t border-white/10">
                           {selectedPlanetDrishti.aspects.length > 0 && (
                             <div className="space-y-1.5">
-                              <div className={cn("text-[8px] uppercase tracking-widest font-bold font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Aspects (Casts on)</div>
+                              <div className={cn("text-[8px] uppercase tracking-widest font-bold font-mono", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Aspects (Casts on)</div>
                               <div className="flex flex-wrap gap-1.5">
                                 {Array.from(new Set(selectedPlanetDrishti.aspects)).map(name => (
                                   <div key={name} className={cn("px-2 py-0.5 rounded text-[10px] font-bold border font-mono", theme === 'dark' ? "bg-orange-500/10 border-orange-500/30 text-orange-400" : "bg-orange-50 border-orange-200 text-orange-600")}>
@@ -949,7 +952,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
 
                           {selectedPlanetDrishti.aspectedBy.length > 0 && (
                             <div className="space-y-1.5">
-                              <div className={cn("text-[8px] uppercase tracking-widest font-bold font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>Aspected By</div>
+                              <div className={cn("text-[8px] uppercase tracking-widest font-bold font-mono", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>Aspected By</div>
                               <div className="flex flex-wrap gap-1.5">
                                 {Array.from(new Set(selectedPlanetDrishti.aspectedBy)).map(name => (
                                   <div key={name} className={cn("px-2 py-0.5 rounded text-[10px] font-bold border font-mono", theme === 'dark' ? "bg-blue-500/10 border-blue-500/30 text-blue-400" : "bg-blue-50 border-blue-200 text-blue-600")}>
@@ -987,10 +990,10 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                             <Home className="w-5 h-5" />
                           </div>
                           <div>
-                            <h3 className={cn("text-base font-bold", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                            <h3 className={cn("text-base font-bold", theme === 'dark' ? "text-white" : "text-ink-primary")}>
                               {rashiName}
                             </h3>
-                            <p className={cn("text-xs font-mono uppercase tracking-widest font-bold", theme === 'dark' ? "text-jyotish-gold/70" : "text-orange-500")}>
+                            <p className={cn("text-xs font-mono uppercase tracking-widest font-bold", theme === 'dark' ? "text-jyotish-gold/70" : "text-jyotish-gold")}>
                               {getOrdinal(houseNum)} House · Lord: {lord}
                             </p>
                           </div>
@@ -1006,20 +1009,20 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                       {/* House Info grid */}
                       {houseInfo && (
                         <div className="grid grid-cols-1 gap-2">
-                          <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200")}>
-                            <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-jyotish-gold/50" : "text-orange-400")}>
+                          <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-surface-muted border-border-gold")}>
+                            <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-jyotish-gold/50" : "text-jyotish-gold/80")}>
                               House Quality
                             </div>
-                            <p className={cn("text-xs leading-relaxed italic", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
+                            <p className={cn("text-xs leading-relaxed italic", theme === 'dark' ? "text-white/70" : "text-ink-secondary")}>
                               {houseInfo.quality}
                             </p>
                           </div>
 
-                          <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-slate-50 border-slate-200")}>
+                          <div className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.03] border-white/10" : "bg-surface-muted border-border-gold")}>
                             <div className={cn("text-[8px] uppercase tracking-widest font-mono font-bold mb-1", theme === 'dark' ? "text-emerald-500/60" : "text-emerald-600")}>
                               Growth Focus
                             </div>
-                            <p className={cn("text-xs leading-relaxed", theme === 'dark' ? "text-white/60" : "text-slate-600")}>
+                            <p className={cn("text-xs leading-relaxed", theme === 'dark' ? "text-white/60" : "text-ink-secondary")}>
                               {houseInfo.workOn}
                             </p>
                           </div>
@@ -1028,7 +1031,7 @@ export const SkyMap: React.FC<SkyMapProps> = ({
 
                       {/* Occupants & Impacts list */}
                       <div className="space-y-2 pt-2 border-t border-white/10">
-                        <div className={cn("text-[8px] uppercase tracking-widest font-bold font-mono mb-2", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
+                        <div className={cn("text-[8px] uppercase tracking-widest font-bold font-mono mb-2", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>
                           Occupants & Impacts
                         </div>
                         {planetsInSign.length > 0 ? (
@@ -1036,8 +1039,8 @@ export const SkyMap: React.FC<SkyMapProps> = ({
                             {planetsInSign.map(p => (
                               <div key={p.name} className={cn("p-3 rounded-xl border", theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-slate-50/50 border-slate-100")}>
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className={cn("text-xs font-bold", theme === 'dark' ? "text-white" : "text-slate-800")}>{p.name}</span>
-                                  <span className={cn("text-[10px] font-mono", theme === 'dark' ? "text-white/40" : "text-slate-400")}>{p.degree}°{p.minute}'</span>
+                                  <span className={cn("text-xs font-bold", theme === 'dark' ? "text-white" : "text-ink-primary")}>{p.name}</span>
+                                  <span className={cn("text-[10px] font-mono", theme === 'dark' ? "text-white/40" : "text-ink-faint")}>{p.degree}°{p.minute}'</span>
                                 </div>
                                 <p className={cn("text-xs italic leading-relaxed border-l-2 pl-2.5", theme === 'dark' ? "border-jyotish-gold/30 text-white/50" : "border-orange-300 text-slate-500")}>
                                   {getPlanetInHouseInterpretation(p.name, houseNum)}

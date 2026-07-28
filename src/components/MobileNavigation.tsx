@@ -70,7 +70,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
               "text-[9px] font-sans font-bold tracking-tight transition-colors duration-300 leading-none",
               isActive
                 ? "text-jyotish-gold"
-                : (theme === 'dark' ? "text-white/40" : "text-slate-400")
+                : (theme === 'dark' ? "text-white/40" : "text-ink-faint")
             )}>
               {label}
             </span>
@@ -107,7 +107,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
           "text-[9px] font-sans font-bold tracking-tight transition-colors duration-300 leading-none",
           isMoreActive
             ? "text-jyotish-gold"
-            : (theme === 'dark' ? "text-white/40" : "text-slate-400")
+            : (theme === 'dark' ? "text-white/40" : "text-ink-faint")
         )}>
           More
         </span>

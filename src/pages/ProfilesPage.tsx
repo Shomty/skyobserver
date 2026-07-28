@@ -187,7 +187,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
 
   return (
     <div className={cn(
-      'min-h-screen flex flex-col transition-colors duration-500',
+      'flex-1 min-h-0 flex flex-col overflow-y-auto transition-colors duration-500',
       theme === 'dark' ? 'bg-[#050505] text-white' : 'bg-slate-50 text-slate-900'
     )}>
       {/* Page Header */}

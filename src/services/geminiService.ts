@@ -1,7 +1,7 @@
 import { Type } from "@google/genai";
-import { PlanetPosition, PanchangData, TransitEvent, NAKSHATRA_DATA, SudarshanaChakraResult, SudarshanaLayer, calculateDrishti, getPlanetInHouseInterpretation } from "../vedic-utils";
+import { PlanetPosition, PanchangData, TransitEvent, NAKSHATRA_DATA, SudarshanaChakraResult, SudarshanaLayer, calculateDrishti, getPlanetInHouseInterpretation, analyzeLagnaLord, getVargottamaPlanets, injectKaalVelaPoints, RASHIS } from "../vedic-utils";
 import { callGeminiProxy } from "../lib/api-utils";
-import { DivisionalChartInfo } from "../lib/divisionalChartUtils";
+import { DivisionalChartInfo, computeDivisionalChart } from "../lib/divisionalChartUtils";
 
 export interface AICosmicInterpretations {
   summary: string;
@@ -18,9 +18,72 @@ export interface AICosmicInterpretations {
     amk: string;
     ishta: string;
     dharma: string;
+    lagnaLord?: string;
+    vargottama?: string;
+    arudhaLagna?: string;
+    upapadaLagna?: string;
+    secondFromUL?: string;
+    gulikaMandi?: string;
+    amkD10?: string;
   };
   planets: Record<string, string>;
   transits: Record<string, string>;
+}
+
+function buildParashariPromptSection(
+  birthPositions: PlanetPosition[],
+  blueprint: any,
+): string {
+  const lines: string[] = [];
+  const lagnaLord = analyzeLagnaLord(birthPositions);
+  if (lagnaLord) {
+    lines.push(`Lagna Lord Analysis: ${lagnaLord.lord} in ${lagnaLord.sign} (house ${lagnaLord.house}), dignity ${lagnaLord.dignity ?? 'neutral'}, Kendra=${lagnaLord.isKendra}, Kona=${lagnaLord.isKona}, protective=${lagnaLord.isProtective}.`);
+  }
+
+  const vargottama = getVargottamaPlanets(birthPositions);
+  if (vargottama.length > 0) {
+    lines.push(`Vargottama planets (D1=D9, unshakeable strength): ${vargottama.join(', ')}.`);
+  }
+
+  if (blueprint?.arudhaLagna) {
+    lines.push(`Arudha Lagna (public image): sign ${RASHIS[blueprint.arudhaLagna.signNumber - 1]}, house ${blueprint.arudhaLagna.house} from Lagna.`);
+  }
+  if (blueprint?.upapadaLagna) {
+    lines.push(`Upapada Lagna (marriage/spouse): sign ${RASHIS[blueprint.upapadaLagna.signNumber - 1]}, house ${blueprint.upapadaLagna.house} from Lagna.`);
+    if (blueprint.upapadaLagna.secondFromUL) {
+      const s = blueprint.upapadaLagna.secondFromUL;
+      lines.push(`2nd from UL (marital sustenance): ${s.signName}, lord ${s.lord}, occupants [${s.occupants.join(', ')}], aspects [${s.aspectingPlanets.join(', ')}], influence=${s.influence}.`);
+    }
+  }
+
+  const enriched = blueprint?.kaalVelas
+    ? injectKaalVelaPoints(birthPositions, blueprint.kaalVelas)
+    : birthPositions;
+  const d9 = computeDivisionalChart(enriched, 'D9');
+  const d10 = computeDivisionalChart(enriched, 'D10');
+
+  const gulika = enriched.find(p => p.name === 'Gulika');
+  const maandi = enriched.find(p => p.name === 'Maandi');
+  if (gulika) {
+    const g9 = d9.positions.find(p => p.name === 'Gulika');
+    const g10 = d10.positions.find(p => p.name === 'Gulika');
+    lines.push(`Gulika (karmic debt): D1 ${gulika.rashi} H${gulika.house}${g9 ? `, D9 ${g9.rashi} H${g9.house}` : ''}${g10 ? `, D10 ${g10.rashi} H${g10.house}` : ''}.`);
+  }
+  if (maandi) {
+    const m9 = d9.positions.find(p => p.name === 'Maandi');
+    const m10 = d10.positions.find(p => p.name === 'Maandi');
+    lines.push(`Maandi (secondary malefic): D1 ${maandi.rashi} H${maandi.house}${m9 ? `, D9 ${m9.rashi} H${m9.house}` : ''}${m10 ? `, D10 ${m10.rashi} H${m10.house}` : ''}.`);
+  }
+
+  const amk = blueprint?.charakarakas?.AmK;
+  if (amk) {
+    const amkD10 = d10.positions.find(p => p.name === amk);
+    if (amkD10) {
+      lines.push(`Amatyakaraka (${amk}) in D10: ${amkD10.rashi}, house ${amkD10.house} — professional soul-purpose.`);
+    }
+  }
+
+  return lines.length > 0 ? `\n    Parashari Special Points:\n    ${lines.join('\n    ')}` : '';
 }
 
 export async function generateCosmicInterpretations(
@@ -68,15 +131,17 @@ ${transitEvents.length > 0 ? transitEvents.map(e => `- [${e.type.toUpperCase()}]
 
     Identified Natal Yogas:
     ${yogas.map(y => `- ${y.name}: ${y.description}`).join('\n')}
+    ${buildParashariPromptSection(birthPositions, blueprint)}
     ${transitSection ? `\n    ${transitSection}` : ''}
 
     Please provide:
     1. A short, powerful 2-sentence summary of the soul's primary mission in this life.
     2. For each Panchang element (tithi, nakshatra, yoga, karana, vara): one strong paragraph personalizing how it shapes this native's life path and character.
     3. For each Yoga listed: one strong paragraph describing the personalized implication for this individual, including how it manifests in their real life.
-    4. For each Blueprint point (AK soul planet, AmK career planet, Ishta Devata, Dharma Chakra): one strong paragraph interpreting its specific meaning and practical guidance for this person.
-    5. For each planet listed in Natal Planetary Positions: one strong paragraph interpreting how its sign, house, nakshatra, and dignity uniquely shapes this native's life — cover the domains the planet rules and what it means in practice.
-    ${transitPositions.length > 0 ? '6. For each active transit event listed above: one strong paragraph explaining how this current sky influence is activating or challenging this individual\'s natal chart right now — be specific about which natal house, planet, or yoga is being triggered and what practical effect to expect.' : ''}
+    4. For each Blueprint point (AK, AmK, Ishta Devata, Dharma Chakra): one strong paragraph with practical guidance.
+    5. For Parashari points if provided (Lagna lord, Vargottama, Arudha Lagna, Upapada + 2nd from UL, Gulika/Mandi, AmK in D10): one strong paragraph each explaining meaning and life impact using the doc framing (protective shield, marital sustenance, karmic debt, professional soul-purpose).
+    6. For each planet listed in Natal Planetary Positions: one strong paragraph interpreting how its sign, house, nakshatra, and dignity uniquely shapes this native's life.
+    ${transitPositions.length > 0 ? '7. For each active transit event listed above: one strong paragraph explaining how this current sky influence is activating or challenging this individual\'s natal chart right now.' : ''}
 
     Avoid generic text. Speak directly to the person. Each paragraph should feel personal, insightful, and grounded in the specific placement data provided.
   `;
@@ -111,7 +176,14 @@ ${transitEvents.length > 0 ? transitEvents.map(e => `- [${e.type.toUpperCase()}]
               ak: { type: Type.STRING },
               amk: { type: Type.STRING },
               ishta: { type: Type.STRING },
-              dharma: { type: Type.STRING }
+              dharma: { type: Type.STRING },
+              lagnaLord: { type: Type.STRING },
+              vargottama: { type: Type.STRING },
+              arudhaLagna: { type: Type.STRING },
+              upapadaLagna: { type: Type.STRING },
+              secondFromUL: { type: Type.STRING },
+              gulikaMandi: { type: Type.STRING },
+              amkD10: { type: Type.STRING },
             },
             required: ["ak", "amk", "ishta", "dharma"]
           },
@@ -145,7 +217,7 @@ export async function generateNatalPlanetPlacementInsights(
   profile?: { firstName?: string; gender?: string },
 ): Promise<Record<string, string>> {
   const planets = birthPositions.filter(
-    (p) => !['Bhrigu Bindu'].includes(p.name),
+    (p) => !['Bhrigu Bindu', 'Gulika', 'Maandi'].includes(p.name),
   );
 
   const planetContexts = planets.map((p) => {
@@ -299,84 +371,148 @@ Rules:
 // ─── Sudarshana Chakra Interpretation ────────────────────────────────────────
 
 export interface SudarshanaChakraInterpretations {
-  overview: string;
-  lagnaChakra: string;
-  chandraChakra: string;
-  suryaChakra: string;
-  crossLayerHighlights: string;
+  threefoldCore: string;
+  careerActionAxis: string;
+  relationshipsPeaceOfMind: string;
+  activeSudarshanaYear: string;
+  remedialGrowthGuidance: string;
 }
 
-function formatSudarshanaLayer(layer: SudarshanaLayer): string {
-  const lines: string[] = [`Reference: ${layer.referenceSign} (${layer.referencePlanet})`];
+/** Normalize cached Sudarshana data (current or legacy schema) for display. */
+export function normalizeCachedSudarshanaInterpretation(data: unknown): SudarshanaChakraInterpretations | null {
+  if (!data || typeof data !== 'object') return null;
+  const d = data as Record<string, unknown>;
+  if (typeof d.threefoldCore === 'string') {
+    return {
+      threefoldCore: d.threefoldCore,
+      careerActionAxis: typeof d.careerActionAxis === 'string' ? d.careerActionAxis : '',
+      relationshipsPeaceOfMind: typeof d.relationshipsPeaceOfMind === 'string' ? d.relationshipsPeaceOfMind : '',
+      activeSudarshanaYear: typeof d.activeSudarshanaYear === 'string' ? d.activeSudarshanaYear : '',
+      remedialGrowthGuidance: typeof d.remedialGrowthGuidance === 'string' ? d.remedialGrowthGuidance : '',
+    };
+  }
+  // Legacy cache format — still valid when birth fingerprint matches; no regen needed.
+  if (typeof d.overview === 'string') {
+    return {
+      threefoldCore: [d.overview, d.lagnaChakra].filter(v => typeof v === 'string').join('\n\n'),
+      careerActionAxis: typeof d.suryaChakra === 'string' ? d.suryaChakra : '',
+      relationshipsPeaceOfMind: typeof d.chandraChakra === 'string' ? d.chandraChakra : '',
+      activeSudarshanaYear: typeof d.crossLayerHighlights === 'string' ? d.crossLayerHighlights : '',
+      remedialGrowthGuidance: '',
+    };
+  }
+  return null;
+}
+
+function formatSudarshanaLayerDetailed(layer: SudarshanaLayer): string {
+  const lines: string[] = [
+    `${layer.label} — Reference: ${layer.referenceSign} (${layer.referencePlanet}, sign index ${layer.referenceSignIndex + 1})`,
+  ];
   for (let h = 1; h <= 12; h++) {
+    const houseSign = RASHIS[(layer.referenceSignIndex + h - 1) % 12];
     const planets = layer.houses[h]?.planets
-      .map(p => `${p.name}${p.dignity ? ` (${p.dignity})` : ''}${p.isRetrograde ? ' Rx' : ''}`)
-      .join(', ') || 'Empty';
-    lines.push(`  House ${h}: ${planets}`);
+      .map(p => {
+        const parts = [
+          p.name,
+          `in ${p.rashi}`,
+          p.siderealLongitude != null ? `${p.siderealLongitude.toFixed(2)}°` : null,
+          p.dignity ? `(${p.dignity})` : null,
+          p.isRetrograde ? 'Rx' : null,
+        ].filter(Boolean);
+        return parts.join(' ');
+      })
+      .join('; ') || 'Empty';
+    lines.push(`  House ${h} (${houseSign}): ${planets}`);
   }
   return lines.join('\n');
+}
+
+function formatSudarshanaActiveHouse(chakra: SudarshanaChakraResult, activeHouse: number): string {
+  const lagna = chakra.lagnaChakra.houses[activeHouse]?.planets.map(p => p.name).join(', ') || 'Empty';
+  const chandra = chakra.chandraChakra.houses[activeHouse]?.planets.map(p => p.name).join(', ') || 'Empty';
+  const surya = chakra.suryaChakra.houses[activeHouse]?.planets.map(p => p.name).join(', ') || 'Empty';
+  return `Active House ${activeHouse}: Lagna[${lagna}] | Chandra[${chandra}] | Surya[${surya}]`;
 }
 
 /**
  * Generates AI interpretation of a Sudarshana Chakra reading.
  *
- * CACHING: Always call getPerAccountReport before invoking this function.
- * Save the result with savePerAccountReport immediately after.
- * Never call this function automatically — only on explicit user action.
+ * CACHING: Callers must check getPerAccountReport first (fingerprint match → skip API).
+ * Always savePerAccountReport immediately after a successful response.
+ * Regenerate only when birth fingerprint changes or cache is missing.
  */
 export async function generateSudarshanaChakraInterpretation(
   chakra: SudarshanaChakraResult,
-  profile: { firstName?: string; gender?: string }
+  profile: { firstName?: string; gender?: string },
+  context: { currentAge: number; activeHouse: number; birthPositions?: PlanetPosition[] }
 ): Promise<SudarshanaChakraInterpretations> {
-  const convergences: string[] = [];
-  for (let h = 1; h <= 12; h++) {
-    const l = chakra.lagnaChakra.houses[h]?.planets.map(p => p.name) ?? [];
-    const c = chakra.chandraChakra.houses[h]?.planets.map(p => p.name) ?? [];
-    const s = chakra.suryaChakra.houses[h]?.planets.map(p => p.name) ?? [];
-    const hasMultiLayerPlanets =
-      (l.length > 0 && c.length > 0) ||
-      (l.length > 0 && s.length > 0) ||
-      (c.length > 0 && s.length > 0);
-    if (hasMultiLayerPlanets) {
-      convergences.push(
-        `House ${h}: Lagna[${l.join(', ') || '—'}] | Chandra[${c.join(', ') || '—'}] | Surya[${s.join(', ') || '—'}]`
-      );
-    }
-  }
+  const asc = context.birthPositions?.find(p => p.name === 'Ascendant');
+  const moon = context.birthPositions?.find(p => p.name === 'Moon');
+  const sun = context.birthPositions?.find(p => p.name === 'Sun');
 
-  const prompt = `You are an expert Vedic Jyotishi interpreting a Sudarshana Chakra — a three-layered chart used for comprehensive life analysis.
+  const janmaLagna = asc
+    ? `${asc.rashi} at ${asc.siderealLongitude?.toFixed(2) ?? '?'}°`
+    : `${chakra.lagnaChakra.referenceSign} (reference sign)`;
+  const chandraLagna = moon
+    ? `${moon.rashi} at ${moon.siderealLongitude?.toFixed(2) ?? '?'}°`
+    : `${chakra.chandraChakra.referenceSign} (reference sign)`;
+  const suryaLagna = sun
+    ? `${sun.rashi} at ${sun.siderealLongitude?.toFixed(2) ?? '?'}°`
+    : `${chakra.suryaChakra.referenceSign} (reference sign)`;
 
-Individual: ${profile.firstName || 'the native'} (${profile.gender || 'unspecified'})
+  const prompt = `System/Role Prompt:
+You are "Jyotish Gem," an expert Vedic Astrologer operating under the strict classical principles of Maharishi Parashara (Brihat Parashara Hora Shastra). You are specialized in performing a complete Sudarshana Chakra analysis (evaluating the nativity simultaneously from Janma Lagna, Chandra Lagna, and Surya Lagna).
 
-The Sudarshana Chakra has three rotating layers:
-- Lagna Chakra (Inner): Houses counted from Ascendant — represents physical life, body, personal experiences
-- Chandra Chakra (Middle): Houses counted from Moon — represents mind, emotions, subconscious patterns
-- Surya Chakra (Outer): Houses counted from Sun — represents soul, power, authority, father
+Task Context:
+Analyze the birth chart using the Sudarshana Chakra technique to evaluate the core pillars of life (Health/Identity, Wealth, Mind/Relationships, and Career) and time the current annual activation cycle.
 
-LAGNA CHAKRA:
-${formatSudarshanaLayer(chakra.lagnaChakra)}
+Native: ${profile.firstName || 'the native'} (${profile.gender || 'unspecified'})
 
-CHANDRA CHAKRA:
-${formatSudarshanaLayer(chakra.chandraChakra)}
+Input Data:
+- Janma Lagna: ${janmaLagna}
+- Chandra Lagna: ${chandraLagna}
+- Surya Lagna: ${suryaLagna}
+- Current Exact Age: ${context.currentAge} years
+- Active Sudarshana House (this year): ${context.activeHouse}
+  Formula: (Age mod 12) + 1; if remainder is 0, house 12 applies.
 
-SURYA CHAKRA:
-${formatSudarshanaLayer(chakra.suryaChakra)}
+LAGNA CHAKRA (Janma Lagna ring):
+${formatSudarshanaLayerDetailed(chakra.lagnaChakra)}
 
-CROSS-LAYER CONVERGENCES (houses with planets in multiple layers — strong cosmic emphasis):
-${convergences.length > 0 ? convergences.join('\n') : 'No significant cross-layer convergences found.'}
+CHANDRA CHAKRA (Chandra Lagna ring):
+${formatSudarshanaLayerDetailed(chakra.chandraChakra)}
 
-Your task:
-1. overview: Write 2–3 sentences summarising the dominant themes visible across all three layers of this native's Sudarshana Chakra. What is the overall life emphasis?
-2. lagnaChakra: Write one detailed paragraph interpreting the Lagna Chakra — how the physical life, body, and personal experiences are shaped by this planetary arrangement. Reference specific planets and their house positions.
-3. chandraChakra: Write one detailed paragraph interpreting the Chandra Chakra — the native's mental and emotional landscape, subconscious patterns, and the mind's relationship with different life areas.
-4. suryaChakra: Write one detailed paragraph interpreting the Surya Chakra — the native's soul purpose, relationship with authority, power, and how the higher self expresses through life.
-5. crossLayerHighlights: Write one paragraph identifying houses where planets appear across multiple layers. These are the most karmically charged areas. Explain what this convergence means for the native's life.
+SURYA CHAKRA (Surya Lagna ring):
+${formatSudarshanaLayerDetailed(chakra.suryaChakra)}
 
-Rules:
-- Speak directly to the native using "your" language.
-- Reference specific planet names, house numbers, and dignities.
-- No generic astrology — every sentence must reference the specific placements provided.
-- Be insightful and grounded in classical Vedic principles.`;
+ACTIVE YEAR FOCUS:
+${formatSudarshanaActiveHouse(chakra, context.activeHouse)}
+
+Evaluation Guidelines:
+1. Triangulated House Analysis (The Three Rings):
+   - Analyze the 1st House (Self/Health) simultaneously from Lagna, Chandra, and Surya.
+   - Analyze the 10th House (Action/Career/Karma) simultaneously from Lagna, Chandra, and Surya.
+   - Analyze the 7th House (Union/Relationships) simultaneously from Lagna, Chandra, and Surya.
+   - Analyze the 2nd/11th Houses (Wealth & Inflow) simultaneously from Lagna, Chandra, and Surya.
+
+2. Sudarshana Dasha Timing:
+   - The active house is ${context.activeHouse} for age ${context.currentAge}.
+   - Examine this activated house in all three rings for the current year.
+   - Synthesize planetary influences (occupants, lords, aspects) across the three vantage points.
+
+3. Tone & Formatting:
+   - Grounded, authentic, respectful, clear, and insightful.
+   - Do NOT use em dashes. Avoid overly dramatic or fatalistic language. Frame challenges through constructive effort (Purushartha).
+   - Speak directly to the native using "your" language.
+   - Reference specific planet names, house numbers, signs, and dignities from the data above.
+   - No generic astrology; every sentence must tie to the provided placements.
+
+Return JSON with these five fields (each field is markdown prose, 2-4 paragraphs):
+1. threefoldCore — "## I. The Threefold Core (Sudarshana Triangulation)": Health/Identity (1st house triangulation), Wealth themes (2nd/11th triangulation), and overall three-ring synthesis.
+2. careerActionAxis — "## II. Career & Action Axis (10th House Triangulation)": 10th house analysis from Lagna, Chandra, and Surya rings.
+3. relationshipsPeaceOfMind — "## III. Relationships & Peace of Mind (7th & Moon Triangulation)": 7th house and Moon/Chandra ring emphasis on mind and relationships.
+4. activeSudarshanaYear — "## IV. Active Sudarshana Year Analysis (Timing & Activation)": Deep analysis of house ${context.activeHouse} across all three rings for the current year at age ${context.currentAge}.
+5. remedialGrowthGuidance — "## V. Remedial & Growth Guidance": Practical, constructive remedial and growth guidance aligned with Parashari principles.`;
 
   const text = await callGeminiProxy({
     model: "gemini-3-flash-preview",
@@ -386,15 +522,21 @@ Rules:
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          overview: { type: Type.STRING },
-          lagnaChakra: { type: Type.STRING },
-          chandraChakra: { type: Type.STRING },
-          suryaChakra: { type: Type.STRING },
-          crossLayerHighlights: { type: Type.STRING },
+          threefoldCore: { type: Type.STRING },
+          careerActionAxis: { type: Type.STRING },
+          relationshipsPeaceOfMind: { type: Type.STRING },
+          activeSudarshanaYear: { type: Type.STRING },
+          remedialGrowthGuidance: { type: Type.STRING },
         },
-        required: ["overview", "lagnaChakra", "chandraChakra", "suryaChakra", "crossLayerHighlights"]
-      }
-    }
+        required: [
+          "threefoldCore",
+          "careerActionAxis",
+          "relationshipsPeaceOfMind",
+          "activeSudarshanaYear",
+          "remedialGrowthGuidance",
+        ],
+      },
+    },
   });
 
   try {
