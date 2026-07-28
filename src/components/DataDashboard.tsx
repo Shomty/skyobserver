@@ -444,6 +444,7 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
   const [isYogaAiLoading, setIsYogaAiLoading] = React.useState<string | null>(null);
   const [planetInterpretations, setPlanetInterpretations] = React.useState<Record<string, string>>({});
   const [isPlanetInsightsLoading, setIsPlanetInsightsLoading] = React.useState(false);
+  const [arePlanetInsightsSaved, setArePlanetInsightsSaved] = React.useState(false);
   const [muhurtaInterpretations, setMuhurtaInterpretations] = React.useState<Record<string, string>>({});
   const [isMuhurtaAiLoading, setIsMuhurtaAiLoading] = React.useState<string | null>(null);
   const [transitImpactInsight, setTransitImpactInsight] = React.useState<string | null>(null);
@@ -715,7 +716,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
     setIsPlanetInsightsLoading(true);
     setDashboardError(null);
     try {
-      const { data: result } = await ensureReport<Record<string, string>>({
+      const { data: result, fromCache, saved } = await ensureReport<Record<string, string>>({
         uid: user.uid,
         docId,
         type: 'natal-planet-insights',
@@ -727,7 +728,9 @@ Respond ONLY with valid JSON (no markdown, no backticks):
         }),
       });
       setPlanetInterpretations(result);
+      setArePlanetInsightsSaved(fromCache || saved);
     } catch (error) {
+      setArePlanetInsightsSaved(false);
       console.error('Planet insights AI error:', error);
       setDashboardError({
         error,
@@ -747,6 +750,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 
   React.useEffect(() => {
     setPlanetInterpretations({});
+    setArePlanetInsightsSaved(false);
   }, [birthFingerprint]);
 
   const renderPlanetInsight = (planetName: string) => (
@@ -2205,6 +2209,11 @@ Respond ONLY with valid JSON (no markdown, no backticks):
                 <div className={cn("p-5 rounded-3xl border", theme === 'dark' ? "bg-white/[0.03] border-white/5" : "bg-white border-slate-100 shadow-sm")}>
                   <div className={cn("text-[10px] uppercase tracking-widest font-mono mb-4 flex items-center gap-2", theme === 'dark' ? "text-jyotish-gold/60" : "text-slate-400")}>
                     <Sparkles className="w-3 h-3" /> Planet Positions at Birth
+                    <SavedIndicator
+                      saved={arePlanetInsightsSaved && Object.keys(planetInterpretations).length > 0 && !isPlanetInsightsLoading}
+                      isDark={theme === 'dark'}
+                      className="ml-auto"
+                    />
                   </div>
                   {(() => {
                     const statusOf = (p: PlanetPosition) => p.isRetrograde ? 'R' : p.dignity === 'exalted' ? 'Exalt' : p.dignity === 'debilitated' ? 'Debil' : p.dignity === 'moolatrikona' ? 'MT' : p.dignity === 'own' ? 'Own' : '';
