@@ -99,21 +99,45 @@ export async function getPerAccountReport(uid: string, docId: string): Promise<{
 }
 
 /**
+ * Firestore rejects any `undefined` value in a write. AI responses can omit an
+ * optional field, which would abort the whole write and silently disable
+ * caching — causing the report to be regenerated on every page load.
+ */
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(item => stripUndefined(item)) as unknown as T;
+  }
+  if (value && typeof value === 'object' && !(value instanceof Date) && !(value instanceof Timestamp)) {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [k, stripUndefined(v)]);
+    return Object.fromEntries(entries) as T;
+  }
+  return value;
+}
+
+/**
  * Upserts a permanent per-account report (overwrites previous version).
  * Stores the birth fingerprint alongside the data so callers can detect staleness.
+ *
+ * Returns true only when the write reached Firestore. Callers that show a
+ * "cached / saved" state must use this result — a failed write means the next
+ * load will regenerate the report.
  */
-export async function savePerAccountReport(uid: string, docId: string, data: any, fingerprint: string) {
+export async function savePerAccountReport(uid: string, docId: string, data: any, fingerprint: string): Promise<boolean> {
   try {
     const ref = doc(db, `users/${uid}/ai_reports`, docId);
     await setDoc(ref, {
       uid,
       docId,
-      data,
+      data: stripUndefined(data),
       fingerprint,
       updatedAt: serverTimestamp(),
     });
+    return true;
   } catch (error) {
-    console.error("Error saving per-account report:", error);
+    console.error(`Error saving per-account report "${docId}" — report will be regenerated on next load:`, error);
+    return false;
   }
 }
 

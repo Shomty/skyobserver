@@ -48,6 +48,14 @@ const PLANET_COLORS: Record<string, string> = {
 
 const CX = 320, CY = 320;
 
+/**
+ * Generation is deduped per (account · subject · birth fingerprint) so a remount
+ * — including React StrictMode's double-mount in dev — reuses the request in
+ * flight instead of paying for a second Gemini call.
+ */
+type PendingReport = { result: SudarshanaChakraInterpretations; saved: boolean };
+const inFlightReports = new Map<string, Promise<PendingReport>>();
+
 const AI_SECTIONS: { key: keyof SudarshanaChakraInterpretations; label: string; color: string }[] = [
   { key: 'threefoldCore',              label: 'I. Threefold Core',              color: '#D4AF37' },
   { key: 'careerActionAxis',           label: 'II. Career & Action',            color: '#F97316' },
@@ -373,6 +381,7 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
   const [isAiLoading, setIsAiLoading] = React.useState(false);
   const [aiError, setAiError] = React.useState<string | null>(null);
   const [isReportCached, setIsReportCached] = React.useState(false);
+  const [cacheWriteFailed, setCacheWriteFailed] = React.useState(false);
   const [expandedSection, setExpandedSection] = React.useState<string | null>('threefoldCore');
   const reportRequestIdRef = useRef(0);
 
@@ -467,23 +476,26 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
     setAiData(null);
     setAiError(null);
     setIsReportCached(false);
+    setCacheWriteFailed(false);
   }, [subjectFingerprint, cacheDocId]);
 
   const ensureSudarshanaReport = useCallback(async (options?: { force?: boolean }) => {
     if (!chakra || !user?.uid || !subjectFingerprint || !resolvedPositions) return;
 
     const requestId = ++reportRequestIdRef.current;
+    const isCurrent = () => requestId === reportRequestIdRef.current;
 
     if (!options?.force) {
       try {
         const cached = await getPerAccountReport(user.uid, cacheDocId);
-        if (requestId !== reportRequestIdRef.current) return;
+        if (!isCurrent()) return;
 
         if (cached?.data && cached.fingerprint === subjectFingerprint) {
           const normalized = normalizeCachedSudarshanaInterpretation(cached.data);
           if (normalized) {
             setAiData(normalized);
             setIsReportCached(true);
+            setCacheWriteFailed(false);
             setAiError(null);
             return;
           }
@@ -496,27 +508,49 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
     setIsAiLoading(true);
     setAiError(null);
     setIsReportCached(false);
+    setCacheWriteFailed(false);
+
+    const inFlightKey = `${user.uid}|${cacheDocId}|${subjectFingerprint}`;
 
     try {
-      const profile = {
-        firstName: activeChildProfile?.name ?? userProfile?.firstName ?? userProfile?.displayName,
-        gender: userProfile?.gender,
-      };
-      const result = await generateSudarshanaChakraInterpretation(
-        chakra,
-        profile,
-        { currentAge, activeHouse, birthPositions: resolvedPositions }
-      );
-      if (requestId !== reportRequestIdRef.current) return;
+      let pending = options?.force ? undefined : inFlightReports.get(inFlightKey);
 
-      await savePerAccountReport(user.uid, cacheDocId, result, subjectFingerprint);
+      if (!pending) {
+        const profile = {
+          firstName: activeChildProfile?.name ?? userProfile?.firstName ?? userProfile?.displayName,
+          gender: userProfile?.gender,
+        };
+        // Persist inside the shared task, before any staleness check, so a
+        // completed (already paid for) response is never discarded unsaved.
+        pending = (async (): Promise<PendingReport> => {
+          const generated = await generateSudarshanaChakraInterpretation(
+            chakra,
+            profile,
+            { currentAge, activeHouse, birthPositions: resolvedPositions }
+          );
+          const result = normalizeCachedSudarshanaInterpretation(generated) ?? generated;
+          const saved = await savePerAccountReport(user.uid, cacheDocId, result, subjectFingerprint);
+          return { result, saved };
+        })();
+
+        inFlightReports.set(inFlightKey, pending);
+        const clear = () => {
+          if (inFlightReports.get(inFlightKey) === pending) inFlightReports.delete(inFlightKey);
+        };
+        pending.then(clear, clear);
+      }
+
+      const { result, saved } = await pending;
+      if (!isCurrent()) return;
+
       setAiData(result);
-      setIsReportCached(true);
+      setIsReportCached(saved);
+      setCacheWriteFailed(!saved);
     } catch (err: any) {
-      if (requestId !== reportRequestIdRef.current) return;
+      if (!isCurrent()) return;
       setAiError(err?.message || 'Failed to generate interpretation');
     } finally {
-      if (requestId === reportRequestIdRef.current) setIsAiLoading(false);
+      if (isCurrent()) setIsAiLoading(false);
     }
   }, [
     chakra, user?.uid, subjectFingerprint, resolvedPositions, activeChildProfile,
@@ -774,6 +808,17 @@ const SudarshanaChakraPage: React.FC<SudarshanaChakraPageProps> = ({
                     isDark ? 'text-jyotish-gold/60 border-jyotish-gold/20 bg-jyotish-gold/5' : 'text-jyotish-gold border-orange-200 bg-orange-50'
                   )}>
                     Saved
+                  </span>
+                )}
+                {cacheWriteFailed && aiData && !isAiLoading && (
+                  <span
+                    title="The reading could not be written to your account, so it will be regenerated on the next load. Check the browser console for details."
+                    className={cn(
+                      'text-[9px] font-mono uppercase tracking-widest px-2 py-1 rounded-lg border',
+                      isDark ? 'text-amber-400/70 border-amber-400/20 bg-amber-400/5' : 'text-amber-700 border-amber-200 bg-amber-50'
+                    )}
+                  >
+                    Not saved
                   </span>
                 )}
                 {aiError && !isAiLoading && (
