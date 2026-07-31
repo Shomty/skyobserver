@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { calculatePositions, PlanetPosition, detectYogas, calculateAshtakavarga, RASHIS, RASHI_DATA, NAKSHATRA_DATA, analyzeTransits, TransitEvent, predictTransits, TransitPrediction, analyzeNatalComparison, NatalComparisonResult, calculatePanchang, PanchangData, calculateDrishti, isConjunct, calculateSpecialPointsV2, getBirthInfo, TransitIngress } from './vedic-utils';
@@ -625,7 +625,7 @@ export default function App() {
               if (ownBirth) {
                 setBirthTime(new Date(ownBirth.time));
                 setBirthLocation({ lat: ownBirth.lat, lon: ownBirth.lon });
-                setBirthCity(ownBirth.city);
+                applyStoredBirthCity(ownBirth.city);
                 setIsBirthMode(true);
                 setViewMode('natal');
                 setDashboardTab('natal');
@@ -712,7 +712,7 @@ export default function App() {
       // Update local state
       setBirthTime(birthTimeObj);
       setBirthLocation({ lat: onboardingData.lat, lon: onboardingData.lon });
-      setBirthCity(onboardingData.birthCity);
+      applyStoredBirthCity(onboardingData.birthCity);
       setIsBirthMode(true);
       
     } catch (error) {
@@ -723,9 +723,18 @@ export default function App() {
   const handleAutoSelectNatal = () => {
     if (userProfile?.savedCharts && userProfile.savedCharts.length > 0) {
       const firstChart = userProfile.savedCharts[0];
-      setBirthTime(new Date(firstChart.time));
-      setBirthLocation({ lat: firstChart.lat, lon: firstChart.lon });
-      setBirthCity(firstChart.city);
+      // Only rewrite birth state when the chart actually differs — recreating
+      // Date/location on every Birth-tab click churns birthFingerprint and
+      // forces natal AI reports (planet insights, etc.) to clear + regenerate.
+      const nextTime = new Date(firstChart.time);
+      const timeChanged = !birthTime || birthTime.getTime() !== nextTime.getTime();
+      const locChanged =
+        !birthLocation ||
+        birthLocation.lat !== firstChart.lat ||
+        birthLocation.lon !== firstChart.lon;
+      if (timeChanged) setBirthTime(nextTime);
+      if (locChanged) setBirthLocation({ lat: firstChart.lat, lon: firstChart.lon });
+      if (birthCity !== firstChart.city) applyStoredBirthCity(firstChart.city);
       setIsBirthMode(true);
       setViewMode('natal');
       setDashboardTab('natal');
@@ -863,7 +872,7 @@ export default function App() {
       if (bd) {
         setBirthTime(new Date(bd.time));
         setBirthLocation({ lat: bd.lat, lon: bd.lon });
-        setBirthCity(bd.city);
+        applyStoredBirthCity(bd.city);
       }
     }
   };
@@ -875,7 +884,7 @@ export default function App() {
     setActiveChildProfileId(id);
     setBirthTime(new Date(profile.birthTime));
     setBirthLocation({ lat: profile.lat, lon: profile.lon });
-    setBirthCity(profile.city);
+    applyStoredBirthCity(profile.city);
     setIsBirthMode(true);
     setViewMode('natal');
     setDashboardTab('natal');
@@ -894,12 +903,12 @@ export default function App() {
     if (bd) {
       setBirthTime(new Date(bd.time));
       setBirthLocation({ lat: bd.lat, lon: bd.lon });
-      setBirthCity(bd.city);
+      applyStoredBirthCity(bd.city);
     } else if (savedCharts && savedCharts.length > 0) {
       const chart = savedCharts[0];
       setBirthTime(new Date(chart.time));
       setBirthLocation({ lat: chart.lat, lon: chart.lon });
-      setBirthCity(chart.city);
+      applyStoredBirthCity(chart.city);
     }
 
     if (user) {
@@ -993,13 +1002,13 @@ export default function App() {
       if (activeChart && activeChart.time) {
         setBirthTime(new Date(activeChart.time));
         setBirthLocation({ lat: activeChart.lat, lon: activeChart.lon });
-        setBirthCity(activeChart.city);
+        applyStoredBirthCity(activeChart.city);
         setIsBirthMode(true);
       } else if (updatedProfile.birthDetails && updatedProfile.birthDetails.time) {
         // Fallback to birthDetails if no active chart is selected or found
         setBirthTime(new Date(updatedProfile.birthDetails.time));
         setBirthLocation({ lat: updatedProfile.birthDetails.lat, lon: updatedProfile.birthDetails.lon });
-        setBirthCity(updatedProfile.birthDetails.city);
+        applyStoredBirthCity(updatedProfile.birthDetails.city);
         setIsBirthMode(true);
       } else {
         setIsBirthMode(false);
@@ -1182,7 +1191,24 @@ INTERPRETATION GUIDELINES:
   const [rectifyTime, setRectifyTime] = useState<Date | null>(null); 
   const [isRectifying, setIsRectifying] = useState(false);
   const [birthLocation, setBirthLocation] = useState<{ lat: number; lon: number } | null>(null);
-  const [birthCity, setBirthCity] = useState<string>("");
+  const [birthCity, setBirthCityState] = useState<string>("");
+  /**
+   * Geocoding may only run for a city the user typed. A city restored from
+   * Firestore already carries its authoritative coordinates; re-resolving it
+   * returns a slightly different centroid (providers disagree, and the fallback
+   * chain can answer instead of the proxy), which shifts `birthFingerprint` a
+   * second after load and invalidates every cached natal AI report.
+   */
+  const isBirthCityUserEditedRef = useRef(false);
+  const setBirthCity = useCallback((cityName: string) => {
+    isBirthCityUserEditedRef.current = true;
+    setBirthCityState(cityName);
+  }, []);
+  /** Restores a city whose coordinates are already known — never geocoded. */
+  const applyStoredBirthCity = useCallback((cityName: string) => {
+    isBirthCityUserEditedRef.current = false;
+    setBirthCityState(cityName);
+  }, []);
   const [isBirthMode, setIsBirthMode] = useState(false);
   const [editingChartId, setEditingChartId] = useState<string | null>(null);
   
@@ -1277,6 +1303,7 @@ INTERPRETATION GUIDELINES:
 
   // Geocode birth city
   useEffect(() => {
+    if (!isBirthCityUserEditedRef.current) return;
     if (!birthCity || birthCity.length < 3) return;
     
     const timer = setTimeout(async () => {
@@ -1284,7 +1311,15 @@ INTERPRETATION GUIDELINES:
         setApiError(null);
         const coords = await geocode(birthCity);
         if (coords) {
-          setBirthLocation(coords);
+          // Sub-100 m differences are below the fingerprint's precision, so
+          // keeping the previous object avoids pointless natal recalculation.
+          setBirthLocation(prev =>
+            prev &&
+            Math.abs(prev.lat - coords.lat) < 0.0005 &&
+            Math.abs(prev.lon - coords.lon) < 0.0005
+              ? prev
+              : coords,
+          );
         }
       } catch (error) {
         console.error("Geocoding error:", error);

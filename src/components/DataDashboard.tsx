@@ -22,7 +22,7 @@ import { DateRangePicker } from './DateRangePicker';
 import { DateTimePicker } from './DateTimePicker';
 import { toDateTimeLocalValue } from '../lib/dateInputUtils';
 import { db, updateDoc, doc } from '../firebase';
-import { ensureReport, dailyFingerprint, STATIC_FINGERPRINT, getPerAccountReport } from '../services/aiReportService';
+import { ensureReport, dailyFingerprint, STATIC_FINGERPRINT, getPerAccountReport, peekResolvedReport } from '../services/aiReportService';
 import { SavedIndicator } from './SavedIndicator';
 import { generateNatalPlanetPlacementInsights } from '../services/geminiService';
 import { callGeminiProxy, getErrorMessage, withRetry } from '../lib/api-utils';
@@ -444,7 +444,10 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
   const [isYogaAiLoading, setIsYogaAiLoading] = React.useState<string | null>(null);
   const [planetInterpretations, setPlanetInterpretations] = React.useState<Record<string, string>>({});
   const [isPlanetInsightsLoading, setIsPlanetInsightsLoading] = React.useState(false);
+  /** True only while Gemini is generating — cache hits must not show "Synthesizing…". */
+  const [isPlanetInsightsGenerating, setIsPlanetInsightsGenerating] = React.useState(false);
   const [arePlanetInsightsSaved, setArePlanetInsightsSaved] = React.useState(false);
+  const planetInsightsRequestIdRef = React.useRef(0);
   const [muhurtaInterpretations, setMuhurtaInterpretations] = React.useState<Record<string, string>>({});
   const [isMuhurtaAiLoading, setIsMuhurtaAiLoading] = React.useState<string | null>(null);
   const [transitImpactInsight, setTransitImpactInsight] = React.useState<string | null>(null);
@@ -708,12 +711,33 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   };
 
   const loadNatalPlanetInsights = React.useCallback(async () => {
-    if (!user || !birthPositions?.length || !birthFingerprint || isPlanetInsightsLoading) return;
+    if (!user || !birthPositions?.length || !birthFingerprint) return;
 
     // Purely natal — one document per profile, regenerated only on birth changes.
     const docId = `natal-planet-insights-${activeChildProfileId || 'self'}`;
+    const normalize = (raw: unknown) =>
+      (isValidPlanetInsights(raw) ? (raw as Record<string, string>) : null);
+
+    // Session memory: remount / tab return must not flash "Synthesizing…" or re-call Gemini.
+    const peeked = peekResolvedReport<Record<string, string>>(
+      user.uid,
+      docId,
+      birthFingerprint,
+      normalize,
+    );
+    if (peeked) {
+      setPlanetInterpretations(peeked);
+      setArePlanetInsightsSaved(true);
+      setIsPlanetInsightsLoading(false);
+      setIsPlanetInsightsGenerating(false);
+      return;
+    }
+
+    const requestId = ++planetInsightsRequestIdRef.current;
+    const isCurrent = () => requestId === planetInsightsRequestIdRef.current;
 
     setIsPlanetInsightsLoading(true);
+    setIsPlanetInsightsGenerating(false);
     setDashboardError(null);
     try {
       const { data: result, fromCache, saved } = await ensureReport<Record<string, string>>({
@@ -721,15 +745,20 @@ Respond ONLY with valid JSON (no markdown, no backticks):
         docId,
         type: 'natal-planet-insights',
         fingerprint: birthFingerprint,
-        normalize: raw => (isValidPlanetInsights(raw) ? (raw as Record<string, string>) : null),
-        generate: () => generateNatalPlanetPlacementInsights(birthPositions, {
-          firstName: userProfile?.firstName,
-          gender: userProfile?.gender,
-        }),
+        normalize,
+        generate: async () => {
+          if (isCurrent()) setIsPlanetInsightsGenerating(true);
+          return generateNatalPlanetPlacementInsights(birthPositions, {
+            firstName: userProfile?.firstName,
+            gender: userProfile?.gender,
+          });
+        },
       });
+      if (!isCurrent()) return;
       setPlanetInterpretations(result);
       setArePlanetInsightsSaved(fromCache || saved);
     } catch (error) {
+      if (!isCurrent()) return;
       setArePlanetInsightsSaved(false);
       console.error('Planet insights AI error:', error);
       setDashboardError({
@@ -738,9 +767,19 @@ Respond ONLY with valid JSON (no markdown, no backticks):
         retry: () => loadNatalPlanetInsights(),
       });
     } finally {
-      setIsPlanetInsightsLoading(false);
+      if (isCurrent()) {
+        setIsPlanetInsightsLoading(false);
+        setIsPlanetInsightsGenerating(false);
+      }
     }
-  }, [user, birthPositions, birthFingerprint, isPlanetInsightsLoading, userProfile?.firstName, userProfile?.gender]);
+  }, [
+    user,
+    birthPositions,
+    birthFingerprint,
+    activeChildProfileId,
+    userProfile?.firstName,
+    userProfile?.gender,
+  ]);
 
   React.useEffect(() => {
     if (activeTab !== 'natal' || !isBirthMode || !birthPositions?.length || !user || !birthFingerprint) return;
@@ -748,10 +787,21 @@ Respond ONLY with valid JSON (no markdown, no backticks):
     loadNatalPlanetInsights();
   }, [activeTab, isBirthMode, birthPositions, user, birthFingerprint, planetInterpretations, isPlanetInsightsLoading, loadNatalPlanetInsights]);
 
+  // Only clear when the chart identity *changes* — not on remount. Remount must
+  // keep the ability to hydrate instantly from peekResolvedReport / Firestore.
+  const planetInsightsCacheIdentity = `${activeChildProfileId || 'self'}|${birthFingerprint || ''}`;
+  const prevPlanetInsightsCacheIdentityRef = React.useRef<string | null>(null);
   React.useEffect(() => {
+    const prev = prevPlanetInsightsCacheIdentityRef.current;
+    prevPlanetInsightsCacheIdentityRef.current = planetInsightsCacheIdentity;
+    if (prev === null || prev === planetInsightsCacheIdentity) return;
+
+    planetInsightsRequestIdRef.current += 1;
     setPlanetInterpretations({});
     setArePlanetInsightsSaved(false);
-  }, [birthFingerprint]);
+    setIsPlanetInsightsLoading(false);
+    setIsPlanetInsightsGenerating(false);
+  }, [planetInsightsCacheIdentity]);
 
   const renderPlanetInsight = (planetName: string) => (
     <div className={cn(
@@ -765,7 +815,9 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       {isPlanetInsightsLoading && !planetInterpretations[planetName] ? (
         <div className={cn("flex items-center gap-2 text-[12px] animate-pulse", theme === 'dark' ? "text-white/40" : "text-slate-400")}>
           <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-          Synthesizing placement & drishti…
+          {isPlanetInsightsGenerating
+            ? 'Synthesizing placement & drishti…'
+            : 'Loading saved insights…'}
         </div>
       ) : planetInterpretations[planetName] ? (
         <p className={cn("text-[13px] leading-relaxed", theme === 'dark' ? "text-white/70" : "text-slate-600")}>
