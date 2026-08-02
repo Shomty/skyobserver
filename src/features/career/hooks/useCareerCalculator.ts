@@ -7,10 +7,13 @@ import { validateField, validatePlaceResolution } from '../../gift/config/schema
 import type { FieldId } from '../../gift/types';
 import type { PlanetPosition } from '../../../vedic-utils';
 import { buildCareerSnapshot } from '../lib/careerEngine';
+import { careerBirthFingerprint, normalizeCareerEmail } from '../lib/careerFingerprint';
+import { loadCareerReport, saveCareerReport } from '../lib/careerReportApi';
+import type { CareerReportLoadResult } from '../lib/careerReportApi';
 import { trackCareerEvent } from '../lib/analytics';
 import type { CareerSnapshot } from '../types';
 
-const FORM_FIELDS: FieldId[] = ['fullName', 'birthDate', 'birthTime', 'birthPlace'];
+const FORM_FIELDS: FieldId[] = ['fullName', 'email', 'birthDate', 'birthTime', 'birthPlace'];
 
 export interface CareerFormState {
   values: Partial<Record<FieldId, string>>;
@@ -36,6 +39,10 @@ export function useCareerCalculator() {
   const [positions, setPositions] = useState<PlanetPosition[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fromCache, setFromCache] = useState(false);
+  const [reportEmail, setReportEmail] = useState<string | null>(null);
+  const [reportId, setReportId] = useState<string | null>(null);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
 
   const setField = useCallback((id: FieldId, value: string) => {
     setForm((prev) => ({
@@ -79,12 +86,25 @@ export function useCareerCalculator() {
   }, [form.geocoderUnavailable, form.places, form.values]);
 
   const calculate = useCallback(async () => {
-    if (form.honeypot) return;
+    // A filled honeypot is recorded but never blocks: browser autofill and
+    // password managers do fill hidden fields, and silently dropping those
+    // submissions loses real visitors. The server-side rate limiter is the
+    // actual abuse protection for this public endpoint.
+    if (form.honeypot) {
+      trackCareerEvent('career_honeypot_filled', { value: form.honeypot.slice(0, 40) });
+    }
     if (!validateForm()) return;
 
     const birthPlace = form.places.birthPlace;
-    if (!birthPlace && !form.geocoderUnavailable) return;
+    if (!birthPlace && !form.geocoderUnavailable) {
+      setForm((prev) => ({
+        ...prev,
+        errors: { ...prev.errors, birthPlace: 'errors.place.unresolved' },
+      }));
+      return;
+    }
 
+    const email = normalizeCareerEmail(form.values.email ?? '');
     const birthTime = form.birthTimeAssumedNoon ? '12:00' : (form.values.birthTime ?? '');
     const instant = birthPlace
       ? resolveBirthInstant(form.values.birthDate ?? '', birthTime, birthPlace.timezone)
@@ -95,11 +115,41 @@ export function useCareerCalculator() {
       return;
     }
 
+    const fingerprint = careerBirthFingerprint(instant, birthPlace);
+
     setLoading(true);
     setError(null);
-    trackCareerEvent('career_form_submitted', { name: form.values.fullName });
+    setFromCache(false);
+    trackCareerEvent('career_form_submitted', { name: form.values.fullName, email });
 
     try {
+      // The cache is an optimisation: if the lookup is unreachable (stale server,
+      // deploy skew, disk error) we still compute and show the report.
+      let cached: CareerReportLoadResult | null = null;
+      try {
+        cached = await loadCareerReport(email, fingerprint);
+      } catch (loadErr) {
+        trackCareerEvent('career_error', { message: String(loadErr), phase: 'load' });
+      }
+
+      if (cached?.hit && cached.snapshot && cached.positions) {
+        setSnapshot(cached.snapshot);
+        setPositions(cached.positions);
+        setReportEmail(email);
+        setReportId(cached.reportId ?? null);
+        setCachedAt(cached.cachedAt ?? null);
+        setFromCache(true);
+        if (cached.fullName && !form.values.fullName) {
+          setForm((prev) => ({ ...prev, values: { ...prev.values, fullName: cached.fullName } }));
+        }
+        trackCareerEvent('career_result_shown', {
+          tenthSign: cached.snapshot.tenthHouse.sign,
+          tenthLord: cached.snapshot.tenthLord.planet,
+          fromCache: true,
+        });
+        return;
+      }
+
       const birthDate = new Date(instant.iso);
       const [chartPositions, dashas] = await Promise.all([
         fetchPlanetPositions(birthDate, birthPlace.latitude, birthPlace.longitude),
@@ -109,9 +159,33 @@ export function useCareerCalculator() {
       const result = buildCareerSnapshot(chartPositions, dashas, instant, new Date());
       setPositions(chartPositions);
       setSnapshot(result);
+      setReportEmail(email);
+      setFromCache(false);
+
+      try {
+        const saved = await saveCareerReport({
+          email,
+          fingerprint,
+          fullName: form.values.fullName,
+          birthDate: form.values.birthDate,
+          birthTime: form.values.birthTime,
+          birthPlaceLabel: birthPlace.label,
+          birthInstant: instant,
+          snapshot: result,
+          positions: chartPositions,
+        });
+        setCachedAt(saved.cachedAt ?? new Date().toISOString());
+        setReportId(saved.reportId ?? null);
+        trackCareerEvent('career_report_saved', { email });
+      } catch (saveErr) {
+        // Cache failure must not block showing the freshly computed report.
+        trackCareerEvent('career_error', { message: String(saveErr), phase: 'save' });
+      }
+
       trackCareerEvent('career_result_shown', {
         tenthSign: result.tenthHouse.sign,
         tenthLord: result.tenthLord.planet,
+        fromCache: false,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Calculation failed');
@@ -125,6 +199,10 @@ export function useCareerCalculator() {
     setSnapshot(null);
     setPositions(null);
     setError(null);
+    setFromCache(false);
+    setReportEmail(null);
+    setReportId(null);
+    setCachedAt(null);
   }, []);
 
   return {
@@ -135,12 +213,20 @@ export function useCareerCalculator() {
     setGeocoderUnavailable: (unavailable: boolean) =>
       setForm((prev) => ({ ...prev, geocoderUnavailable: unavailable })),
     setBirthTimeAssumedNoon: (assumed: boolean) =>
-      setForm((prev) => ({ ...prev, birthTimeAssumedNoon: assumed, values: assumed ? { ...prev.values, birthTime: '12:00' } : prev.values })),
+      setForm((prev) => ({
+        ...prev,
+        birthTimeAssumedNoon: assumed,
+        values: assumed ? { ...prev.values, birthTime: '12:00' } : prev.values,
+      })),
     setHoneypot: (value: string) => setForm((prev) => ({ ...prev, honeypot: value })),
     snapshot,
     positions,
     loading,
     error,
+    fromCache,
+    reportEmail,
+    reportId,
+    cachedAt,
     calculate,
     reset,
   };

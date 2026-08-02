@@ -7,6 +7,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import { createRequire } from 'module';
+import {
+  emailDocId,
+  isValidEmail,
+  normalizeEmail,
+  readCareerReport,
+  writeCareerReport,
+} from './server/careerReportCache.ts';
 import { GoogleGenAI } from '@google/genai';
 // openastrology-library's .mjs build uses `import * as swisseph` which doesn't
 // work for a native CJS addon. Load the CJS build explicitly via createRequire.
@@ -591,6 +598,83 @@ async function startServer() {
     } catch (e: any) {
       serverLog('error', 'vimshottari-dashas', 'Dasha calculation error', e.message);
       res.status(500).json({ error: e.message || 'Dasha calculation failed' });
+    }
+  });
+
+  // Career report cache — one report per normalised email (anonymous funnel)
+  app.post('/api/career/report', rateLimit, async (req, res) => {
+    const body = req.body as {
+      email?: string;
+      fingerprint?: string;
+      fullName?: string;
+      birthDate?: string;
+      birthTime?: string;
+      birthPlaceLabel?: string;
+      birthInstant?: { iso: string; offsetMinutes: number };
+      snapshot?: unknown;
+      positions?: unknown[];
+    };
+
+    const email = typeof body.email === 'string' ? body.email : '';
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    if (typeof body.fingerprint !== 'string' || body.fingerprint.length < 8) {
+      return res.status(400).json({ error: 'fingerprint is required' });
+    }
+
+    const normalized = normalizeEmail(email);
+    const reportId = emailDocId(normalized);
+
+    try {
+      // Save path — snapshot + positions supplied after fresh calculation
+      if (body.snapshot && Array.isArray(body.positions)) {
+        const stored = await writeCareerReport(normalized, {
+          fingerprint: body.fingerprint,
+          fullName: typeof body.fullName === 'string' ? body.fullName.slice(0, 100) : undefined,
+          birthDate: typeof body.birthDate === 'string' ? body.birthDate : undefined,
+          birthTime: typeof body.birthTime === 'string' ? body.birthTime : undefined,
+          birthPlaceLabel: typeof body.birthPlaceLabel === 'string' ? body.birthPlaceLabel.slice(0, 120) : undefined,
+          birthInstant: body.birthInstant,
+          snapshot: body.snapshot,
+          positions: body.positions,
+        });
+
+        if (DEBUG_SERVER_LOGS) {
+          serverLog('log', 'career-report', 'Report cached', { reportId, fingerprint: body.fingerprint });
+        }
+
+        return res.json({ saved: true, hit: false, cachedAt: stored.updatedAt, reportId });
+      }
+
+      // Load path — return cached report when fingerprint matches
+      const cached = await readCareerReport(normalized);
+      if (!cached) {
+        return res.json({ hit: false, reportId });
+      }
+
+      if (cached.fingerprint !== body.fingerprint) {
+        return res.json({
+          hit: false,
+          stale: true,
+          reportId,
+          cachedFingerprint: cached.fingerprint,
+        });
+      }
+
+      return res.json({
+        hit: true,
+        reportId,
+        fingerprint: cached.fingerprint,
+        snapshot: cached.snapshot,
+        positions: cached.positions,
+        cachedAt: cached.updatedAt,
+        fullName: cached.fullName,
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Career report cache error';
+      serverLog('error', 'career-report', 'Cache operation failed', message);
+      return res.status(500).json({ error: message });
     }
   });
 

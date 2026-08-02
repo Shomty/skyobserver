@@ -12,10 +12,14 @@ export const en = {
   'page.loading': 'Casting your chart…',
 
   'form.title': 'Your birth details',
-  'form.subtitle': 'We use these to calculate your career indicators. Pick your city from the list for accuracy.',
+  'form.subtitle':
+    'We use these to calculate your career indicators. Your email is your report ID — we cache your snapshot so you can return anytime with the same birth details.',
 
   'result.title': 'Your career snapshot',
   'result.for': 'For {name}',
+  'result.reportId': 'Report ID: {email}',
+  'result.cached': 'Loaded from your saved snapshot',
+  'result.cachedAt': 'Last saved {date}',
 
   'chart.title': 'Birth Chart (D1)',
   'chart.hint': '10th house highlighted',
@@ -48,9 +52,15 @@ export const en = {
   'fields.title': 'Suggested Career Fields',
   'fields.locked': 'More fields in full report',
 
+  'parashari.kicker': 'Parashari Varga Analysis',
+  'parashari.title': 'The Jyotish Gem Consultation',
+  'parashari.subtitle':
+    'Classical BPHS teachings across D1, D9, and D10 — how your body, inner dharma, and professional action align. Teasers are free; full Parashari paragraphs unlock with a free account.',
+  'parashari.premiumNote': 'PREMIUM sections — create a free account to read the full analysis',
+
   'upsell.title': 'Unlock your full career report',
   'upsell.body':
-    'Get a personalized deep-dive with Amatyakaraka analysis, D10 Dashamsha breakdown, dasha-by-dasha career timeline, and AI-guided recommendations.',
+    'Unlock all four Parashari Varga sections, Career Drive score, extra career fields, plus a personalized AI deep-dive with dasha-by-dasha timeline.',
   'upsell.cta': 'Create free account',
   'upsell.note': 'Free snapshot above · Full report with signup',
 

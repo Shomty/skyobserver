@@ -5,6 +5,8 @@ type CareerEvent =
   | 'career_form_submitted'
   | 'career_result_shown'
   | 'career_upsell_clicked'
+  | 'career_report_saved'
+  | 'career_honeypot_filled'
   | 'career_error';
 
 type Props = Record<string, unknown>;

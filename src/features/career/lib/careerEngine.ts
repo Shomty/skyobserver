@@ -14,6 +14,7 @@ import { rankCareerFields } from '../copy/careerFields';
 import type { CareerSnapshot, DashaRef } from '../types';
 import { computeCareerDrive, computeLeadership, computeTenthHouseStrength } from './careerScores';
 import { computeCareerTiming } from './careerTiming';
+import { buildParashariAnalysis } from './parashariEngine';
 
 function toDashaRef(period: { lord: string; start: Date; end: Date }): DashaRef {
   return {
@@ -125,6 +126,15 @@ export function buildCareerSnapshot(
 
   const fields = rankCareerFields(tenthSign, tenthLordName, tenthLordPos.house ?? 1, amkPos?.rashi ?? null);
 
+  const dashaLevels = extractDashaLevels(positions, birthInstant, now, dashas);
+  const parashari = buildParashariAnalysis(
+    positions,
+    ascendantSign,
+    amatyakaraka,
+    dashaLevels.mahadasha.planet,
+    dashaLevels.antardasha.planet,
+  );
+
   return {
     ascendantSign,
     tenthHouse: { sign: tenthSign, signNumber: tenthSignNumber, occupants },
@@ -147,9 +157,10 @@ export function buildCareerSnapshot(
       leadership: computeLeadership(positions, ascendantSign, tenthLordName),
       careerDrive: computeCareerDrive(positions, tenthLordPos, amatyakaraka),
     },
-    dasha: extractDashaLevels(positions, birthInstant, now, dashas),
+    dasha: dashaLevels,
     timing,
     wealthYogas,
     fields,
+    parashari,
   };
 }

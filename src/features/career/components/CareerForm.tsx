@@ -8,7 +8,7 @@ import type { FieldId } from '../../gift/types';
 import { t } from '../copy/t';
 import type { CareerFormState } from '../hooks/useCareerCalculator';
 
-const FIELDS: FieldId[] = ['fullName', 'birthDate', 'birthTime', 'birthPlace'];
+const FIELDS: FieldId[] = ['fullName', 'email', 'birthDate', 'birthTime', 'birthPlace'];
 
 interface Props {
   form: CareerFormState;

@@ -1,5 +1,6 @@
 import type { SignNumber, Yoga } from '../../vedic-utils';
 import type { BirthInstant } from '../gift/lib/birthInstant';
+import type { ParashariAnalysis } from './lib/parashariEngine';
 
 export interface CareerInput {
   fullName: string;
@@ -60,6 +61,7 @@ export interface CareerSnapshot {
   };
   wealthYogas: Yoga[];
   fields: CareerField[];
+  parashari: ParashariAnalysis;
 }
 
 export type { BirthInstant };

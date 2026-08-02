@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -11,12 +12,14 @@ import { CareerForm } from '../components/CareerForm';
 import { CareerTimeline } from '../components/CareerTimeline';
 import { CareerUpsell } from '../components/CareerUpsell';
 import { DashaStrip } from '../components/DashaStrip';
+import { ParashariVargaPanel } from '../components/ParashariVargaPanel';
 import { ScoreCard } from '../components/ScoreCard';
 import { getLordInHouseLine } from '../copy/lordInHouse';
 import { getTenthHouseParagraph } from '../copy/tenthHouseBySign';
 import { t } from '../copy/t';
 import { trackCareerEvent } from '../lib/analytics';
 import { useCareerCalculator } from '../hooks/useCareerCalculator';
+import { maskEmail } from '../lib/careerReportApi';
 import { secondaryButtonClass } from '../../gift/components/buttonStyles';
 
 export default function CareerCalculatorPage() {
@@ -35,6 +38,9 @@ export default function CareerCalculatorPage() {
     error,
     calculate,
     reset,
+    fromCache,
+    reportEmail,
+    cachedAt,
   } = useCareerCalculator();
 
   useEffect(() => {
@@ -81,8 +87,24 @@ export default function CareerCalculatorPage() {
               onHoneypot={setHoneypot}
               onSubmit={() => void calculate()}
             />
-            {error ? (
-              <NetworkError onRetry={() => void calculate()} />
+            {loading ? (
+              <div
+                className={cn(cardClass, 'flex items-center justify-center gap-3')}
+                role="status"
+                aria-live="polite"
+              >
+                <Loader2 className="h-5 w-5 animate-spin text-jyotish-gold" />
+                <span className={cn('text-body', theme === 'dark' ? 'text-white/60' : 'text-slate-600')}>
+                  {t('page.loading')}
+                </span>
+              </div>
+            ) : error ? (
+              <div className="space-y-3" role="alert" aria-live="assertive">
+                <NetworkError onRetry={() => void calculate()} />
+                <p className={cn('text-caption font-mono', theme === 'dark' ? 'text-white/40' : 'text-slate-400')}>
+                  {error}
+                </p>
+              </div>
             ) : null}
           </>
         ) : (
@@ -93,6 +115,17 @@ export default function CareerCalculatorPage() {
                 {form.values.fullName ? (
                   <span className={cn('block text-body font-sans mt-1', theme === 'dark' ? 'text-white/50' : 'text-slate-500')}>
                     {t('result.for', { name: form.values.fullName })}
+                  </span>
+                ) : null}
+                {reportEmail ? (
+                  <span className={cn('block text-caption font-mono mt-1', theme === 'dark' ? 'text-white/40' : 'text-slate-400')}>
+                    {t('result.reportId', { email: maskEmail(reportEmail) })}
+                  </span>
+                ) : null}
+                {fromCache ? (
+                  <span className="mt-2 inline-flex rounded-full bg-jyotish-gold/15 px-2.5 py-0.5 text-caption font-medium text-jyotish-gold">
+                    {t('result.cached')}
+                    {cachedAt ? ` · ${t('result.cachedAt', { date: format(new Date(cachedAt), 'PPp') })}` : ''}
                   </span>
                 ) : null}
               </h2>
@@ -150,6 +183,8 @@ export default function CareerCalculatorPage() {
                 </section>
 
                 <CareerTimeline timing={snapshot.timing} />
+
+                <ParashariVargaPanel sections={snapshot.parashari.sections} />
 
                 <section className={cardClass}>
                   <h3 className="font-serif text-title">{t('yoga.title')}</h3>

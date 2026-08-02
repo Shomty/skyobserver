@@ -21,6 +21,8 @@ describe('buildCareerSnapshot', () => {
     expect(snapshot.scores.tenthHouseStrength.value).toBeGreaterThan(0);
     expect(snapshot.scores.leadership.value).toBeGreaterThan(0);
     expect(snapshot.fields.length).toBeGreaterThan(0);
+    expect(snapshot.parashari.sections).toHaveLength(4);
+    expect(snapshot.parashari.sections.map((s) => s.id)).toEqual(['d1', 'd9', 'd10', 'dasha']);
   });
 });
 
