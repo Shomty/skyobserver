@@ -7,11 +7,13 @@ import { validateField, validatePlaceResolution } from '../../gift/config/schema
 import type { FieldId } from '../../gift/types';
 import type { PlanetPosition } from '../../../vedic-utils';
 import { buildCareerSnapshot } from '../lib/careerEngine';
+import { withCareerKaalVelas } from '../lib/careerKaalVelas';
 import { careerBirthFingerprint, normalizeCareerEmail } from '../lib/careerFingerprint';
 import { loadCareerReport, saveCareerReport } from '../lib/careerReportApi';
 import type { CareerReportLoadResult } from '../lib/careerReportApi';
 import { trackCareerEvent } from '../lib/analytics';
-import type { CareerSnapshot } from '../types';
+import { clearCareerSynthesisSession } from '../lib/careerSynthesisService';
+import type { CareerAiSynthesis, CareerSnapshot } from '../types';
 
 const FORM_FIELDS: FieldId[] = ['fullName', 'email', 'birthDate', 'birthTime', 'birthPlace'];
 
@@ -43,6 +45,8 @@ export function useCareerCalculator() {
   const [reportEmail, setReportEmail] = useState<string | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
   const [cachedAt, setCachedAt] = useState<string | null>(null);
+  const [birthFingerprint, setBirthFingerprint] = useState<string | null>(null);
+  const [aiSynthesis, setAiSynthesis] = useState<CareerAiSynthesis | null>(null);
 
   const setField = useCallback((id: FieldId, value: string) => {
     setForm((prev) => ({
@@ -85,15 +89,11 @@ export function useCareerCalculator() {
     return Object.keys(errors).length === 0;
   }, [form.geocoderUnavailable, form.places, form.values]);
 
-  const calculate = useCallback(async () => {
-    // A filled honeypot is recorded but never blocks: browser autofill and
-    // password managers do fill hidden fields, and silently dropping those
-    // submissions loses real visitors. The server-side rate limiter is the
-    // actual abuse protection for this public endpoint.
+  const calculate = useCallback(async (): Promise<string | null> => {
     if (form.honeypot) {
       trackCareerEvent('career_honeypot_filled', { value: form.honeypot.slice(0, 40) });
     }
-    if (!validateForm()) return;
+    if (!validateForm()) return null;
 
     const birthPlace = form.places.birthPlace;
     if (!birthPlace && !form.geocoderUnavailable) {
@@ -101,7 +101,7 @@ export function useCareerCalculator() {
         ...prev,
         errors: { ...prev.errors, birthPlace: 'errors.place.unresolved' },
       }));
-      return;
+      return null;
     }
 
     const email = normalizeCareerEmail(form.values.email ?? '');
@@ -112,19 +112,19 @@ export function useCareerCalculator() {
 
     if (!instant || !birthPlace) {
       setError('Could not resolve birth time. Please pick your city from the list.');
-      return;
+      return null;
     }
 
     const fingerprint = careerBirthFingerprint(instant, birthPlace);
+    setBirthFingerprint(fingerprint);
 
     setLoading(true);
     setError(null);
     setFromCache(false);
+    setReportEmail(email);
     trackCareerEvent('career_form_submitted', { name: form.values.fullName, email });
 
     try {
-      // The cache is an optimisation: if the lookup is unreachable (stale server,
-      // deploy skew, disk error) we still compute and show the report.
       let cached: CareerReportLoadResult | null = null;
       try {
         cached = await loadCareerReport(email, fingerprint);
@@ -132,12 +132,12 @@ export function useCareerCalculator() {
         trackCareerEvent('career_error', { message: String(loadErr), phase: 'load' });
       }
 
-      if (cached?.hit && cached.snapshot && cached.positions) {
+      if (cached?.hit && cached.snapshot && cached.positions && cached.reportId) {
         setSnapshot(cached.snapshot);
         setPositions(cached.positions);
-        setReportEmail(email);
-        setReportId(cached.reportId ?? null);
+        setReportId(cached.reportId);
         setCachedAt(cached.cachedAt ?? null);
+        setAiSynthesis(cached.aiSynthesis ?? null);
         setFromCache(true);
         if (cached.fullName && !form.values.fullName) {
           setForm((prev) => ({ ...prev, values: { ...prev.values, fullName: cached.fullName } }));
@@ -146,8 +146,9 @@ export function useCareerCalculator() {
           tenthSign: cached.snapshot.tenthHouse.sign,
           tenthLord: cached.snapshot.tenthLord.planet,
           fromCache: true,
+          reportId: cached.reportId,
         });
-        return;
+        return cached.reportId;
       }
 
       const birthDate = new Date(instant.iso);
@@ -156,12 +157,23 @@ export function useCareerCalculator() {
         fetchVimshottariDashas(birthDate, birthPlace.latitude, birthPlace.longitude, birthPlace.timezone),
       ]);
 
-      const result = buildCareerSnapshot(chartPositions, dashas, instant, new Date());
+      // Gulika/Maandi feed the karmic checks only — the rendered chart keeps the
+      // nine grahas, so the upagrahas never reach `setPositions`.
+      const positionsWithUpagrahas = withCareerKaalVelas(
+        chartPositions,
+        birthDate,
+        birthPlace.latitude,
+        birthPlace.longitude,
+        instant.offsetMinutes,
+      );
+
+      const result = buildCareerSnapshot(positionsWithUpagrahas, dashas, instant, new Date());
       setPositions(chartPositions);
       setSnapshot(result);
-      setReportEmail(email);
       setFromCache(false);
+      setAiSynthesis(null);
 
+      let savedReportId: string | null = null;
       try {
         const saved = await saveCareerReport({
           email,
@@ -174,11 +186,11 @@ export function useCareerCalculator() {
           snapshot: result,
           positions: chartPositions,
         });
+        savedReportId = saved.reportId;
+        setReportId(saved.reportId);
         setCachedAt(saved.cachedAt ?? new Date().toISOString());
-        setReportId(saved.reportId ?? null);
-        trackCareerEvent('career_report_saved', { email });
+        trackCareerEvent('career_report_saved', { email, reportId: saved.reportId });
       } catch (saveErr) {
-        // Cache failure must not block showing the freshly computed report.
         trackCareerEvent('career_error', { message: String(saveErr), phase: 'save' });
       }
 
@@ -186,16 +198,21 @@ export function useCareerCalculator() {
         tenthSign: result.tenthHouse.sign,
         tenthLord: result.tenthLord.planet,
         fromCache: false,
+        reportId: savedReportId,
       });
+
+      return savedReportId;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Calculation failed');
       trackCareerEvent('career_error', { message: String(e) });
+      return null;
     } finally {
       setLoading(false);
     }
   }, [form, validateForm]);
 
   const reset = useCallback(() => {
+    clearCareerSynthesisSession(reportEmail ?? undefined);
     setSnapshot(null);
     setPositions(null);
     setError(null);
@@ -203,7 +220,47 @@ export function useCareerCalculator() {
     setReportEmail(null);
     setReportId(null);
     setCachedAt(null);
-  }, []);
+    setBirthFingerprint(null);
+    setAiSynthesis(null);
+    setForm(initialState);
+  }, [reportEmail]);
+
+  const loadSharedReport = useCallback(
+    (record: {
+      reportId: string;
+      snapshot: CareerSnapshot;
+      positions: PlanetPosition[];
+      fingerprint?: string;
+      aiSynthesis?: CareerAiSynthesis;
+      cachedAt?: string;
+      fullName?: string;
+      birthDate?: string;
+      birthTime?: string;
+      birthPlaceLabel?: string;
+      email?: string;
+    }) => {
+      setSnapshot(record.snapshot);
+      setPositions(record.positions);
+      setReportId(record.reportId);
+      setCachedAt(record.cachedAt ?? null);
+      setBirthFingerprint(record.fingerprint ?? null);
+      setAiSynthesis(record.aiSynthesis ?? null);
+      setFromCache(true);
+      if (record.email) setReportEmail(normalizeCareerEmail(record.email));
+      setForm((prev) => ({
+        ...prev,
+        values: {
+          ...prev.values,
+          fullName: record.fullName ?? prev.values.fullName,
+          email: record.email ?? prev.values.email,
+          birthDate: record.birthDate ?? prev.values.birthDate,
+          birthTime: record.birthTime ?? prev.values.birthTime,
+          birthPlace: record.birthPlaceLabel ?? prev.values.birthPlace,
+        },
+      }));
+    },
+    [],
+  );
 
   return {
     form,
@@ -227,7 +284,10 @@ export function useCareerCalculator() {
     reportEmail,
     reportId,
     cachedAt,
+    birthFingerprint,
+    aiSynthesis,
     calculate,
     reset,
+    loadSharedReport,
   };
 }

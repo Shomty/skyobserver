@@ -1,11 +1,15 @@
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../../context/ThemeContext';
 import { cn } from '../../../lib/utils';
+import { useCareerPremiumUnlocked } from '../context/CareerPremiumContext';
 import { trackCareerEvent } from '../lib/analytics';
 import { t } from '../copy/t';
 
 export function CareerUpsell() {
   const { theme } = useTheme();
+  const premiumUnlocked = useCareerPremiumUnlocked();
+
+  if (premiumUnlocked) return null;
 
   return (
     <section className="rounded-2xl border border-jyotish-gold/30 bg-gradient-to-br from-mystic-purple/80 to-black/60 p-6 sm:p-8 text-center">

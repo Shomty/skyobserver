@@ -118,6 +118,14 @@ function RoutedApp() {
           }
         />
         <Route
+          path="/career/r/:reportId"
+          element={
+            <Suspense fallback={null}>
+              <CareerCalculatorPage />
+            </Suspense>
+          }
+        />
+        <Route
           path="/career"
           element={
             <Suspense fallback={null}>

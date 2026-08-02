@@ -3,6 +3,12 @@
     "iso": "1985-03-18T15:11:00.000Z",
     "offsetMinutes": 60
   },
+  "place": {
+    "label": "Belgrade, Serbia",
+    "latitude": 44.8125,
+    "longitude": 20.4612,
+    "timezone": "Europe/Belgrade"
+  },
   "positions": [
     {
       "name": "Ascendant",

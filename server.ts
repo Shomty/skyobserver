@@ -8,10 +8,12 @@ import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import { createRequire } from 'module';
 import {
-  emailDocId,
+  generateReportId,
   isValidEmail,
-  normalizeEmail,
-  readCareerReport,
+  isValidReportId,
+  lookupCareerReportByEmail,
+  readCareerReportById,
+  updateCareerReportSynthesis,
   writeCareerReport,
 } from './server/careerReportCache.ts';
 import { GoogleGenAI } from '@google/genai';
@@ -601,11 +603,44 @@ async function startServer() {
     }
   });
 
-  // Career report cache — one report per normalised email (anonymous funnel)
+  // Career report cache — public share links at /career/r/:reportId
+  app.get('/api/career/report/:reportId', rateLimit, async (req, res) => {
+    const reportId = req.params.reportId ?? '';
+    if (!isValidReportId(reportId)) {
+      return res.status(400).json({ error: 'Invalid report id' });
+    }
+
+    try {
+      const cached = await readCareerReportById(reportId);
+      if (!cached) {
+        return res.status(404).json({ error: 'Report not found' });
+      }
+
+      return res.json({
+        reportId: cached.reportId,
+        email: cached.email,
+        fingerprint: cached.fingerprint,
+        snapshot: cached.snapshot,
+        positions: cached.positions,
+        aiSynthesis: cached.aiSynthesis,
+        cachedAt: cached.updatedAt,
+        fullName: cached.fullName,
+        birthDate: cached.birthDate,
+        birthTime: cached.birthTime,
+        birthPlaceLabel: cached.birthPlaceLabel,
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Career report cache error';
+      serverLog('error', 'career-report', 'Load failed', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
   app.post('/api/career/report', rateLimit, async (req, res) => {
     const body = req.body as {
       email?: string;
       fingerprint?: string;
+      reportId?: string;
       fullName?: string;
       birthDate?: string;
       birthTime?: string;
@@ -613,6 +648,7 @@ async function startServer() {
       birthInstant?: { iso: string; offsetMinutes: number };
       snapshot?: unknown;
       positions?: unknown[];
+      aiSynthesis?: { text?: string; fingerprint?: string; generatedAt?: string };
     };
 
     const email = typeof body.email === 'string' ? body.email : '';
@@ -623,13 +659,12 @@ async function startServer() {
       return res.status(400).json({ error: 'fingerprint is required' });
     }
 
-    const normalized = normalizeEmail(email);
-    const reportId = emailDocId(normalized);
-
     try {
-      // Save path — snapshot + positions supplied after fresh calculation
+      // Save — fresh calculation (also updates email → reportId index)
       if (body.snapshot && Array.isArray(body.positions)) {
-        const stored = await writeCareerReport(normalized, {
+        const stored = await writeCareerReport({
+          reportId: generateReportId(),
+          email,
           fingerprint: body.fingerprint,
           fullName: typeof body.fullName === 'string' ? body.fullName.slice(0, 100) : undefined,
           birthDate: typeof body.birthDate === 'string' ? body.birthDate : undefined,
@@ -641,35 +676,60 @@ async function startServer() {
         });
 
         if (DEBUG_SERVER_LOGS) {
-          serverLog('log', 'career-report', 'Report cached', { reportId, fingerprint: body.fingerprint });
+          serverLog('log', 'career-report', 'Report saved', { reportId: stored.reportId, email: stored.email });
         }
 
-        return res.json({ saved: true, hit: false, cachedAt: stored.updatedAt, reportId });
+        return res.json({ saved: true, hit: false, reportId: stored.reportId, cachedAt: stored.updatedAt });
       }
 
-      // Load path — return cached report when fingerprint matches
-      const cached = await readCareerReport(normalized);
-      if (!cached) {
-        return res.json({ hit: false, reportId });
-      }
+      // Persist premium AI synthesis — email must match the report owner
+      if (
+        body.aiSynthesis &&
+        typeof body.reportId === 'string' &&
+        typeof body.aiSynthesis.text === 'string' &&
+        typeof body.aiSynthesis.fingerprint === 'string'
+      ) {
+        const stored = await updateCareerReportSynthesis(body.reportId, email, {
+          text: body.aiSynthesis.text,
+          fingerprint: body.aiSynthesis.fingerprint,
+          generatedAt:
+            typeof body.aiSynthesis.generatedAt === 'string'
+              ? body.aiSynthesis.generatedAt
+              : new Date().toISOString(),
+        });
 
-      if (cached.fingerprint !== body.fingerprint) {
         return res.json({
-          hit: false,
-          stale: true,
-          reportId,
-          cachedFingerprint: cached.fingerprint,
+          saved: true,
+          reportId: stored.reportId,
+          aiSynthesis: stored.aiSynthesis,
+          cachedAt: stored.updatedAt,
         });
       }
 
+      // Load — return cached report when email + fingerprint match
+      const lookup = await lookupCareerReportByEmail(email, body.fingerprint);
+      if (lookup.hit === false) {
+        return res.json({
+          hit: false,
+          stale: lookup.stale ?? false,
+          reportId: lookup.reportId,
+          cachedFingerprint: lookup.cachedFingerprint,
+        });
+      }
+
+      const cached = lookup.report;
       return res.json({
         hit: true,
-        reportId,
+        reportId: cached.reportId,
         fingerprint: cached.fingerprint,
         snapshot: cached.snapshot,
         positions: cached.positions,
+        aiSynthesis: cached.aiSynthesis,
         cachedAt: cached.updatedAt,
         fullName: cached.fullName,
+        birthDate: cached.birthDate,
+        birthTime: cached.birthTime,
+        birthPlaceLabel: cached.birthPlaceLabel,
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Career report cache error';

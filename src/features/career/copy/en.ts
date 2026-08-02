@@ -8,18 +8,34 @@ export const en = {
   'page.subtitle':
     'Enter your birth details to see your 10th house, Vimshottari timing, and career strengths — no account required.',
   'page.submit': 'Calculate my career snapshot',
+  'page.newReport': 'Calculate a new report',
   'page.recalculate': 'Try different details',
   'page.loading': 'Casting your chart…',
+  'page.loadingShared': 'Loading shared report…',
 
   'form.title': 'Your birth details',
   'form.subtitle':
-    'We use these to calculate your career indicators. Your email is your report ID — we cache your snapshot so you can return anytime with the same birth details.',
+    'We use these to calculate your career indicators. After calculation you get a unique share link you can send over WhatsApp, iMessage, or social media.',
 
   'result.title': 'Your career snapshot',
   'result.for': 'For {name}',
-  'result.reportId': 'Report ID: {email}',
-  'result.cached': 'Loaded from your saved snapshot',
-  'result.cachedAt': 'Last saved {date}',
+  'result.savedAt': 'Saved {date}',
+  'result.premiumUnlocked': 'Full report unlocked',
+  'result.noShareLink':
+    'Your report was calculated but the share link could not be saved. Hard-refresh this page (Cmd+Shift+R) and try again — the dev server may need a restart too.',
+
+  'actions.share': 'Share',
+  'actions.print': 'Print / PDF',
+  'actions.copied': 'Link copied!',
+
+  'share.title': 'My Vedic Career Report',
+  'share.text': 'See my free Vedic career snapshot — 10th house, dashas, and career strengths.',
+
+  'shared.notFoundTitle': 'Report not found',
+  'shared.notFoundBody': 'This link may have expired or never existed. Calculate a fresh report below.',
+  'shared.errorBody': 'We could not load this report. Please try again in a moment.',
+
+  'meta.sharedTitle': 'Shared Career Report | Vedic Sky',
 
   'chart.title': 'Birth Chart (D1)',
   'chart.hint': '10th house highlighted',
@@ -58,9 +74,18 @@ export const en = {
     'Classical BPHS teachings across D1, D9, and D10 — how your body, inner dharma, and professional action align. Teasers are free; full Parashari paragraphs unlock with a free account.',
   'parashari.premiumNote': 'PREMIUM sections — create a free account to read the full analysis',
 
+  'synthesis.kicker': 'Premium · AI Synthesis',
+  'synthesis.title': 'Your Core Career Reading',
+  'synthesis.subtitle':
+    'A unified Parashari interpretation weaving D1, D9, D10, dasha timing, and nakshatra layers — generated once and saved to your report.',
+  'synthesis.loading': 'Consulting the celestial intelligence…',
+  'synthesis.cachedNote': 'Saved to your report — no new API call on reload.',
+  'synthesis.teaser':
+    'Your chart reveals a layered career path where visible promise, inner dharma, and professional action must be read together. Unlock the full AI synthesis to receive a personalized consultation paragraph integrating every varga and your current dasha window.',
+
   'upsell.title': 'Unlock your full career report',
   'upsell.body':
-    'Unlock all four Parashari Varga sections, Career Drive score, extra career fields, plus a personalized AI deep-dive with dasha-by-dasha timeline.',
+    'Unlock all four Parashari Varga sections, your AI Core Career Synthesis (saved to your report — never re-generated on reload), Career Drive score, and extra career fields.',
   'upsell.cta': 'Create free account',
   'upsell.note': 'Free snapshot above · Full report with signup',
 

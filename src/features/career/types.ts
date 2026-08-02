@@ -1,6 +1,16 @@
 import type { SignNumber, Yoga } from '../../vedic-utils';
 import type { BirthInstant } from '../gift/lib/birthInstant';
+import type { CareerReading } from './lib/careerReading';
 import type { ParashariAnalysis } from './lib/parashariEngine';
+
+export type { CareerReading };
+
+/** Cached Gemini career synthesis — one per email report, never re-fetched on reload. */
+export interface CareerAiSynthesis {
+  text: string;
+  fingerprint: string;
+  generatedAt: string;
+}
 
 export interface CareerInput {
   fullName: string;
@@ -62,6 +72,8 @@ export interface CareerSnapshot {
   wealthYogas: Yoga[];
   fields: CareerField[];
   parashari: ParashariAnalysis;
+  /** Full structured reading — absent on reports cached before this pipeline shipped. */
+  reading?: CareerReading;
 }
 
 export type { BirthInstant };

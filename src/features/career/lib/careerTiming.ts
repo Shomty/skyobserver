@@ -1,12 +1,16 @@
 import type { VimshottariDashasResponse } from '../../../services/dashasService';
-import { getRashiLord, RASHIS, type SignNumber } from '../../../vedic-utils';
+import type { SignNumber } from '../../../vedic-utils';
+import type { CareerReading } from './careerReading';
+import {
+  buildWealthActivation,
+  collectFutureAntardashas,
+  type CareerReadingContext,
+} from './dashaActivation';
 
 export interface TimingInput {
+  reading: CareerReading;
+  ctx: CareerReadingContext;
   dashas: VimshottariDashasResponse;
-  tenthLord: string;
-  tenthOccupants: string[];
-  amatyakaraka: string | null;
-  ascendantSign: SignNumber;
   now: Date;
 }
 
@@ -16,12 +20,6 @@ export interface CareerTimingResult {
   currentPeriodLord: string;
 }
 
-const CAREER_SIGNIFICATORS = (input: TimingInput): Set<string> => {
-  const set = new Set<string>([input.tenthLord, ...input.tenthOccupants]);
-  if (input.amatyakaraka) set.add(input.amatyakaraka);
-  return set;
-};
-
 function formatMonth(d: Date): string {
   return d.toISOString().slice(0, 7);
 }
@@ -30,68 +28,58 @@ function formatYear(d: Date): string {
   return String(d.getFullYear());
 }
 
-function collectFutureAntardashas(dashas: VimshottariDashasResponse, now: Date, horizonYears: number) {
-  const horizon = new Date(now);
-  horizon.setFullYear(horizon.getFullYear() + horizonYears);
-  const results: { planet: string; start: Date; end: Date; mahadasha: string }[] = [];
-
-  for (const md of dashas.dashaPeriods) {
-    for (const ad of md.subPeriods) {
-      const start = new Date(ad.startDate);
-      const end = new Date(ad.endDate);
-      if (end <= now) continue;
-      if (start > horizon) continue;
-      results.push({ planet: ad.planet, start, end, mahadasha: md.planet });
-    }
-  }
-  return results.sort((a, b) => a.start.getTime() - b.start.getTime());
-}
-
-/**
- * Opportunity window = next antardasha whose lord is the 10th lord, a 10th occupant, or AmK.
- * Method documented here because timing is the fuzziest career output.
- */
 export function computeOpportunityWindow(input: TimingInput): { from: string; to: string; reason: string } | null {
-  const sigs = CAREER_SIGNIFICATORS(input);
-  const future = collectFutureAntardashas(input.dashas, input.now, 15);
-  const match = future.find((ad) => sigs.has(ad.planet));
-  if (!match) return null;
+  const positive = input.reading.dasha.upcoming.filter((a) => a.score > 0);
+  if (positive.length === 0) return null;
+
+  const best = positive.reduce((top, cur) => {
+    if (cur.score > top.score) return cur;
+    if (cur.score === top.score && cur.from < top.from) return cur;
+    return top;
+  });
 
   return {
-    from: formatMonth(match.start),
-    to: formatMonth(match.end),
-    reason: `${match.planet} antardasha activates your career significators (${[...sigs].join(', ')})`,
+    from: formatMonth(new Date(best.from)),
+    to: formatMonth(new Date(best.to)),
+    reason: `${best.lord} antardasha (${best.kind}, score ${best.score}) activates ${best.roles.join(', ') || 'career significators'}`,
   };
 }
 
-/**
- * Peak earning ≈ span where 2nd/11th lord antardashas occur within the next 15 years.
- * Full transit overlap (Jupiter/Saturn over 10th/11th) requires ingress data — dasha-only proxy here.
- */
 export function computePeakEarning(input: TimingInput): { from: string; to: string; reason: string } | null {
-  const secondLord = getRashiLord(RASHIS[(input.ascendantSign - 1 + 1) % 12]);
-  const eleventhLord = getRashiLord(RASHIS[(input.ascendantSign - 1 + 10) % 12]);
-  const wealthLords = new Set([secondLord, eleventhLord]);
-
   const future = collectFutureAntardashas(input.dashas, input.now, 15);
-  const matches = future.filter((ad) => wealthLords.has(ad.planet));
-  if (matches.length === 0) return null;
+  const activations = future
+    .map((ad) => buildWealthActivation(ad.planet, ad.start, ad.end, input.ctx))
+    .filter((a) => a.score > 0);
 
-  const from = matches[0].start;
-  const to = matches[matches.length - 1].end;
+  if (activations.length === 0) return null;
+
+  const best = activations.reduce((top, cur) => {
+    if (cur.score > top.score) return cur;
+    if (cur.score === top.score && cur.from < top.from) return cur;
+    return top;
+  });
 
   return {
-    from: formatYear(from),
-    to: formatYear(to),
-    reason: `2nd/11th lord periods (${secondLord}, ${eleventhLord}) support income growth`,
+    from: formatYear(new Date(best.from)),
+    to: formatYear(new Date(best.to)),
+    reason: `${best.lord} antardasha supports income via ${best.roles.join(', ') || 'wealth significators'}`,
   };
 }
 
 export function computeCareerTiming(input: TimingInput): CareerTimingResult {
-  const currentMd = input.dashas.current.mahadasha?.planet ?? 'Unknown';
   return {
     opportunityWindow: computeOpportunityWindow(input),
     peakEarning: computePeakEarning(input),
-    currentPeriodLord: currentMd,
+    currentPeriodLord: input.reading.dasha.current.md.lord,
   };
 }
+
+/** @deprecated Use TimingInput with CareerReading — kept for transitional typing */
+export type LegacyTimingInput = {
+  dashas: VimshottariDashasResponse;
+  tenthLord: string;
+  tenthOccupants: string[];
+  amatyakaraka: string | null;
+  ascendantSign: SignNumber;
+  now: Date;
+};

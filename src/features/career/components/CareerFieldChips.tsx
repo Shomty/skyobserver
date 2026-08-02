@@ -1,5 +1,6 @@
 import { useTheme } from '../../../context/ThemeContext';
 import { cn } from '../../../lib/utils';
+import { useCareerPremiumUnlocked } from '../context/CareerPremiumContext';
 import { t } from '../copy/t';
 import type { CareerField } from '../types';
 import { PremiumLock } from './PremiumLock';
@@ -11,8 +12,9 @@ interface Props {
 
 export function CareerFieldChips({ fields, freeCount = 2 }: Props) {
   const { theme } = useTheme();
-  const visible = fields.slice(0, freeCount);
-  const locked = fields.slice(freeCount, freeCount + 3);
+  const premiumUnlocked = useCareerPremiumUnlocked();
+  const visible = premiumUnlocked ? fields : fields.slice(0, freeCount);
+  const locked = premiumUnlocked ? [] : fields.slice(freeCount, freeCount + 3);
 
   const chipClass = cn(
     'inline-flex rounded-full px-3 py-1.5 text-caption font-medium',

@@ -12,6 +12,9 @@ import {
 import type { BirthInstant } from '../../gift/lib/birthInstant';
 import { rankCareerFields } from '../copy/careerFields';
 import type { CareerSnapshot, DashaRef } from '../types';
+import { buildCareerReading } from './careerReading';
+import { buildD10Analysis } from './d10Engine';
+import type { CareerReadingContext } from './dashaActivation';
 import { computeCareerDrive, computeLeadership, computeTenthHouseStrength } from './careerScores';
 import { computeCareerTiming } from './careerTiming';
 import { buildParashariAnalysis } from './parashariEngine';
@@ -36,7 +39,11 @@ function findNextAntardasha(dashas: VimshottariDashasResponse, now: Date): Dasha
   const next = currentIdx >= 0 ? all[currentIdx + 1] : all.find((ad) => ad.start > now);
   if (!next) {
     const last = all[all.length - 1];
-    return { planet: last?.planet ?? 'Unknown', startDate: last?.start.toISOString() ?? '', endDate: last?.end.toISOString() ?? '' };
+    return {
+      planet: last?.planet ?? 'Unknown',
+      startDate: last?.start.toISOString() ?? '',
+      endDate: last?.end.toISOString() ?? '',
+    };
   }
   return { planet: next.planet, startDate: next.start.toISOString(), endDate: next.end.toISOString() };
 }
@@ -93,68 +100,73 @@ export function buildCareerSnapshot(
   const tenthSignIndex = (ascSignIndex + 9) % 12;
   const tenthSign = RASHIS[tenthSignIndex];
   const tenthSignNumber = (tenthSignIndex + 1) as SignNumber;
-  const occupants = positions
-    .filter((p) => p.house === 10 && p.name !== 'Ascendant')
-    .map((p) => p.name);
 
-  const tenthLordName = getRashiLord(tenthSign);
-  const tenthLordPos = positions.find((p) => p.name === tenthLordName);
-  if (!tenthLordPos) throw new Error(`10th lord ${tenthLordName} not found`);
+  const dashaLevels = extractDashaLevels(positions, birthInstant, now, dashas);
+  const reading = buildCareerReading(positions, dashas, now, dashaLevels.pratyantardasha);
+
+  const tenthLordPos = positions.find((p) => p.name === reading.d1.tenthLord.planet);
+  if (!tenthLordPos) throw new Error(`10th lord ${reading.d1.tenthLord.planet} not found`);
 
   const charas = calculateCharakarakas(positions);
   const amatyakaraka = charas.AmK !== 'None' ? charas.AmK : null;
 
   const d10Result = computeDivisionalChart(positions, 'D10');
   const d10Asc = d10Result.positions.find((p) => p.name === 'Ascendant');
-  const d10AscIdx = d10Asc ? RASHIS.indexOf(d10Asc.rashi) : 0;
-  const d10TenthSign = RASHIS[(d10AscIdx + 9) % 12];
-  const d10TenthLord = getRashiLord(d10TenthSign);
-  const d10TenthLordPos = d10Result.positions.find((p) => p.name === d10TenthLord);
   const amkPos = amatyakaraka
     ? d10Result.positions.find((p) => p.name === amatyakaraka)
     : undefined;
 
   const wealthYogas = detectDhanaYogas(positions, ascendantSign);
-  const timing = computeCareerTiming({
-    dashas,
-    tenthLord: tenthLordName,
-    tenthOccupants: occupants,
-    amatyakaraka,
-    ascendantSign,
-    now,
-  });
 
-  const fields = rankCareerFields(tenthSign, tenthLordName, tenthLordPos.house ?? 1, amkPos?.rashi ?? null);
-
-  const dashaLevels = extractDashaLevels(positions, birthInstant, now, dashas);
-  const parashari = buildParashariAnalysis(
+  const d10Full = buildD10Analysis(positions, reading.d1.amk.planet);
+  const ctx: CareerReadingContext = {
     positions,
-    ascendantSign,
-    amatyakaraka,
-    dashaLevels.mahadasha.planet,
-    dashaLevels.antardasha.planet,
+    ascSign: ascendantSign,
+    d1: reading.d1,
+    d9: reading.d9,
+    d10: d10Full,
+    karmic: reading.d1.karmic,
+    atmakaraka: charas.AK,
+  };
+
+  const timing = computeCareerTiming({ reading, ctx, dashas, now });
+  const fields = rankCareerFields(
+    tenthSign,
+    reading.d1.tenthLord.planet,
+    reading.d1.tenthLord.house,
+    amkPos?.rashi ?? null,
   );
+  const parashari = buildParashariAnalysis(reading);
 
   return {
     ascendantSign,
-    tenthHouse: { sign: tenthSign, signNumber: tenthSignNumber, occupants },
+    tenthHouse: {
+      sign: reading.d1.tenth.sign,
+      signNumber: reading.d1.tenth.signNumber,
+      occupants: reading.d1.tenth.occupants,
+    },
     tenthLord: {
-      planet: tenthLordName,
-      house: tenthLordPos.house ?? 1,
-      sign: tenthLordPos.rashi,
-      isRetrograde: tenthLordPos.isRetrograde,
-      isCombust: tenthLordPos.isCombust,
-      dignity: tenthLordPos.dignity,
+      planet: reading.d1.tenthLord.planet,
+      house: reading.d1.tenthLord.house,
+      sign: reading.d1.tenthLord.sign,
+      isRetrograde: reading.d1.tenthLord.isRetrograde,
+      isCombust: reading.d1.tenthLord.isCombust,
+      dignity: reading.d1.tenthLord.dignity ?? undefined,
     },
     d10: {
-      ascendantSign: d10Asc?.rashi ?? asc.rashi,
-      tenthLordHouse: d10TenthLordPos?.house ?? 1,
-      amkHouse: amkPos?.house ?? null,
+      ascendantSign: reading.d10.lagna.lagnaSign,
+      tenthLordHouse: reading.d10.tenth.lordHouse,
+      amkHouse: reading.d10.amk.house || null,
     },
     amatyakaraka,
     scores: {
-      tenthHouseStrength: computeTenthHouseStrength(positions, ascendantSign, tenthSign, tenthLordPos),
-      leadership: computeLeadership(positions, ascendantSign, tenthLordName),
+      tenthHouseStrength: computeTenthHouseStrength(
+        positions,
+        ascendantSign,
+        tenthSign,
+        tenthLordPos,
+      ),
+      leadership: computeLeadership(positions, ascendantSign, reading.d1.tenthLord.planet),
       careerDrive: computeCareerDrive(positions, tenthLordPos, amatyakaraka),
     },
     dasha: dashaLevels,
@@ -162,5 +174,6 @@ export function buildCareerSnapshot(
     wealthYogas,
     fields,
     parashari,
+    reading,
   };
 }

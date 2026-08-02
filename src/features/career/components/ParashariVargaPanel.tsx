@@ -1,6 +1,7 @@
 import { Sparkles } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { cn } from '../../../lib/utils';
+import { useCareerPremiumUnlocked } from '../context/CareerPremiumContext';
 import { t } from '../copy/t';
 import type { ParashariSection } from '../lib/parashariEngine';
 import { PremiumLock } from './PremiumLock';
@@ -43,7 +44,8 @@ function SectionBody({ section }: { section: ParashariSection }) {
 
 function SectionCard({ section }: { section: ParashariSection }) {
   const { theme } = useTheme();
-  const isPremium = section.tier === 'premium';
+  const premiumUnlocked = useCareerPremiumUnlocked();
+  const isPremium = section.tier === 'premium' && !premiumUnlocked;
 
   return (
     <article
@@ -78,6 +80,7 @@ function SectionCard({ section }: { section: ParashariSection }) {
 /** Parashari Varga Analysis — Jyotish Gem consultation block */
 export function ParashariVargaPanel({ sections }: Props) {
   const { theme } = useTheme();
+  const premiumUnlocked = useCareerPremiumUnlocked();
 
   return (
     <section
@@ -107,14 +110,16 @@ export function ParashariVargaPanel({ sections }: Props) {
         ))}
       </div>
 
-      <footer
-        className={cn(
-          'border-t border-jyotish-gold/10 px-4 py-3 text-center text-caption sm:px-6',
-          theme === 'dark' ? 'text-white/40' : 'text-slate-500'
-        )}
-      >
-        {t('parashari.premiumNote')}
-      </footer>
+      {!premiumUnlocked ? (
+        <footer
+          className={cn(
+            'border-t border-jyotish-gold/10 px-4 py-3 text-center text-caption sm:px-6',
+            theme === 'dark' ? 'text-white/40' : 'text-slate-500'
+          )}
+        >
+          {t('parashari.premiumNote')}
+        </footer>
+      ) : null}
     </section>
   );
 }

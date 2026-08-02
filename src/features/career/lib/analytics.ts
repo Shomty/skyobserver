@@ -6,6 +6,9 @@ type CareerEvent =
   | 'career_result_shown'
   | 'career_upsell_clicked'
   | 'career_report_saved'
+  | 'career_report_shared'
+  | 'career_report_printed'
+  | 'career_synthesis_ready'
   | 'career_honeypot_filled'
   | 'career_error';
 
