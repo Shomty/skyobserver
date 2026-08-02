@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
 import { LandingNavbar } from './LandingNavbar';
@@ -13,8 +14,16 @@ import { loginWithEmail, registerWithEmail, resetPassword, signInWithGoogle } fr
 const LandingPage: React.FC = () => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const [searchParams] = useSearchParams();
   const [authMode, setAuthMode] = useState<AuthMode>('signin');
   const [authOpen, setAuthOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('auth') === 'signup') {
+      setAuthMode('signup');
+      setAuthOpen(true);
+    }
+  }, [searchParams]);
 
   const openAuth = (mode: 'signin' | 'signup') => {
     setAuthMode(mode);
