@@ -100,6 +100,12 @@ export const en = {
   'faq.a2': 'Career indicators depend heavily on an accurate birth time. Use your birth certificate if possible.',
   'faq.q3': 'What is the 10th house?',
   'faq.a3': 'In Vedic astrology the 10th house governs career, public reputation, and life direction.',
+
+  'print.unlockSection': 'Unlock the full {title} analysis in your online report.',
+  'print.unlockSynthesis': 'Unlock your full AI Core Career Synthesis in your online report.',
+  'print.unlockScore': 'Unlock',
+  'print.moreFieldsLocked': '+{count} more fields available with a free account.',
+  'print.synthesisPending': 'The AI synthesis was still generating when this report was printed — view the online report for the full analysis.',
 } as const;
 
 export type CopyKey = keyof typeof en;

@@ -441,6 +441,13 @@
  * container inherits the viewport-sized, `overflow: hidden` app shell as its
  * containing block, which clips the output to a single page. As a normal-flow
  * child of <body> the document paginates across as many pages as it needs.
+ *
+ * The career report (src/features/career) is the one exception: `.print-root`
+ * there is applied to an imperatively-created Paged.js output node
+ * (`#career-pagedjs-root`, built by careerPrint.ts), not directly to a
+ * portalled React tree. `CareerReportPrintView` stays plain `hidden` — it's
+ * only Paged.js's source HTML, read via `outerHTML` — so don't be surprised
+ * grepping for `.print-root` and finding it applied outside a component.
  */
 @media print {
   @page {

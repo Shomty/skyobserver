@@ -1,0 +1,89 @@
+/*
+ * Paged.js pagination stylesheet for the /career report.
+ *
+ * Not linked or `import`-ed normally — CareerCalculatorPage.tsx pulls it in
+ * as raw text (`?raw` suffix) and hands the string straight to
+ * `Previewer.preview()` in careerPrint.ts, which passes it to Paged.js as
+ * `{ 'career-print.css': css }` rather than a URL. Paged.js's Polisher
+ * resolves a plain string argument by *fetching* it over the network; that
+ * extra round-trip is unnecessary here and, in this app's dev/build asset
+ * pipeline, is what silently dropped this file's rules (running header,
+ * break-inside avoidance) instead of erroring — so raw text is passed
+ * directly, guaranteeing the CSS is actually present before Paged.js chunks
+ * the content. See the comment in careerPrint.ts for the same note.
+ */
+
+@page {
+  size: A4;
+  margin: 2cm 1.6cm 2.2cm;
+
+  @top-center {
+    content: string(reportTitle);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #777;
+  }
+
+  @bottom-center {
+    content: 'Page ' counter(page) ' of ' counter(pages);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 9px;
+    color: #777;
+  }
+}
+
+@page :first {
+  margin-top: 3.2cm;
+}
+
+.career-print-doc {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #111;
+  background: #fff;
+}
+
+.career-print-doc-title {
+  string-set: reportTitle content();
+}
+
+/* Small atomic blocks: never split across a page boundary. */
+.career-print-card,
+.career-print-score,
+.career-print-dasha-row,
+.career-print-timing-row,
+.career-print-section-header,
+.career-print-chart-box {
+  break-inside: avoid;
+}
+
+/* Headings never land alone at the bottom of a page. */
+.career-print-doc h1,
+.career-print-doc h2,
+.career-print-doc h3,
+.career-print-doc h4 {
+  break-after: avoid;
+}
+
+/* Long flowing text (AI synthesis, Parashari bodies) is deliberately left
+   free to paginate — this is the actual value Paged.js adds over the plain
+   browser print path. */
+.career-print-doc p {
+  orphans: 3;
+  widows: 3;
+}
+
+.career-print-chart-box .print-chart {
+  background: #fff !important;
+  border-color: #111 !important;
+  box-shadow: none !important;
+}
+
+.career-print-chart-box .print-chart svg path {
+  stroke: #111 !important;
+}
+
+.career-print-chart-box .print-chart svg text {
+  fill: #111 !important;
+}

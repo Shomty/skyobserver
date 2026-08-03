@@ -8,6 +8,7 @@ type CareerEvent =
   | 'career_report_saved'
   | 'career_report_shared'
   | 'career_report_printed'
+  | 'career_print_failed'
   | 'career_synthesis_ready'
   | 'career_honeypot_filled'
   | 'career_error';

@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { format } from 'date-fns';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -12,8 +13,10 @@ import { CareerReportBody } from '../components/CareerReportBody';
 import { CareerReportPrintView } from '../components/CareerReportPrintView';
 import { t } from '../copy/t';
 import { trackCareerEvent } from '../lib/analytics';
+import { paginateAndPrint } from '../lib/careerPrint';
 import { fetchCareerReportById } from '../lib/careerReportApi';
 import { careerShareUrl } from '../lib/careerShareUrl';
+import careerPrintCss from '../styles/career-print.css?raw';
 import {
   CareerPremiumProvider,
   useCareerPremiumUnlocked,
@@ -81,9 +84,13 @@ function CareerCalculatorPageContent() {
 
   const shareUrl = activeReportId ? careerShareUrl(activeReportId) : '';
 
-  const handlePrint = useCallback(() => {
-    window.print();
-    trackCareerEvent('career_report_printed', { reportId: activeReportId });
+  const handlePrint = useCallback(async () => {
+    try {
+      await paginateAndPrint('career-report-print-root', careerPrintCss);
+      trackCareerEvent('career_report_printed', { reportId: activeReportId });
+    } catch (error) {
+      trackCareerEvent('career_print_failed', { reportId: activeReportId, message: String(error) });
+    }
   }, [activeReportId]);
 
   useEffect(() => {
@@ -283,6 +290,7 @@ function CareerCalculatorPageContent() {
               cachedAt={cachedAt}
               snapshot={snapshot}
               positions={positions}
+              synthesis={synthesisState}
             />
           </div>
         ) : null}
