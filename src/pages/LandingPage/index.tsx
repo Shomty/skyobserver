@@ -7,7 +7,7 @@ import { LandingHero } from './LandingHero';
 import { LandingFeatureGrid } from './LandingFeatureGrid';
 import { LandingSignUpCTA } from './LandingSignUpCTA';
 import { LandingFooter } from './LandingFooter';
-import { CurrentPanchangTeaser, LiveChartTeaser, SampleAIInterpretation, TimingTeaser } from './components';
+import { CareerTeaser, CurrentPanchangTeaser, LiveChartTeaser, SampleAIInterpretation, TimingTeaser } from './components';
 import { AuthDialog, type AuthMode } from '../../features/auth';
 import { loginWithEmail, registerWithEmail, resetPassword, signInWithGoogle } from '../../firebase';
 
@@ -59,6 +59,7 @@ const LandingPage: React.FC = () => {
           <CurrentPanchangTeaser />
           <TimingTeaser />
           <SampleAIInterpretation />
+          <CareerTeaser />
         </div>
       </div>
       <LandingFeatureGrid />

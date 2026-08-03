@@ -13,7 +13,7 @@ import { Header } from './components/Header';
 import { SectionNav } from './components/SectionNav';
 import { MobileNavigation } from './components/MobileNavigation';
 import { MoreSheet } from './components/MoreSheet';
-import { type NavId, pathToNavId, navIdToPath, DEFAULT_NAV_ID, MORE_SHEET_IDS, CONTROLS_HUD_IDS, isDashboardView } from './lib/navigation';
+import { type NavId, pathToNavId, navIdToPath, isProtectedAppPath, DEFAULT_NAV_ID, MORE_SHEET_IDS, CONTROLS_HUD_IDS, isDashboardView } from './lib/navigation';
 import { DASHBOARD_TABS } from './lib/dashboardTabs';
 import { TabGroup, type TabGroupItem } from './components/ui';
 import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
@@ -553,22 +553,49 @@ export default function App() {
   const { theme, toggleTheme } = useTheme();
   const routerLocation = useLocation();
   const navigate = useNavigate();
+  /** Set when URL→tab sync updates activeTab so tab→URL sync does not fight back. */
+  const skipNextPathSyncRef = useRef(false);
 
-  // Sync URL with activeTab — every destination now has a canonical path
+  const canUseAppPaths = Boolean(isAuthReady && user && userProfile?.onboardingCompleted);
+
+  // Logged-out (or not yet onboarded) users stay on `/` with hash anchors; block deep links to app tabs.
   useEffect(() => {
+    if (!isAuthReady || !isProtectedAppPath(routerLocation.pathname)) return;
+    if (!user) {
+      navigate({ pathname: '/', search: routerLocation.search }, { replace: true });
+      return;
+    }
+    if (userProfile === null) return;
+    if (!userProfile.onboardingCompleted) {
+      navigate({ pathname: '/', search: routerLocation.search }, { replace: true });
+    }
+  }, [isAuthReady, user, userProfile, routerLocation.pathname, routerLocation.search, navigate]);
+
+  // URL → activeTab (back/forward, deep links) — reacts to pathname only
+  useEffect(() => {
+    if (!canUseAppPaths) return;
+    const id = pathToNavId(routerLocation.pathname);
+    if (!id) return;
+    setActiveTab((prev) => {
+      if (prev === id) return prev;
+      skipNextPathSyncRef.current = true;
+      return id;
+    });
+  }, [routerLocation.pathname, canUseAppPaths]);
+
+  // activeTab → URL (nav clicks) — reacts to activeTab only
+  useEffect(() => {
+    if (!canUseAppPaths) return;
+    if (skipNextPathSyncRef.current) {
+      skipNextPathSyncRef.current = false;
+      return;
+    }
     const desiredPath = navIdToPath(activeTab);
     if (routerLocation.pathname !== desiredPath) {
       navigate(desiredPath);
     }
-  }, [activeTab, navigate, routerLocation.pathname]);
-
-  // Sync activeTab with URL (handles initial load, deep links, and back button)
-  useEffect(() => {
-    const id = pathToNavId(routerLocation.pathname);
-    if (id && id !== activeTab) {
-      setActiveTab(id);
-    }
-  }, [routerLocation.pathname]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pathname is read, not watched; watching it causes ping-pong with URL→tab sync
+  }, [activeTab, canUseAppPaths, navigate]);
 
   // Keep chart geometry coupled to Sky / Kundli destinations (URL + nav)
   useEffect(() => {
