@@ -86,6 +86,12 @@ export function navIdToPath(id: NavId): string {
   return match ? match.path : '/sky';
 }
 
+/** App tab paths (and legacy aliases) that require a signed-in, onboarded session. */
+export function isProtectedAppPath(pathname: string): boolean {
+  if (PATH_ALIASES[pathname]) return true;
+  return NAV_ITEMS.some((item) => item.path === pathname);
+}
+
 /** Destinations that live behind the mobile "More" sheet — used to highlight its trigger. */
 export const MORE_SHEET_IDS = new Set<NavId>(
   NAV_ITEMS.filter((item) => item.surfaces.moreSheet).map((item) => item.id)

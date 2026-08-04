@@ -433,29 +433,65 @@
 }
 
 /*
- * Print / "Save as PDF" support for chat conversations.
- * The section-print trick: hide everything on the page, then reveal only the
- * dedicated #chat-print-root container so the browser prints a clean document
- * (no app chrome) and handles pagination across long conversations natively.
+ * Print / "Save as PDF" support for chat and Full Report pages.
+ *
+ * Print views are portalled to <body> and marked `.print-root`. Hiding their
+ * siblings outright — rather than hiding the app with `visibility: hidden` and
+ * positioning the print view over it — matters: an absolutely positioned print
+ * container inherits the viewport-sized, `overflow: hidden` app shell as its
+ * containing block, which clips the output to a single page. As a normal-flow
+ * child of <body> the document paginates across as many pages as it needs.
+ *
+ * The career report (src/features/career) is the one exception: `.print-root`
+ * there is applied to an imperatively-created Paged.js output node
+ * (`#career-pagedjs-root`, built by careerPrint.ts), not directly to a
+ * portalled React tree. `CareerReportPrintView` stays plain `hidden` — it's
+ * only Paged.js's source HTML, read via `outerHTML` — so don't be surprised
+ * grepping for `.print-root` and finding it applied outside a component.
  */
 @media print {
-  body * {
-    visibility: hidden;
+  @page {
+    margin: 1.5cm;
   }
-  #chat-print-root,
-  #chat-print-root * {
-    visibility: visible;
+
+  body > *:not(.print-root) {
+    display: none !important;
   }
-  #chat-print-root {
-    position: absolute;
-    inset: 0;
+
+  .print-root {
+    display: block !important;
     width: 100%;
-    padding: 24px;
     color: #111;
     background: #fff;
   }
-  #chat-print-root a {
+
+  .print-root a {
     color: #111;
     text-decoration: none;
+  }
+
+  .print-root,
+  .print-root * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /*
+   * The Rasi chart is drawn from theme-tinted, low-opacity strokes that vanish
+   * against white paper. Force a plain black line drawing; planet chips keep
+   * their own background colours, which stay legible.
+   */
+  .print-root .print-chart {
+    background: #fff !important;
+    border-color: #111 !important;
+    box-shadow: none !important;
+  }
+
+  .print-root .print-chart svg path {
+    stroke: #111 !important;
+  }
+
+  .print-root .print-chart svg text {
+    fill: #111 !important;
   }
 }

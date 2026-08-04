@@ -1,0 +1,73 @@
+/*
+ * Paged.js stylesheet for the /personal report — same pipeline as career-print.css.
+ */
+
+@page {
+  size: A4;
+  margin: 2cm 1.6cm 2.2cm;
+
+  @top-center {
+    content: string(reportTitle);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #777;
+  }
+
+  @bottom-center {
+    content: 'Page ' counter(page) ' of ' counter(pages);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 9px;
+    color: #777;
+  }
+}
+
+@page :first {
+  margin-top: 3.2cm;
+}
+
+.personal-print-doc {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #111;
+  background: #fff;
+}
+
+.personal-print-doc-title {
+  string-set: reportTitle content();
+}
+
+.personal-print-card,
+.personal-print-score,
+.personal-print-dasha-row,
+.personal-print-timing-row,
+.personal-print-section-header,
+.personal-print-chart-box {
+  break-inside: avoid;
+}
+
+.personal-print-doc h1,
+.personal-print-doc h2,
+.personal-print-doc h3,
+.personal-print-doc h4 {
+  break-after: avoid;
+}
+
+.personal-print-doc p {
+  orphans: 3;
+  widows: 3;
+}
+
+.personal-print-chart-box .print-chart {
+  background: #fff !important;
+  border-color: #111 !important;
+  box-shadow: none !important;
+}
+
+.personal-print-chart-box .print-chart svg path {
+  stroke: #111 !important;
+}
+
+.personal-print-chart-box .print-chart svg text {
+  fill: #111 !important;
+}

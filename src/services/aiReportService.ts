@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { db } from '../firebase';
+import { debugWarn } from '../lib/debug';
 
 export interface AIReport {
   id?: string;
@@ -158,6 +159,44 @@ export interface EnsureReportResult<T> {
 const inFlightReports = new Map<string, Promise<{ data: unknown; saved: boolean }>>();
 
 /**
+ * Survives DataDashboard / page remounts within the same JS session so a
+ * natal report already paid for (and/or read from Firestore) is returned
+ * synchronously — without a loading flash or a second network round-trip.
+ */
+const resolvedReports = new Map<string, { data: unknown; fingerprint: string; saved: boolean }>();
+
+function resolvedKey(uid: string, docId: string): string {
+  return `${uid}|${docId}`;
+}
+
+function rememberResolved(
+  uid: string,
+  docId: string,
+  fingerprint: string,
+  data: unknown,
+  saved: boolean,
+): void {
+  resolvedReports.set(resolvedKey(uid, docId), { data, fingerprint, saved });
+}
+
+/**
+ * Synchronous session-cache peek. Returns null on miss / fingerprint mismatch.
+ * Use before setting a loading spinner so remounts can hydrate instantly.
+ */
+export function peekResolvedReport<T>(
+  uid: string,
+  docId: string,
+  fingerprint: string,
+  normalize?: (raw: unknown) => T | null,
+): T | null {
+  const entry = resolvedReports.get(resolvedKey(uid, toDocId(docId)));
+  if (!entry || entry.fingerprint !== fingerprint) return null;
+  const normalizeValue = (raw: unknown): T | null =>
+    normalize ? normalize(raw) : (raw == null ? null : (raw as T));
+  return normalizeValue(entry.data);
+}
+
+/**
  * The single entry point for every cached AI report.
  *
  * Reads the document by ID (never a query, so no composite index is involved),
@@ -178,13 +217,31 @@ export async function ensureReport<T>({
     normalize ? normalize(raw) : (raw == null ? null : (raw as T));
 
   if (!force) {
+    const memory = resolvedReports.get(resolvedKey(uid, safeDocId));
+    if (memory && memory.fingerprint === fingerprint) {
+      const value = normalizeValue(memory.data);
+      if (value !== null) {
+        return { data: value, fromCache: true, saved: memory.saved };
+      }
+    }
+
     try {
       const cached = await getPerAccountReport(uid, safeDocId);
       if (cached && cached.fingerprint === fingerprint) {
         const value = normalizeValue(cached.data);
         if (value !== null) {
+          rememberResolved(uid, safeDocId, fingerprint, value, true);
           return { data: value, fromCache: true, saved: true };
         }
+        // A stored report that no longer validates is the other way a cache
+        // silently degrades into "regenerate on every load".
+        debugWarn('ai-report', 'Cached report failed validation — regenerating', { docId: safeDocId });
+      } else if (cached) {
+        debugWarn('ai-report', 'Cached report discarded — fingerprint changed', {
+          docId: safeDocId,
+          cachedFingerprint: cached.fingerprint,
+          currentFingerprint: fingerprint,
+        });
       }
     } catch {
       // Cache read failure must not block the user — fall through to generation.
@@ -205,6 +262,7 @@ export async function ensureReport<T>({
       // the birth details change.
       if (value === null) return { data: generated, saved: false };
       const saved = await savePerAccountReport(uid, safeDocId, value, fingerprint, type);
+      rememberResolved(uid, safeDocId, fingerprint, value, saved);
       return { data: value, saved };
     })();
 

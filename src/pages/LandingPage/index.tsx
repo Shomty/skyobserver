@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
 import { LandingNavbar } from './LandingNavbar';
@@ -6,15 +7,23 @@ import { LandingHero } from './LandingHero';
 import { LandingFeatureGrid } from './LandingFeatureGrid';
 import { LandingSignUpCTA } from './LandingSignUpCTA';
 import { LandingFooter } from './LandingFooter';
-import { CurrentPanchangTeaser, LiveChartTeaser, SampleAIInterpretation, TimingTeaser } from './components';
+import { CareerTeaser, CurrentPanchangTeaser, LiveChartTeaser, SampleAIInterpretation, TimingTeaser } from './components';
 import { AuthDialog, type AuthMode } from '../../features/auth';
 import { loginWithEmail, registerWithEmail, resetPassword, signInWithGoogle } from '../../firebase';
 
 const LandingPage: React.FC = () => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const [searchParams] = useSearchParams();
   const [authMode, setAuthMode] = useState<AuthMode>('signin');
   const [authOpen, setAuthOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('auth') === 'signup') {
+      setAuthMode('signup');
+      setAuthOpen(true);
+    }
+  }, [searchParams]);
 
   const openAuth = (mode: 'signin' | 'signup') => {
     setAuthMode(mode);
@@ -50,6 +59,7 @@ const LandingPage: React.FC = () => {
           <CurrentPanchangTeaser />
           <TimingTeaser />
           <SampleAIInterpretation />
+          <CareerTeaser />
         </div>
       </div>
       <LandingFeatureGrid />

@@ -86,6 +86,64 @@ function buildParashariPromptSection(
   return lines.length > 0 ? `\n    Parashari Special Points:\n    ${lines.join('\n    ')}` : '';
 }
 
+/**
+ * Asking one Gemini call for a paragraph per panchang element, yoga, planet and
+ * transit means ~60 paragraphs in a single structured response. That request
+ * does not come back — it stalls until the connection times out. The report is
+ * therefore assembled from four independently bounded calls that run in
+ * parallel, each small enough to return in seconds.
+ */
+const COSMIC_YOGA_LIMIT = 12;
+const COSMIC_TRANSIT_LIMIT = 6;
+/** Points already covered narratively by the blueprint section. */
+const COSMIC_PLANET_EXCLUDE = ['Bhrigu Bindu', 'Gulika', 'Maandi'];
+
+/** Per-key paragraphs come back as an array so the model never invents keys. */
+const keyedParagraphSchema = {
+  type: Type.OBJECT,
+  properties: {
+    entries: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          key: { type: Type.STRING },
+          text: { type: Type.STRING },
+        },
+        required: ['key', 'text'],
+      },
+    },
+  },
+  required: ['entries'],
+};
+
+function parseJson<T>(text: string, label: string): T {
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Invalid AI response format — could not parse ${label} JSON from Gemini`);
+  }
+}
+
+/**
+ * Maps the model's `entries` array back onto the requested keys. Keys are
+ * matched case-insensitively so minor casing drift does not drop a paragraph.
+ */
+function toRecord(text: string, requestedKeys: string[], label: string): Record<string, string> {
+  const parsed = parseJson<{ entries?: { key?: string; text?: string }[] }>(text, label);
+  const byLowerKey = new Map(requestedKeys.map(k => [k.toLowerCase(), k]));
+  const result: Record<string, string> = {};
+  for (const entry of parsed.entries ?? []) {
+    if (!entry?.key || !entry?.text) continue;
+    const canonical = byLowerKey.get(entry.key.trim().toLowerCase());
+    if (canonical) result[canonical] = entry.text;
+  }
+  return result;
+}
+
+const formatCosmicPlanet = (p: PlanetPosition) =>
+  `${p.name} in ${p.rashi} (${p.house} House, ${p.nakshatra} Nakshatra, Dignity: ${p.dignity || 'Neutral'}${p.isRetrograde ? ', Retrograde' : ''}${p.isCombust ? ', Combust' : ''})`;
+
 export async function generateCosmicInterpretations(
   profile: any,
   birthPositions: PlanetPosition[],
@@ -95,62 +153,35 @@ export async function generateCosmicInterpretations(
   transitPositions: PlanetPosition[] = [],
   transitEvents: TransitEvent[] = []
 ): Promise<AICosmicInterpretations> {
-  const formatPlanet = (p: PlanetPosition) =>
-    `${p.name} in ${p.rashi} (${p.house} House, ${p.nakshatra} Nakshatra, Dignity: ${p.dignity || 'Neutral'}${p.isRetrograde ? ', Retrograde' : ''}${p.isCombust ? ', Combust' : ''})`;
+  const native = `${profile?.firstName || 'the native'} (${profile?.gender || 'unspecified'})`;
 
-  const transitSection = transitPositions.length > 0
-    ? `Current Sky — Transit Positions (today):
-${transitPositions.filter(p => p.name !== 'Ascendant').map(formatPlanet).join('\n')}
+  // Shared chart context, kept compact so each of the four prompts stays small.
+  const chartContext = `
+    Native: ${native}
+    Natal Panchang: Tithi ${panchang.tithi.name} (${panchang.tithi.phase}), Nakshatra ${panchang.nakshatra.name}, Yoga ${panchang.yoga.name}, Karana ${panchang.karana.name}, Vara ${panchang.vara}
+    Natal Positions:
+    ${birthPositions.map(formatCosmicPlanet).join('\n    ')}
+    Special Points: Atmakaraka ${blueprint?.charakarakas?.AK}, Amatyakaraka ${blueprint?.charakarakas?.AmK}, Ishta Devata ${blueprint?.ishtaDevata}, Dharma Chakra ${blueprint?.dharmaChakra}`;
 
-Active Transit Events:
-${transitEvents.length > 0 ? transitEvents.map(e => `- [${e.type.toUpperCase()}] ${e.title}: ${e.description}`).join('\n') : '- No significant active events detected.'}`
-    : '';
+  const style = 'Speak directly to the native. Be specific to the placements given; avoid generic filler.';
 
-  const prompt = `
-    As an expert Vedic Astrologer (Jyotishi), provide a personalized, high-level analysis of the following birth chart data${transitPositions.length > 0 ? ' and current sky transits' : ''}.
-    Focus on how these specific celestial patterns uniquely affect this individual.
+  // ── Call 1: summary + panchang + blueprint (required — a failure aborts) ────
+  const corePromise = callGeminiProxy({
+    model: 'gemini-3-flash-preview',
+    contents: `
+      As an expert Vedic Astrologer (Jyotishi), analyse this chart.
+      ${chartContext}
+      ${buildParashariPromptSection(birthPositions, blueprint)}
 
-    Individual Context:
-    - Name/Gender: ${profile.firstName || 'User'} (${profile.gender})
+      Provide:
+      1. summary: a powerful 2-sentence statement of this soul's primary mission.
+      2. panchang: one paragraph (3-4 sentences) for each of tithi, nakshatra, yoga, karana, vara — how it shapes this native's path and character.
+      3. blueprint: one paragraph (3-4 sentences) each with practical guidance for ak (Atmakaraka), amk (Amatyakaraka), ishta (Ishta Devata), dharma (Dharma Chakra), and — only where the Parashari data above provides them — lagnaLord, vargottama, arudhaLagna, upapadaLagna, secondFromUL, gulikaMandi, amkD10 (use the framing: protective shield, marital sustenance, karmic debt, professional soul-purpose).
 
-    Natal Panchang:
-    - Tithi: ${panchang.tithi.name} (${panchang.tithi.phase})
-    - Nakshatra: ${panchang.nakshatra.name}
-    - Yoga: ${panchang.yoga.name}
-    - Karana: ${panchang.karana.name}
-    - Vara: ${panchang.vara}
-
-    Natal Planetary Positions:
-    ${birthPositions.map(formatPlanet).join('\n')}
-
-    Special Points (Blueprint):
-    - Atmakaraka (Soul): ${blueprint.charakarakas?.AK}
-    - Amatyakaraka (Career): ${blueprint.charakarakas?.AmK}
-    - Ishta Devata: ${blueprint.ishtaDevata}
-    - Dharma Chakra: ${blueprint.dharmaChakra}
-
-    Identified Natal Yogas:
-    ${yogas.map(y => `- ${y.name}: ${y.description}`).join('\n')}
-    ${buildParashariPromptSection(birthPositions, blueprint)}
-    ${transitSection ? `\n    ${transitSection}` : ''}
-
-    Please provide:
-    1. A short, powerful 2-sentence summary of the soul's primary mission in this life.
-    2. For each Panchang element (tithi, nakshatra, yoga, karana, vara): one strong paragraph personalizing how it shapes this native's life path and character.
-    3. For each Yoga listed: one strong paragraph describing the personalized implication for this individual, including how it manifests in their real life.
-    4. For each Blueprint point (AK, AmK, Ishta Devata, Dharma Chakra): one strong paragraph with practical guidance.
-    5. For Parashari points if provided (Lagna lord, Vargottama, Arudha Lagna, Upapada + 2nd from UL, Gulika/Mandi, AmK in D10): one strong paragraph each explaining meaning and life impact using the doc framing (protective shield, marital sustenance, karmic debt, professional soul-purpose).
-    6. For each planet listed in Natal Planetary Positions: one strong paragraph interpreting how its sign, house, nakshatra, and dignity uniquely shapes this native's life.
-    ${transitPositions.length > 0 ? '7. For each active transit event listed above: one strong paragraph explaining how this current sky influence is activating or challenging this individual\'s natal chart right now.' : ''}
-
-    Avoid generic text. Speak directly to the person. Each paragraph should feel personal, insightful, and grounded in the specific placement data provided.
-  `;
-
-  const text = await callGeminiProxy({
-    model: "gemini-3-flash-preview",
-    contents: prompt,
+      ${style}
+    `,
     config: {
-      responseMimeType: "application/json",
+      responseMimeType: 'application/json',
       responseSchema: {
         type: Type.OBJECT,
         properties: {
@@ -162,13 +193,9 @@ ${transitEvents.length > 0 ? transitEvents.map(e => `- [${e.type.toUpperCase()}]
               nakshatra: { type: Type.STRING },
               yoga: { type: Type.STRING },
               karana: { type: Type.STRING },
-              vara: { type: Type.STRING }
+              vara: { type: Type.STRING },
             },
-            required: ["tithi", "nakshatra", "yoga", "karana", "vara"]
-          },
-          yogas: {
-            type: Type.OBJECT,
-            additionalProperties: { type: Type.STRING }
+            required: ['tithi', 'nakshatra', 'yoga', 'karana', 'vara'],
           },
           blueprint: {
             type: Type.OBJECT,
@@ -185,27 +212,103 @@ ${transitEvents.length > 0 ? transitEvents.map(e => `- [${e.type.toUpperCase()}]
               gulikaMandi: { type: Type.STRING },
               amkD10: { type: Type.STRING },
             },
-            required: ["ak", "amk", "ishta", "dharma"]
+            required: ['ak', 'amk', 'ishta', 'dharma'],
           },
-          planets: {
-            type: Type.OBJECT,
-            additionalProperties: { type: Type.STRING }
-          },
-          transits: {
-            type: Type.OBJECT,
-            additionalProperties: { type: Type.STRING }
-          }
         },
-        required: ["summary", "panchang", "yogas", "blueprint", "planets", "transits"]
-      }
-    }
-  });
+        required: ['summary', 'panchang', 'blueprint'],
+      },
+    },
+  }).then(text =>
+    parseJson<Pick<AICosmicInterpretations, 'summary' | 'panchang' | 'blueprint'>>(text, 'core'),
+  );
 
-  try {
-    return JSON.parse(text) as AICosmicInterpretations;
-  } catch {
-    throw new Error('Invalid AI response format — could not parse JSON from Gemini');
-  }
+  // ── Call 2: one paragraph per planet ───────────────────────────────────────
+  const planetList = birthPositions.filter(p => !COSMIC_PLANET_EXCLUDE.includes(p.name));
+  const planetKeys = planetList.map(p => p.name);
+  const planetsPromise = planetKeys.length === 0
+    ? Promise.resolve({})
+    : callGeminiProxy({
+        model: 'gemini-3-flash-preview',
+        contents: `
+          As an expert Vedic Astrologer, interpret each natal placement for ${native}.
+          ${chartContext}
+
+          Return one entry per placement below, using the exact name as "key" and a 3-4 sentence
+          interpretation as "text" covering how its sign, house, nakshatra and dignity shape this
+          native's life. Cover every one of these, and no others:
+          ${planetKeys.join(', ')}
+
+          ${style}
+        `,
+        config: { responseMimeType: 'application/json', responseSchema: keyedParagraphSchema },
+      }).then(text => toRecord(text, planetKeys, 'planets'));
+
+  // ── Call 3: one paragraph per yoga ────────────────────────────────────────
+  const yogaSubset = yogas.slice(0, COSMIC_YOGA_LIMIT);
+  const yogaKeys = yogaSubset.map(y => y.name);
+  const yogasPromise = yogaKeys.length === 0
+    ? Promise.resolve({})
+    : callGeminiProxy({
+        model: 'gemini-3-flash-preview',
+        contents: `
+          As an expert Vedic Astrologer, interpret each natal yoga for ${native}.
+          ${chartContext}
+
+          Yogas detected in this chart:
+          ${yogaSubset.map(y => `- ${y.name}: ${y.description ?? ''}`).join('\n          ')}
+
+          Return one entry per yoga, using the exact yoga name as "key" and a 3-4 sentence
+          "text" describing how it actually manifests in this native's real life. Cover every
+          yoga listed and no others.
+
+          ${style}
+        `,
+        config: { responseMimeType: 'application/json', responseSchema: keyedParagraphSchema },
+      }).then(text => toRecord(text, yogaKeys, 'yogas'));
+
+  // ── Call 4: one paragraph per active transit ──────────────────────────────
+  const transitSubset = transitEvents.slice(0, COSMIC_TRANSIT_LIMIT);
+  const transitKeys = transitSubset.map(e => e.title);
+  const transitsPromise = transitKeys.length === 0
+    ? Promise.resolve({})
+    : callGeminiProxy({
+        model: 'gemini-3-flash-preview',
+        contents: `
+          As an expert Vedic Astrologer, explain how each current sky event is activating
+          ${native}'s natal chart right now.
+          ${chartContext}
+
+          Current transit positions:
+          ${transitPositions.filter(p => p.name !== 'Ascendant').map(formatCosmicPlanet).join('\n          ')}
+
+          Active transit events:
+          ${transitSubset.map(e => `- [${e.type?.toUpperCase()}] ${e.title}: ${e.description ?? ''}`).join('\n          ')}
+
+          Return one entry per event, using the exact event title as "key" and a 3-4 sentence
+          "text". Cover every event listed and no others.
+
+          ${style}
+        `,
+        config: { responseMimeType: 'application/json', responseSchema: keyedParagraphSchema },
+      }).then(text => toRecord(text, transitKeys, 'transits'));
+
+  // The core section is required; the per-key sections degrade to empty so one
+  // slow or malformed sub-response cannot deny the user the whole report.
+  const [core, planetsResult, yogasResult, transitsResult] = await Promise.all([
+    corePromise,
+    planetsPromise.catch(() => ({} as Record<string, string>)),
+    yogasPromise.catch(() => ({} as Record<string, string>)),
+    transitsPromise.catch(() => ({} as Record<string, string>)),
+  ]);
+
+  return {
+    summary: core.summary,
+    panchang: core.panchang,
+    blueprint: core.blueprint,
+    planets: planetsResult,
+    yogas: yogasResult,
+    transits: transitsResult,
+  };
 }
 
 /**
