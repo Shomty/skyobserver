@@ -16,6 +16,12 @@ import {
   updateCareerReportSynthesis,
   writeCareerReport,
 } from './server/careerReportCache.ts';
+import {
+  lookupPersonalReportByEmail,
+  readPersonalReportById,
+  updatePersonalReportSynthesis,
+  writePersonalReport,
+} from './server/personalReportCache.ts';
 import { GoogleGenAI } from '@google/genai';
 // openastrology-library's .mjs build uses `import * as swisseph` which doesn't
 // work for a native CJS addon. Load the CJS build explicitly via createRequire.
@@ -734,6 +740,138 @@ async function startServer() {
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Career report cache error';
       serverLog('error', 'career-report', 'Cache operation failed', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
+  // Personal report cache — public share links at /personal/r/:reportId
+  app.get('/api/personal/report/:reportId', rateLimit, async (req, res) => {
+    const reportId = req.params.reportId ?? '';
+    if (!isValidReportId(reportId)) {
+      return res.status(400).json({ error: 'Invalid report id' });
+    }
+
+    try {
+      const cached = await readPersonalReportById(reportId);
+      if (!cached) {
+        return res.status(404).json({ error: 'Report not found' });
+      }
+
+      return res.json({
+        reportId: cached.reportId,
+        email: cached.email,
+        fingerprint: cached.fingerprint,
+        snapshot: cached.snapshot,
+        positions: cached.positions,
+        aiSynthesis: cached.aiSynthesis,
+        cachedAt: cached.updatedAt,
+        fullName: cached.fullName,
+        birthDate: cached.birthDate,
+        birthTime: cached.birthTime,
+        birthPlaceLabel: cached.birthPlaceLabel,
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Personal report cache error';
+      serverLog('error', 'personal-report', 'Load failed', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
+  app.post('/api/personal/report', rateLimit, async (req, res) => {
+    const body = req.body as {
+      email?: string;
+      fingerprint?: string;
+      reportId?: string;
+      fullName?: string;
+      birthDate?: string;
+      birthTime?: string;
+      birthPlaceLabel?: string;
+      birthInstant?: { iso: string; offsetMinutes: number };
+      snapshot?: unknown;
+      positions?: unknown[];
+      aiSynthesis?: { text?: string; fingerprint?: string; generatedAt?: string };
+    };
+
+    const email = typeof body.email === 'string' ? body.email : '';
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    if (typeof body.fingerprint !== 'string' || body.fingerprint.length < 8) {
+      return res.status(400).json({ error: 'fingerprint is required' });
+    }
+
+    try {
+      if (body.snapshot && Array.isArray(body.positions)) {
+        const stored = await writePersonalReport({
+          reportId: generateReportId(),
+          email,
+          fingerprint: body.fingerprint,
+          fullName: typeof body.fullName === 'string' ? body.fullName.slice(0, 100) : undefined,
+          birthDate: typeof body.birthDate === 'string' ? body.birthDate : undefined,
+          birthTime: typeof body.birthTime === 'string' ? body.birthTime : undefined,
+          birthPlaceLabel: typeof body.birthPlaceLabel === 'string' ? body.birthPlaceLabel.slice(0, 120) : undefined,
+          birthInstant: body.birthInstant,
+          snapshot: body.snapshot,
+          positions: body.positions,
+        });
+
+        if (DEBUG_SERVER_LOGS) {
+          serverLog('log', 'personal-report', 'Report saved', { reportId: stored.reportId, email: stored.email });
+        }
+
+        return res.json({ saved: true, hit: false, reportId: stored.reportId, cachedAt: stored.updatedAt });
+      }
+
+      if (
+        body.aiSynthesis &&
+        typeof body.reportId === 'string' &&
+        typeof body.aiSynthesis.text === 'string' &&
+        typeof body.aiSynthesis.fingerprint === 'string'
+      ) {
+        const stored = await updatePersonalReportSynthesis(body.reportId, email, {
+          text: body.aiSynthesis.text,
+          fingerprint: body.aiSynthesis.fingerprint,
+          generatedAt:
+            typeof body.aiSynthesis.generatedAt === 'string'
+              ? body.aiSynthesis.generatedAt
+              : new Date().toISOString(),
+        });
+
+        return res.json({
+          saved: true,
+          reportId: stored.reportId,
+          aiSynthesis: stored.aiSynthesis,
+          cachedAt: stored.updatedAt,
+        });
+      }
+
+      const lookup = await lookupPersonalReportByEmail(email, body.fingerprint);
+      if (lookup.hit === false) {
+        return res.json({
+          hit: false,
+          stale: lookup.stale ?? false,
+          reportId: lookup.reportId,
+          cachedFingerprint: lookup.cachedFingerprint,
+        });
+      }
+
+      const cached = lookup.report;
+      return res.json({
+        hit: true,
+        reportId: cached.reportId,
+        fingerprint: cached.fingerprint,
+        snapshot: cached.snapshot,
+        positions: cached.positions,
+        aiSynthesis: cached.aiSynthesis,
+        cachedAt: cached.updatedAt,
+        fullName: cached.fullName,
+        birthDate: cached.birthDate,
+        birthTime: cached.birthTime,
+        birthPlaceLabel: cached.birthPlaceLabel,
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Personal report cache error';
+      serverLog('error', 'personal-report', 'Cache operation failed', message);
       return res.status(500).json({ error: message });
     }
   });

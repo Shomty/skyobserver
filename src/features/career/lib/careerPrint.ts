@@ -1,9 +1,12 @@
 import { debugError, debugWarn } from '../../../lib/debug';
 
-const PAGEDJS_ROOT_ID = 'career-pagedjs-root';
+export interface PaginateAndPrintOptions {
+  pagedRootId?: string;
+  cssKey?: string;
+}
 
-function removeExistingPagedRoot(): void {
-  document.getElementById(PAGEDJS_ROOT_ID)?.remove();
+function removeExistingPagedRoot(pagedRootId: string): void {
+  document.getElementById(pagedRootId)?.remove();
 }
 
 /** Un-paginated degrade path: print the source tree directly, relying on the browser's own page breaks. */
@@ -36,10 +39,17 @@ function printRawFallback(source: HTMLElement): void {
  * involved, so the `@page`/break rules are guaranteed to actually be present
  * when Paged.js computes styles during chunking.
  */
-export async function paginateAndPrint(sourceElementId: string, css: string): Promise<void> {
+export async function paginateAndPrint(
+  sourceElementId: string,
+  css: string,
+  options: PaginateAndPrintOptions = {},
+): Promise<void> {
+  const pagedRootId = options.pagedRootId ?? 'career-pagedjs-root';
+  const cssKey = options.cssKey ?? 'career-print.css';
+
   const source = document.getElementById(sourceElementId);
   if (!source) {
-    debugError('career-print', 'Print source element not found', { sourceElementId });
+    debugError('report-print', 'Print source element not found', { sourceElementId });
     return;
   }
 
@@ -48,14 +58,14 @@ export async function paginateAndPrint(sourceElementId: string, css: string): Pr
   try {
     const { Previewer } = await import('pagedjs');
 
-    removeExistingPagedRoot();
+    removeExistingPagedRoot(pagedRootId);
 
     const root = document.createElement('div');
-    root.id = PAGEDJS_ROOT_ID;
+    root.id = pagedRootId;
     root.className = 'hidden print:block print-root';
     document.body.appendChild(root);
 
-    await new Previewer().preview(html, [{ 'career-print.css': css }], root);
+    await new Previewer().preview(html, [{ [cssKey]: css }], root);
 
     const cleanup = () => {
       root.remove();
@@ -65,8 +75,8 @@ export async function paginateAndPrint(sourceElementId: string, css: string): Pr
 
     window.print();
   } catch (error) {
-    debugWarn('career-print', 'Paged.js pagination failed, falling back to raw print', error);
-    removeExistingPagedRoot();
+    debugWarn('report-print', 'Paged.js pagination failed, falling back to raw print', error);
+    removeExistingPagedRoot(pagedRootId);
     printRawFallback(source);
     throw error;
   }
