@@ -28,6 +28,9 @@ const CareerCalculatorPage = lazyWithReload(
 const PersonalCalculatorPage = lazyWithReload(
   () => import('./features/personal/pages/PersonalCalculatorPage.tsx')
 );
+const DailyCalculatorPage = lazyWithReload(
+  () => import('./features/daily/pages/DailyCalculatorPage.tsx')
+);
 const PrivacyPolicyPage = lazyWithReload(() => import('./pages/legal/PrivacyPolicyPage.tsx'));
 const TermsPage = lazyWithReload(() => import('./pages/legal/TermsPage.tsx'));
 
@@ -149,6 +152,22 @@ function RoutedApp() {
           element={
             <Suspense fallback={null}>
               <PersonalCalculatorPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/daily/r/:reportId"
+          element={
+            <Suspense fallback={null}>
+              <DailyCalculatorPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/daily"
+          element={
+            <Suspense fallback={null}>
+              <DailyCalculatorPage />
             </Suspense>
           }
         />

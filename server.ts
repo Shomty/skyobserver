@@ -22,6 +22,12 @@ import {
   updatePersonalReportSynthesis,
   writePersonalReport,
 } from './server/personalReportCache.ts';
+import {
+  lookupDailyReportByEmail,
+  readDailyReportById,
+  updateDailyReportGuidance,
+  writeDailyReport,
+} from './server/dailyReportCache.ts';
 import { GoogleGenAI } from '@google/genai';
 // openastrology-library's .mjs build uses `import * as swisseph` which doesn't
 // work for a native CJS addon. Load the CJS build explicitly via createRequire.
@@ -490,6 +496,17 @@ async function startServer() {
   app.get('/api/ip-location', rateLimit, async (req, res) => {
     const clientIp = getClientIp(req);
     if (isPrivateOrLocalIp(clientIp)) {
+      // Localhost cannot be resolved via ip-api — return a dev default so /daily works offline.
+      if (process.env.NODE_ENV !== 'production') {
+        serverLog('log', 'ip-location', 'Using dev default for local IP', { clientIp });
+        return res.json({
+          latitude: 44.8176,
+          longitude: 20.4569,
+          label: 'Belgrade, Serbia',
+          timezone: 'Europe/Belgrade',
+          source: 'dev-default',
+        });
+      }
       serverLog('warn', 'ip-location', 'Skipped private or local IP', { clientIp });
       return res.status(503).json({ error: 'IP geolocation unavailable for local requests' });
     }
@@ -524,10 +541,25 @@ async function startServer() {
         serverLog('log', 'ip-location', 'Resolved approximate location', { clientIp, label });
       }
 
+      // Resolve timezone via Open-Meteo so the client does not need a second geocode hop.
+      let timezone: string | undefined;
+      try {
+        const geoRes = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(data.city ?? 'Unknown')}&count=1`,
+        );
+        if (geoRes.ok) {
+          const geo = await geoRes.json() as { results?: Array<{ timezone?: string }> };
+          timezone = geo.results?.[0]?.timezone;
+        }
+      } catch {
+        // Client can still resolve timezone via searchPlaces.
+      }
+
       res.json({
         latitude: data.lat,
         longitude: data.lon,
         label: label || 'Approximate location',
+        ...(timezone ? { timezone } : {}),
         source: 'ip',
       });
     } catch (e) {
@@ -872,6 +904,146 @@ async function startServer() {
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Personal report cache error';
       serverLog('error', 'personal-report', 'Cache operation failed', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
+  // Daily report cache — public share links at /daily/r/:reportId
+  app.get('/api/daily/report/:reportId', rateLimit, async (req, res) => {
+    const reportId = req.params.reportId ?? '';
+    if (!isValidReportId(reportId)) {
+      return res.status(400).json({ error: 'Invalid report id' });
+    }
+
+    try {
+      const cached = await readDailyReportById(reportId);
+      if (!cached) {
+        return res.status(404).json({ error: 'Report not found' });
+      }
+
+      return res.json({
+        reportId: cached.reportId,
+        email: cached.email,
+        fingerprint: cached.fingerprint,
+        snapshot: cached.snapshot,
+        positions: cached.positions,
+        aiGuidance: cached.aiGuidance,
+        cachedAt: cached.updatedAt,
+        fullName: cached.fullName,
+        birthDate: cached.birthDate,
+        birthTime: cached.birthTime,
+        birthPlaceLabel: cached.birthPlaceLabel,
+        currentPlaceLabel: cached.currentPlaceLabel,
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Daily report cache error';
+      serverLog('error', 'daily-report', 'Load failed', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
+  app.post('/api/daily/report', rateLimit, async (req, res) => {
+    const body = req.body as {
+      email?: string;
+      fingerprint?: string;
+      reportId?: string;
+      fullName?: string;
+      birthDate?: string;
+      birthTime?: string;
+      birthPlaceLabel?: string;
+      currentPlaceLabel?: string;
+      birthInstant?: { iso: string; offsetMinutes: number };
+      snapshot?: unknown;
+      positions?: unknown[];
+      aiGuidance?: { guidance?: unknown; fingerprint?: string; generatedAt?: string };
+    };
+
+    const email = typeof body.email === 'string' ? body.email : '';
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    const isGuidanceOnly =
+      body.aiGuidance &&
+      typeof body.reportId === 'string' &&
+      typeof body.aiGuidance.fingerprint === 'string';
+    if (!isGuidanceOnly && (typeof body.fingerprint !== 'string' || body.fingerprint.length < 8)) {
+      return res.status(400).json({ error: 'fingerprint is required' });
+    }
+
+    try {
+      if (body.snapshot && Array.isArray(body.positions)) {
+        const stored = await writeDailyReport({
+          reportId: generateReportId(),
+          email,
+          fingerprint: body.fingerprint,
+          fullName: typeof body.fullName === 'string' ? body.fullName.slice(0, 100) : undefined,
+          birthDate: typeof body.birthDate === 'string' ? body.birthDate : undefined,
+          birthTime: typeof body.birthTime === 'string' ? body.birthTime : undefined,
+          birthPlaceLabel: typeof body.birthPlaceLabel === 'string' ? body.birthPlaceLabel.slice(0, 120) : undefined,
+          currentPlaceLabel: typeof body.currentPlaceLabel === 'string' ? body.currentPlaceLabel.slice(0, 120) : undefined,
+          birthInstant: body.birthInstant,
+          snapshot: body.snapshot,
+          positions: body.positions,
+        });
+
+        if (DEBUG_SERVER_LOGS) {
+          serverLog('log', 'daily-report', 'Report saved', { reportId: stored.reportId, email: stored.email });
+        }
+
+        return res.json({ saved: true, hit: false, reportId: stored.reportId, cachedAt: stored.updatedAt });
+      }
+
+      if (
+        body.aiGuidance &&
+        typeof body.reportId === 'string' &&
+        typeof body.aiGuidance.fingerprint === 'string' &&
+        body.aiGuidance.guidance
+      ) {
+        const stored = await updateDailyReportGuidance(body.reportId, email, {
+          guidance: body.aiGuidance.guidance,
+          fingerprint: body.aiGuidance.fingerprint,
+          generatedAt:
+            typeof body.aiGuidance.generatedAt === 'string'
+              ? body.aiGuidance.generatedAt
+              : new Date().toISOString(),
+        });
+
+        return res.json({
+          saved: true,
+          reportId: stored.reportId,
+          aiGuidance: stored.aiGuidance,
+          cachedAt: stored.updatedAt,
+        });
+      }
+
+      const lookup = await lookupDailyReportByEmail(email, body.fingerprint);
+      if (lookup.hit === false) {
+        return res.json({
+          hit: false,
+          stale: lookup.stale ?? false,
+          reportId: lookup.reportId,
+          cachedFingerprint: lookup.cachedFingerprint,
+        });
+      }
+
+      const cached = lookup.report;
+      return res.json({
+        hit: true,
+        reportId: cached.reportId,
+        fingerprint: cached.fingerprint,
+        snapshot: cached.snapshot,
+        positions: cached.positions,
+        aiGuidance: cached.aiGuidance,
+        cachedAt: cached.updatedAt,
+        fullName: cached.fullName,
+        birthDate: cached.birthDate,
+        birthTime: cached.birthTime,
+        birthPlaceLabel: cached.birthPlaceLabel,
+        currentPlaceLabel: cached.currentPlaceLabel,
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Daily report cache error';
+      serverLog('error', 'daily-report', 'Cache operation failed', message);
       return res.status(500).json({ error: message });
     }
   });
