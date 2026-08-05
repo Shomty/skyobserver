@@ -24,6 +24,7 @@ export const en = {
   'result.title': 'Your daily energy report',
   'result.for': 'For {name}',
   'result.savedAt': 'Saved {date}',
+  'result.fromCache': 'Loaded from saved report — chart and AI text served from cache when available.',
   'result.location': 'Transits for {place}',
   'result.noShareLink':
     'Your report was calculated but the share link could not be saved. Refresh and try again.',
@@ -50,6 +51,8 @@ export const en = {
   'forecast.title': '7-Day Forecast',
   'forecast.subtitle': 'Tap a day to explore transits and panchang',
   'forecast.transits': 'Active transit influences',
+  'forecast.transitsLoading': 'Generating practical transit meanings…',
+  'forecast.transitAiNote': 'AI interpretation · saved to your report',
   'forecast.panchang': 'Panchang',
   'forecast.noTransits': 'No major natal triggers flagged for this day.',
 
@@ -86,6 +89,12 @@ export const en = {
   'plain.dayRead': 'Psychological read',
   'plain.dayPending': 'Plain-language read loading…',
   'plain.energyNote': 'Energy index from chart timing · psychological read below',
+  'plain.energyTitle': 'Energy · {day}',
+  'plain.energyMind': 'Mind',
+  'plain.energyBody': 'Body',
+  'plain.energySoul': 'Inner life',
+  'plain.energyLoading': 'Translating energy score into mind, body, and inner life…',
+  'plain.energyPending': 'Energy profile loading…',
 } as const;
 
 export type CopyKey = keyof typeof en;

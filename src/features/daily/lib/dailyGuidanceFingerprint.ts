@@ -1,15 +1,23 @@
 import { DAILY_READING_VERSION } from './dailyFingerprint';
 
-export const DAILY_GUIDANCE_PROMPT_VERSION = 1;
+export const DAILY_GUIDANCE_PROMPT_VERSION = 2;
 
 export function dailyGuidanceFingerprint(reportFingerprint: string): string {
   return [`plain-v${DAILY_GUIDANCE_PROMPT_VERSION}`, `read-v${DAILY_READING_VERSION}`, reportFingerprint].join('|');
+}
+
+export interface DailyPlainEnergyProfile {
+  scoreMeaning: string;
+  mind: string;
+  body: string;
+  soul: string;
 }
 
 export interface DailyPlainDayRead {
   date: string;
   label: string;
   read: string;
+  energy?: DailyPlainEnergyProfile;
 }
 
 export interface DailyPlainGuidancePayload {
@@ -31,11 +39,19 @@ export function isValidDailyPlainGuidance(guidance: unknown): guidance is DailyP
   return g.weekDays.every((day) => {
     if (!day || typeof day !== 'object') return false;
     const d = day as Record<string, unknown>;
-    return (
-      typeof d.date === 'string' &&
-      typeof d.label === 'string' &&
-      typeof d.read === 'string' &&
-      (d.read as string).trim().length >= 30
+    if (
+      typeof d.date !== 'string' ||
+      typeof d.label !== 'string' ||
+      typeof d.read !== 'string' ||
+      (d.read as string).trim().length < 30
+    ) {
+      return false;
+    }
+    const energy = d.energy as Record<string, unknown> | undefined;
+    if (!energy || typeof energy !== 'object') return false;
+    const fields = ['scoreMeaning', 'mind', 'body', 'soul'] as const;
+    return fields.every(
+      (f) => typeof energy[f] === 'string' && (energy[f] as string).trim().length >= 20,
     );
   });
 }

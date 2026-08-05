@@ -12,7 +12,8 @@ import { loadDailyReport, saveDailyReport } from '../lib/dailyReportApi';
 import type { DailyReportLoadResult } from '../lib/dailyReportApi';
 import { trackDailyEvent } from '../lib/analytics';
 import { clearDailyGuidanceSession } from '../lib/dailyGuidanceService';
-import type { DailyAiPlainGuidance, DailySnapshot } from '../types';
+import { clearDailyTransitGuidanceSession } from '../lib/dailyTransitGuidanceService';
+import type { DailyAiPlainGuidance, DailyAiTransitGuidance, DailySnapshot } from '../types';
 import { readDailyViewMode, writeDailyViewMode, type DailyViewMode } from '../lib/dailyViewMode';
 
 const FORM_FIELDS: FieldId[] = ['fullName', 'email', 'birthDate', 'birthTime', 'birthPlace'];
@@ -53,6 +54,7 @@ export function useDailyCalculator() {
   const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [birthFingerprint, setBirthFingerprint] = useState<string | null>(null);
   const [aiGuidance, setAiGuidance] = useState<DailyAiPlainGuidance | null>(null);
+  const [aiTransitGuidance, setAiTransitGuidance] = useState<DailyAiTransitGuidance | null>(null);
 
   const setField = useCallback((id: FieldId, value: string) => {
     setForm((prev) => ({
@@ -170,6 +172,7 @@ export function useDailyCalculator() {
         setReportId(cached.reportId);
         setCachedAt(cached.cachedAt ?? null);
         setAiGuidance(cached.aiGuidance ?? null);
+        setAiTransitGuidance(cached.aiTransitGuidance ?? null);
         setFromCache(true);
         trackDailyEvent('daily_result_shown', { fromCache: true, reportId: cached.reportId });
         return cached.reportId;
@@ -205,6 +208,7 @@ export function useDailyCalculator() {
       setPositions(chartPositions);
       setSnapshot(result);
       setAiGuidance(null);
+      setAiTransitGuidance(null);
       setFromCache(false);
 
       let savedReportId: string | null = null;
@@ -246,6 +250,7 @@ export function useDailyCalculator() {
 
   const reset = useCallback(() => {
     clearDailyGuidanceSession(reportEmail ?? undefined);
+    clearDailyTransitGuidanceSession(reportEmail ?? undefined);
     setSnapshot(null);
     setPositions(null);
     setError(null);
@@ -255,6 +260,7 @@ export function useDailyCalculator() {
     setCachedAt(null);
     setBirthFingerprint(null);
     setAiGuidance(null);
+    setAiTransitGuidance(null);
     setForm(initialState);
   }, [reportEmail]);
 
@@ -265,6 +271,7 @@ export function useDailyCalculator() {
       positions: PlanetPosition[];
       fingerprint?: string;
       aiGuidance?: DailyAiPlainGuidance;
+      aiTransitGuidance?: DailyAiTransitGuidance;
       cachedAt?: string;
       fullName?: string;
       birthDate?: string;
@@ -279,6 +286,7 @@ export function useDailyCalculator() {
       setCachedAt(record.cachedAt ?? null);
       setBirthFingerprint(record.fingerprint ?? null);
       setAiGuidance(record.aiGuidance ?? null);
+      setAiTransitGuidance(record.aiTransitGuidance ?? null);
       setFromCache(true);
       if (record.email) setReportEmail(normalizeDailyEmail(record.email));
       setForm((prev) => ({
@@ -296,6 +304,14 @@ export function useDailyCalculator() {
     },
     [],
   );
+
+  const applyCachedPlainGuidance = useCallback((guidance: DailyAiPlainGuidance) => {
+    setAiGuidance(guidance);
+  }, []);
+
+  const applyCachedTransitGuidance = useCallback((guidance: DailyAiTransitGuidance) => {
+    setAiTransitGuidance(guidance);
+  }, []);
 
   return {
     form,
@@ -315,6 +331,8 @@ export function useDailyCalculator() {
     setHoneypot: (value: string) => setForm((prev) => ({ ...prev, honeypot: value })),
     viewMode: form.viewMode,
     setViewMode,
+    applyCachedPlainGuidance,
+    applyCachedTransitGuidance,
     snapshot,
     positions,
     loading,
@@ -325,6 +343,7 @@ export function useDailyCalculator() {
     cachedAt,
     birthFingerprint,
     aiGuidance,
+    aiTransitGuidance,
     calculate,
     reset,
     loadSharedReport,

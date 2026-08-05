@@ -1,8 +1,19 @@
 import { Type } from '@google/genai';
 import { callGeminiProxy } from '../../../lib/api-utils';
 import { hasAstrologyLeakage } from '../../personal/lib/personalPsychLeakage';
-import type { DailyPlainGuidancePayload } from './dailyGuidanceFingerprint';
+import type { DailyPlainEnergyProfile, DailyPlainGuidancePayload } from './dailyGuidanceFingerprint';
 import type { DailyPsychSeed } from './dailyPsychProfile';
+
+const ENERGY_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    scoreMeaning: { type: Type.STRING },
+    mind: { type: Type.STRING },
+    body: { type: Type.STRING },
+    soul: { type: Type.STRING },
+  },
+  required: ['scoreMeaning', 'mind', 'body', 'soul'],
+} as const;
 
 const GUIDANCE_SCHEMA = {
   type: Type.OBJECT,
@@ -16,8 +27,9 @@ const GUIDANCE_SCHEMA = {
           date: { type: Type.STRING },
           label: { type: Type.STRING },
           read: { type: Type.STRING },
+          energy: ENERGY_SCHEMA,
         },
-        required: ['date', 'label', 'read'],
+        required: ['date', 'label', 'read', 'energy'],
       },
     },
     innerFoundation: { type: Type.STRING },
@@ -49,6 +61,9 @@ ${seed.todayEnergy}
 7-day energy pattern (index 0–100 and tone per day):
 ${seed.weekPattern}
 
+Day-by-day underlying timing signals (translate into human experience — never repeat jargon verbatim):
+${seed.daySignals}
+
 Inner baseline (who they are beneath daily weather):
 ${seed.innerBaseline}
 
@@ -60,13 +75,33 @@ Guidelines:
 2. weekDays MUST contain exactly 7 entries matching the dates/labels implied in the week pattern, in order.
 3. Each weekDays[].date MUST be copied exactly from the week pattern (YYYY-MM-DD). Each weekDays[].label MUST match the corresponding day label.
 4. Each weekDays[].read is 2–3 short paragraphs on that day's psychological tone, relationships, and focus — no lists.
-5. todayRead expands today's signals into an immediate, actionable read (morning-to-evening feel).
-6. innerFoundation summarizes stable traits (not today's weather).
-7. periodGuidance addresses the current life chapter in plain decisions/habits language.
-8. practicalMoves: 2–3 concrete actions for this week.
-9. Never mention the origin system (astrology, Vedic, charts, transits).
+5. Each weekDays[].energy MUST include scoreMeaning, mind, body, soul — derived from that day's score and timing signals:
+   - scoreMeaning: 1–2 sentences on what the 0–100 index feels like in everyday life (no astrology words).
+   - mind: mental/emotional processing — focus, mood, decision-making, social tone.
+   - body: physical vitality — sleep, tension, activity capacity, stress in the body.
+   - soul: meaning, purpose, inner life, values, spiritual or reflective tone.
+6. todayRead expands today's signals into an immediate, actionable read (morning-to-evening feel).
+7. innerFoundation summarizes stable traits (not today's weather).
+8. periodGuidance addresses the current life chapter in plain decisions/habits language.
+9. practicalMoves: 2–3 concrete actions for this week.
+10. Never mention planets, signs, houses, nakshatra, tithi, yoga, Sanskrit, charts, transits, or destiny language.
 
-Return JSON with: todayRead, weekDays[{date,label,read}], innerFoundation, periodGuidance, practicalMoves.`;
+Return JSON with: todayRead, weekDays[{date,label,read,energy:{scoreMeaning,mind,body,soul}}], innerFoundation, periodGuidance, practicalMoves.`;
+}
+
+function parseEnergy(raw: unknown): DailyPlainEnergyProfile | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const e = raw as Record<string, unknown>;
+  const fields = ['scoreMeaning', 'mind', 'body', 'soul'] as const;
+  for (const key of fields) {
+    if (typeof e[key] !== 'string' || (e[key] as string).trim().length < 20) return null;
+  }
+  return {
+    scoreMeaning: (e.scoreMeaning as string).trim(),
+    mind: (e.mind as string).trim(),
+    body: (e.body as string).trim(),
+    soul: (e.soul as string).trim(),
+  };
 }
 
 function parseGuidanceJson(text: string): DailyPlainGuidancePayload | null {
@@ -76,20 +111,23 @@ function parseGuidanceJson(text: string): DailyPlainGuidancePayload | null {
     if (!Array.isArray(parsed.weekDays) || parsed.weekDays.length < 5) return null;
     const weekDays = parsed.weekDays.map((raw) => {
       const d = raw as Record<string, unknown>;
+      const energy = parseEnergy(d.energy);
+      if (!energy) return null;
       return {
         date: String(d.date ?? ''),
         label: String(d.label ?? ''),
         read: String(d.read ?? '').trim(),
+        energy,
       };
     });
-    if (weekDays.some((d) => d.read.length < 30)) return null;
+    if (weekDays.some((d) => !d || d.read.length < 30)) return null;
     const strings = ['innerFoundation', 'periodGuidance', 'practicalMoves'] as const;
     for (const key of strings) {
       if (typeof parsed[key] !== 'string' || (parsed[key] as string).trim().length < 40) return null;
     }
     return {
       todayRead: parsed.todayRead.trim(),
-      weekDays,
+      weekDays: weekDays as NonNullable<(typeof weekDays)[number]>[],
       innerFoundation: (parsed.innerFoundation as string).trim(),
       periodGuidance: (parsed.periodGuidance as string).trim(),
       practicalMoves: (parsed.practicalMoves as string).trim(),
@@ -100,7 +138,17 @@ function parseGuidanceJson(text: string): DailyPlainGuidancePayload | null {
 }
 
 function guidancePayloadHasLeakage(g: DailyPlainGuidancePayload): boolean {
-  const flat = [g.todayRead, g.innerFoundation, g.periodGuidance, g.practicalMoves, ...g.weekDays.map((d) => d.read)];
+  const energyText = g.weekDays.flatMap((d) =>
+    d.energy ? [d.energy.scoreMeaning, d.energy.mind, d.energy.body, d.energy.soul] : [],
+  );
+  const flat = [
+    g.todayRead,
+    g.innerFoundation,
+    g.periodGuidance,
+    g.practicalMoves,
+    ...g.weekDays.map((d) => d.read),
+    ...energyText,
+  ];
   return flat.some((t) => hasAstrologyLeakage(t));
 }
 

@@ -45,6 +45,7 @@ export interface StoredDailyReport {
   snapshot: unknown;
   positions: unknown[];
   aiGuidance?: StoredDailyAiGuidance;
+  aiTransitGuidance?: StoredDailyAiGuidance;
   cachedAt: string;
   updatedAt: string;
 }
@@ -127,6 +128,8 @@ export async function writeDailyReport(
   entry: Omit<StoredDailyReport, 'reportId' | 'cachedAt' | 'updatedAt'> & {
     reportId?: string;
     cachedAt?: string;
+    aiGuidance?: StoredDailyAiGuidance;
+    aiTransitGuidance?: StoredDailyAiGuidance;
   },
 ): Promise<StoredDailyReport> {
   await mkdir(CACHE_DIR, { recursive: true });
@@ -136,10 +139,13 @@ export async function writeDailyReport(
     throw new Error('Valid email is required');
   }
 
+  const existing = entry.reportId && isValidReportId(entry.reportId)
+    ? await readDailyReportById(entry.reportId)
+    : null;
+
   const reportId =
     entry.reportId && isValidReportId(entry.reportId) ? entry.reportId : generateReportId();
 
-  const existing = await readDailyReportById(reportId);
   const now = new Date().toISOString();
   const stored: StoredDailyReport = {
     reportId,
@@ -153,6 +159,8 @@ export async function writeDailyReport(
     birthInstant: entry.birthInstant,
     snapshot: entry.snapshot,
     positions: entry.positions,
+    aiGuidance: entry.aiGuidance ?? existing?.aiGuidance,
+    aiTransitGuidance: entry.aiTransitGuidance ?? existing?.aiTransitGuidance,
     cachedAt: existing?.cachedAt ?? entry.cachedAt ?? now,
     updatedAt: now,
   };
@@ -198,6 +206,50 @@ export async function updateDailyReportGuidance(
       guidance: aiGuidance.guidance,
       fingerprint: aiGuidance.fingerprint,
       generatedAt: aiGuidance.generatedAt || now,
+    },
+    updatedAt: now,
+  };
+
+  const serialized = JSON.stringify(stored);
+  if (serialized.length > MAX_SNAPSHOT_BYTES) {
+    throw new Error('Report payload too large');
+  }
+
+  await writeFile(reportPath(reportId), serialized, 'utf8');
+  return stored;
+}
+
+export async function updateDailyReportTransitGuidance(
+  reportId: string,
+  email: string,
+  aiTransitGuidance: StoredDailyAiGuidance,
+): Promise<StoredDailyReport> {
+  if (!isValidReportId(reportId)) {
+    throw new Error('Invalid report id');
+  }
+  const normalized = normalizeEmail(email);
+  if (!isValidEmail(normalized)) {
+    throw new Error('Valid email is required');
+  }
+  if (typeof aiTransitGuidance.fingerprint !== 'string' || aiTransitGuidance.fingerprint.length < 8) {
+    throw new Error('Transit guidance fingerprint is required');
+  }
+
+  const existing = await readDailyReportById(reportId);
+  if (!existing) {
+    throw new Error('Report not found');
+  }
+  if (existing.email !== normalized) {
+    throw new Error('Report does not belong to this email');
+  }
+
+  const now = new Date().toISOString();
+  const stored: StoredDailyReport = {
+    ...existing,
+    aiTransitGuidance: {
+      guidance: aiTransitGuidance.guidance,
+      fingerprint: aiTransitGuidance.fingerprint,
+      generatedAt: aiTransitGuidance.generatedAt || now,
     },
     updatedAt: now,
   };

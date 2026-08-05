@@ -3,14 +3,21 @@ import type { BirthInstant } from '../gift/lib/birthInstant';
 import type { CareerReading } from '../career/lib/careerReading';
 import type { PersonalReading } from '../personal/lib/personalReading';
 import type { DailyPlainGuidancePayload } from './lib/dailyGuidanceFingerprint';
+import type { DailyTransitGuidancePayload } from './lib/dailyTransitFingerprint';
 import type { DailyPsychSeed } from './lib/dailyPsychProfile';
 import type { ParashariAnalysis } from './lib/dailyParashariEngine';
 import type { DailyForecast } from './lib/dailyForecastEngine';
 
-export type { CareerReading, PersonalReading, DailyForecast, ParashariAnalysis, DailyPlainGuidancePayload };
+export type { CareerReading, PersonalReading, DailyForecast, ParashariAnalysis, DailyPlainGuidancePayload, DailyTransitGuidancePayload };
 
 export interface DailyAiPlainGuidance {
   guidance: DailyPlainGuidancePayload;
+  fingerprint: string;
+  generatedAt: string;
+}
+
+export interface DailyAiTransitGuidance {
+  guidance: DailyTransitGuidancePayload;
   fingerprint: string;
   generatedAt: string;
 }

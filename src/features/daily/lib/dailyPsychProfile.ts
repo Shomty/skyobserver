@@ -9,6 +9,7 @@ import type { DailyForecast, EnergyLevel } from './dailyForecastEngine';
 export interface DailyPsychSeed {
   todayEnergy: string;
   weekPattern: string;
+  daySignals: string;
   innerBaseline: string;
   lifeChapter: string;
   locationLabel: string;
@@ -76,6 +77,15 @@ function weekPatternFromForecast(forecast: DailyForecast): string {
     .join('\n');
 }
 
+function daySignalsFromForecast(forecast: DailyForecast): string {
+  return forecast.days
+    .map((d) => {
+      const factors = d.highlights.slice(1).map(stripVedicForSeed).filter(Boolean).join('; ');
+      return `${d.label} (${d.date}): score ${d.energyScore}/100 — ${energyPlain(d.energyLevel)}; weekday ${d.panchang.vara}; underlying timing factors: ${factors || 'neutral baseline'}`;
+    })
+    .join('\n');
+}
+
 function lifeChapterFromDasha(dasha: DailySnapshot['dasha']): string {
   const md = PERIOD_THEMES[dasha.mahadasha.planet] ?? 'major life themes';
   const ad = PERIOD_THEMES[dasha.antardasha.planet] ?? 'current sub-themes';
@@ -111,6 +121,7 @@ export function buildDailyPsychSeed(
   return {
     todayEnergy: todayEnergyFromForecast(snapshot.forecast),
     weekPattern: weekPatternFromForecast(snapshot.forecast),
+    daySignals: daySignalsFromForecast(snapshot.forecast),
     innerBaseline: innerBaselineFromReadings(
       snapshot.careerReading,
       snapshot.personalReading,

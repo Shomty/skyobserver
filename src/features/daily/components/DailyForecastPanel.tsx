@@ -1,9 +1,12 @@
+import { Loader2 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { cn } from '../../../lib/utils';
 import { t } from '../copy/t';
 import { energyLevelColor, type DailyForecast, type DayForecast } from '../lib/dailyForecastEngine';
 import type { DailyPlainGuidancePayload } from '../lib/dailyGuidanceFingerprint';
-import { resolvePlainDayRead } from '../lib/resolvePlainDayRead';
+import type { DailyTransitGuidancePayload } from '../lib/dailyTransitFingerprint';
+import { resolvePlainDayEnergy, resolvePlainDayRead } from '../lib/resolvePlainDayRead';
+import { resolveTransitRead } from '../lib/resolveTransitRead';
 import type { DailyViewMode } from '../lib/dailyViewMode';
 import { DailyEnergyCard } from './DailyEnergyCard';
 
@@ -11,6 +14,9 @@ interface Props {
   forecast: DailyForecast;
   viewMode: DailyViewMode;
   plainGuidance?: DailyPlainGuidancePayload | null;
+  plainGuidanceLoading?: boolean;
+  transitGuidance?: DailyTransitGuidancePayload | null;
+  transitGuidanceLoading?: boolean;
   selectedIndex: number;
   onSelectDay: (index: number) => void;
 }
@@ -19,10 +25,20 @@ function DayDetail({
   day,
   viewMode,
   plainRead,
+  plainEnergy,
+  plainGuidanceLoading,
+  transitGuidance,
+  transitGuidanceLoading,
+  dayIndex,
 }: {
   day: DayForecast;
   viewMode: DailyViewMode;
   plainRead?: string;
+  plainEnergy?: ReturnType<typeof resolvePlainDayEnergy>;
+  plainGuidanceLoading?: boolean;
+  transitGuidance?: DailyTransitGuidancePayload | null;
+  transitGuidanceLoading?: boolean;
+  dayIndex: number;
 }) {
   const { theme } = useTheme();
   const muted = theme === 'dark' ? 'text-white/70' : 'text-slate-600';
@@ -30,7 +46,12 @@ function DayDetail({
   if (viewMode === 'plain') {
     return (
       <div className="space-y-4">
-        <DailyEnergyCard day={day} />
+        <DailyEnergyCard
+          day={day}
+          viewMode="plain"
+          plainEnergy={plainEnergy}
+          plainEnergyLoading={plainGuidanceLoading}
+        />
         <div
           className={cn(
             'rounded-xl border p-4',
@@ -70,21 +91,29 @@ function DayDetail({
         )}
       >
         <h4 className="font-medium text-jyotish-gold">{t('forecast.transits')}</h4>
-        {day.transitHits.length === 0 ? (
+        {transitGuidanceLoading ? (
+          <div className="mt-3 flex items-center gap-2" role="status">
+            <Loader2 className="h-4 w-4 animate-spin text-jyotish-gold" aria-hidden />
+            <p className={cn('text-body', muted)}>{t('forecast.transitsLoading')}</p>
+          </div>
+        ) : day.transitHits.length === 0 ? (
           <p className={cn('mt-2 text-body', muted)}>{t('forecast.noTransits')}</p>
         ) : (
-          <ul className={cn('mt-3 space-y-3 text-body', muted)}>
-            {day.transitHits.map((hit) => (
-              <li key={`${hit.planet}-${hit.description}`}>
-                <p className={cn('font-medium', theme === 'dark' ? 'text-white/90' : 'text-slate-800')}>
-                  {hit.description}
-                </p>
-                <p className="mt-1 text-caption">{hit.interpretation}</p>
-                {hit.actionableAdvice ? (
-                  <p className="mt-1 text-caption italic text-jyotish-gold/80">{hit.actionableAdvice}</p>
-                ) : null}
-              </li>
-            ))}
+          <ul className={cn('mt-3 space-y-4 text-body', muted)}>
+            {day.transitHits.map((hit, hitIndex) => {
+              const read = resolveTransitRead(transitGuidance, day.date, hit, hitIndex);
+              return (
+                <li key={`${hit.planet}-${hit.type}-${hitIndex}`}>
+                  <p className={cn('font-medium', theme === 'dark' ? 'text-white/90' : 'text-slate-800')}>
+                    {hit.description}
+                  </p>
+                  <p className="mt-1 text-caption leading-relaxed">{read.meaning}</p>
+                  {read.action ? (
+                    <p className="mt-2 text-caption italic text-jyotish-gold/80">{read.action}</p>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -96,6 +125,9 @@ export function DailyForecastPanel({
   forecast,
   viewMode,
   plainGuidance,
+  plainGuidanceLoading,
+  transitGuidance,
+  transitGuidanceLoading,
   selectedIndex,
   onSelectDay,
 }: Props) {
@@ -105,6 +137,10 @@ export function DailyForecastPanel({
     selected && plainGuidance
       ? resolvePlainDayRead(plainGuidance, selected, selectedIndex)
       : undefined;
+  const plainEnergyForDay =
+    selected && plainGuidance
+      ? resolvePlainDayEnergy(plainGuidance, selected, selectedIndex)
+      : null;
 
   return (
     <section
@@ -157,7 +193,16 @@ export function DailyForecastPanel({
       </div>
 
       {selected ? (
-        <DayDetail day={selected} viewMode={viewMode} plainRead={plainForDay} />
+        <DayDetail
+          day={selected}
+          viewMode={viewMode}
+          plainRead={plainForDay}
+          plainEnergy={plainEnergyForDay}
+          plainGuidanceLoading={plainGuidanceLoading}
+          transitGuidance={transitGuidance}
+          transitGuidanceLoading={transitGuidanceLoading}
+          dayIndex={selectedIndex}
+        />
       ) : null}
     </section>
   );

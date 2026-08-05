@@ -17,7 +17,7 @@ import { trackDailyEvent } from '../lib/analytics';
 import { fetchDailyReportById } from '../lib/dailyReportApi';
 import { dailyShareUrl } from '../lib/dailyShareUrl';
 import { useDailyCalculator } from '../hooks/useDailyCalculator';
-import { useDailyGuidance } from '../hooks/useDailyGuidance';
+import { useDailyReportGuidance } from '../hooks/useDailyReportGuidance';
 
 type SharedLoadState = 'idle' | 'loading' | 'ready' | 'not-found' | 'error';
 
@@ -51,18 +51,27 @@ export default function DailyCalculatorPage() {
     reportEmail,
     birthFingerprint,
     aiGuidance,
+    aiTransitGuidance,
+    fromCache,
+    applyCachedPlainGuidance,
+    applyCachedTransitGuidance,
   } = useDailyCalculator();
 
   const activeReportId = urlReportId ?? reportId;
 
-  const plainGuidance = useDailyGuidance({
-    viewMode,
+  const reportGuidance = useDailyReportGuidance({
     email: reportEmail,
     reportFingerprint: birthFingerprint,
     reportId: activeReportId,
     snapshot,
-    cachedGuidance: aiGuidance,
+    cachedPlain: aiGuidance,
+    cachedTransit: aiTransitGuidance,
+    onPlainSaved: applyCachedPlainGuidance,
+    onTransitSaved: applyCachedTransitGuidance,
   });
+
+  const plainGuidance = reportGuidance.plain;
+  const vedicTransitGuidance = reportGuidance.transit;
 
   const shareUrl = activeReportId ? dailyShareUrl(activeReportId) : '';
 
@@ -221,6 +230,11 @@ export default function DailyCalculatorPage() {
                     {t('result.savedAt', { date: format(new Date(cachedAt), 'PPp') })}
                   </p>
                 ) : null}
+                {fromCache ? (
+                  <p className={cn('text-caption', theme === 'dark' ? 'text-emerald-400/70' : 'text-emerald-700')}>
+                    {t('result.fromCache')}
+                  </p>
+                ) : null}
                 <p className={cn('text-caption', theme === 'dark' ? 'text-white/45' : 'text-slate-500')}>
                   {t('result.location', { place: snapshot.currentPlaceLabel })}
                 </p>
@@ -239,6 +253,7 @@ export default function DailyCalculatorPage() {
               positions={positions}
               viewMode={viewMode}
               plainGuidance={plainGuidance}
+              transitGuidance={vedicTransitGuidance}
             />
 
             {shareUrl ? (

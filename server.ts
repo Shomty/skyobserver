@@ -26,6 +26,7 @@ import {
   lookupDailyReportByEmail,
   readDailyReportById,
   updateDailyReportGuidance,
+  updateDailyReportTransitGuidance,
   writeDailyReport,
 } from './server/dailyReportCache.ts';
 import { GoogleGenAI } from '@google/genai';
@@ -960,6 +961,7 @@ async function startServer() {
         snapshot: cached.snapshot,
         positions: cached.positions,
         aiGuidance: cached.aiGuidance,
+        aiTransitGuidance: cached.aiTransitGuidance,
         cachedAt: cached.updatedAt,
         fullName: cached.fullName,
         birthDate: cached.birthDate,
@@ -988,6 +990,7 @@ async function startServer() {
       snapshot?: unknown;
       positions?: unknown[];
       aiGuidance?: { guidance?: unknown; fingerprint?: string; generatedAt?: string };
+      aiTransitGuidance?: { guidance?: unknown; fingerprint?: string; generatedAt?: string };
     };
 
     const email = typeof body.email === 'string' ? body.email : '';
@@ -995,9 +998,10 @@ async function startServer() {
       return res.status(400).json({ error: 'Valid email is required' });
     }
     const isGuidanceOnly =
-      body.aiGuidance &&
+      (body.aiGuidance || body.aiTransitGuidance) &&
       typeof body.reportId === 'string' &&
-      typeof body.aiGuidance.fingerprint === 'string';
+      ((body.aiGuidance && typeof body.aiGuidance.fingerprint === 'string') ||
+        (body.aiTransitGuidance && typeof body.aiTransitGuidance.fingerprint === 'string'));
     if (!isGuidanceOnly && (typeof body.fingerprint !== 'string' || body.fingerprint.length < 8)) {
       return res.status(400).json({ error: 'fingerprint is required' });
     }
@@ -1048,6 +1052,29 @@ async function startServer() {
         });
       }
 
+      if (
+        body.aiTransitGuidance &&
+        typeof body.reportId === 'string' &&
+        typeof body.aiTransitGuidance.fingerprint === 'string' &&
+        body.aiTransitGuidance.guidance
+      ) {
+        const stored = await updateDailyReportTransitGuidance(body.reportId, email, {
+          guidance: body.aiTransitGuidance.guidance,
+          fingerprint: body.aiTransitGuidance.fingerprint,
+          generatedAt:
+            typeof body.aiTransitGuidance.generatedAt === 'string'
+              ? body.aiTransitGuidance.generatedAt
+              : new Date().toISOString(),
+        });
+
+        return res.json({
+          saved: true,
+          reportId: stored.reportId,
+          aiTransitGuidance: stored.aiTransitGuidance,
+          cachedAt: stored.updatedAt,
+        });
+      }
+
       const lookup = await lookupDailyReportByEmail(email, body.fingerprint);
       if (lookup.hit === false) {
         return res.json({
@@ -1062,10 +1089,12 @@ async function startServer() {
       return res.json({
         hit: true,
         reportId: cached.reportId,
+        email: cached.email,
         fingerprint: cached.fingerprint,
         snapshot: cached.snapshot,
         positions: cached.positions,
         aiGuidance: cached.aiGuidance,
+        aiTransitGuidance: cached.aiTransitGuidance,
         cachedAt: cached.updatedAt,
         fullName: cached.fullName,
         birthDate: cached.birthDate,

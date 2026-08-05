@@ -1,6 +1,6 @@
 import type { PlanetPosition } from '../../../vedic-utils';
 import type { BirthInstant } from '../../gift/lib/birthInstant';
-import type { DailyAiPlainGuidance, DailySnapshot } from '../types';
+import type { DailyAiPlainGuidance, DailyAiTransitGuidance, DailySnapshot } from '../types';
 
 export interface DailyReportSavePayload {
   email: string;
@@ -23,6 +23,7 @@ export interface DailyReportLoadResult {
   snapshot?: DailySnapshot;
   positions?: PlanetPosition[];
   aiGuidance?: DailyAiPlainGuidance;
+  aiTransitGuidance?: DailyAiTransitGuidance;
   cachedAt?: string;
   fullName?: string;
   birthDate?: string;
@@ -38,10 +39,15 @@ export interface DailyReportRecord extends DailyReportLoadResult {
   snapshot: DailySnapshot;
   positions: PlanetPosition[];
   aiGuidance?: DailyAiPlainGuidance;
+  aiTransitGuidance?: DailyAiTransitGuidance;
 }
 
 const inflight = new Map<string, Promise<DailyReportLoadResult>>();
 const guidanceInflight = new Map<string, Promise<{ saved: boolean; aiGuidance: DailyAiPlainGuidance }>>();
+const transitGuidanceInflight = new Map<
+  string,
+  Promise<{ saved: boolean; aiTransitGuidance: DailyAiTransitGuidance }>
+>();
 
 function loadKey(email: string, fingerprint: string): string {
   return `load:${email}:${fingerprint}`;
@@ -130,6 +136,39 @@ export async function saveDailyGuidance(payload: {
     });
 
   guidanceInflight.set(key, promise);
+  return promise;
+}
+
+export async function saveDailyTransitGuidance(payload: {
+  email: string;
+  reportId: string;
+  aiTransitGuidance: DailyAiTransitGuidance;
+}): Promise<{ saved: boolean; aiTransitGuidance: DailyAiTransitGuidance; cachedAt?: string }> {
+  const key = `transit:${payload.email}:${payload.reportId}`;
+  const existing = transitGuidanceInflight.get(key);
+  if (existing) return existing;
+
+  const promise = fetch('/api/daily/report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload),
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Daily transit guidance save failed (${res.status})`);
+      }
+      return res.json() as Promise<{
+        saved: boolean;
+        aiTransitGuidance: DailyAiTransitGuidance;
+        cachedAt?: string;
+      }>;
+    })
+    .finally(() => {
+      transitGuidanceInflight.delete(key);
+    });
+
+  transitGuidanceInflight.set(key, promise);
   return promise;
 }
 
