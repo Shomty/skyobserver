@@ -6,6 +6,8 @@ Allow: /daily
 Allow: /gift
 Allow: /privacy
 Allow: /terms
+Allow: /llms.txt
+Allow: /llms/
 
 Disallow: /career/r/
 Disallow: /personal/r/
@@ -14,3 +16,4 @@ Disallow: /shared/
 Disallow: /gift/*/sent
 
 Sitemap: https://thesoulblueprint.online/sitemap.xml
+# LLM site summary: https://thesoulblueprint.online/llms.txt
