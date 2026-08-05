@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Soul Blueprint  Vedic astrology workspace">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0612"/>
+      <stop offset="55%" stop-color="#12081f"/>
+      <stop offset="100%" stop-color="#1a0b2e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="72%" cy="38%" r="45%">
+      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <circle cx="920" cy="210" r="120" fill="none" stroke="#d4af37" stroke-opacity="0.25" stroke-width="2"/>
+  <circle cx="920" cy="210" r="78" fill="none" stroke="#d4af37" stroke-opacity="0.18" stroke-width="1.5"/>
+  <text x="96" y="250" fill="#ede8f5" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-style="italic">Soul Blueprint</text>
+  <text x="98" y="330" fill="#d4af37" font-family="ui-monospace, monospace" font-size="22" letter-spacing="6">VEDIC SKY OBSERVER</text>
+  <text x="98" y="410" fill="#ffffff" fill-opacity="0.72" font-family="system-ui, sans-serif" font-size="30">Sidereal Vedic astrology with AI-powered insights</text>
+</svg>

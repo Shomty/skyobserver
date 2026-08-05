@@ -6,6 +6,7 @@ import './index.css';
 import {ThemeProvider} from './context/ThemeContext.tsx';
 import {BrowserRouter, Routes, Route, useLocation} from 'react-router-dom';
 import {ErrorBoundary} from './components/ErrorBoundary.tsx';
+import {AnalyticsPageView} from './components/AnalyticsPageView.tsx';
 import {lazyWithReload} from './lib/lazyWithReload.ts';
 import {debugLog, installDebugConsole, isDebugEnabled} from './lib/debug.ts';
 
@@ -197,6 +198,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       <BrowserRouter>
+        <AnalyticsPageView />
         <RoutedApp />
       </BrowserRouter>
     </ThemeProvider>

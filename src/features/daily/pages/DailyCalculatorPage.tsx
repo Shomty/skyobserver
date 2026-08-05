@@ -14,6 +14,7 @@ import { DailyReportBody } from '../components/DailyReportBody';
 import { DailyViewModeToggle } from '../components/DailyViewModeToggle';
 import { t } from '../copy/t';
 import { trackDailyEvent } from '../lib/analytics';
+import { usePageMeta } from '../../../lib/seo';
 import { fetchDailyReportById } from '../lib/dailyReportApi';
 import { dailyShareUrl } from '../lib/dailyShareUrl';
 import { useDailyCalculator } from '../hooks/useDailyCalculator';
@@ -75,10 +76,14 @@ export default function DailyCalculatorPage() {
 
   const shareUrl = activeReportId ? dailyShareUrl(activeReportId) : '';
 
+  usePageMeta({
+    title: urlReportId ? t('meta.sharedTitle') : t('meta.title'),
+    description: t('meta.description'),
+    path: urlReportId ? `/daily/r/${urlReportId}` : '/daily',
+    noindex: Boolean(urlReportId),
+  });
+
   useEffect(() => {
-    document.title = urlReportId ? t('meta.sharedTitle') : t('meta.title');
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', t('meta.description'));
     trackDailyEvent('daily_page_viewed', { reportId: urlReportId });
   }, [urlReportId]);
 

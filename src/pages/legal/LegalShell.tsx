@@ -2,16 +2,25 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { cn } from '../../lib/utils';
+import { usePageMeta } from '../../lib/seo';
 
 interface Props {
   title: string;
+  description: string;
+  path: string;
   lastUpdated: string;
   children: ReactNode;
 }
 
 /** Shared layout for the standalone legal pages. No starfield — these are read, not admired. */
-export function LegalShell({ title, lastUpdated, children }: Props) {
+export function LegalShell({ title, description, path, lastUpdated, children }: Props) {
   const { theme } = useTheme();
+
+  usePageMeta({
+    title: `${title} | Vedic Sky`,
+    description,
+    path,
+  });
 
   return (
     <div

@@ -360,6 +360,36 @@ async function startServer() {
   });
 
   // Health check (required by PaaS platforms)
+  const SITE_URL = (process.env.VITE_SITE_URL ?? process.env.SITE_URL ?? 'https://vedicsky.app').replace(/\/$/, '');
+  const PUBLIC_SITEMAP_ROUTES: Array<{ path: string; changefreq: string; priority: string }> = [
+    { path: '/', changefreq: 'weekly', priority: '1.0' },
+    { path: '/career', changefreq: 'weekly', priority: '0.9' },
+    { path: '/personal', changefreq: 'weekly', priority: '0.9' },
+    { path: '/daily', changefreq: 'daily', priority: '0.9' },
+    { path: '/gift', changefreq: 'monthly', priority: '0.7' },
+    { path: '/privacy', changefreq: 'yearly', priority: '0.3' },
+    { path: '/terms', changefreq: 'yearly', priority: '0.3' },
+  ];
+
+  app.get('/sitemap.xml', (_req, res) => {
+    const lastmod = new Date().toISOString().slice(0, 10);
+    const urls = PUBLIC_SITEMAP_ROUTES.map(
+      (route) => `  <url>
+    <loc>${SITE_URL}${route.path === '/' ? '/' : route.path}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>${route.changefreq}</changefreq>
+    <priority>${route.priority}</priority>
+  </url>`,
+    ).join('\n');
+
+    res.type('application/xml').send(
+      `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>`,
+    );
+  });
+
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });

@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Allow: /career
+Allow: /personal
+Allow: /daily
+Allow: /gift
+Allow: /privacy
+Allow: /terms
+
+Disallow: /career/r/
+Disallow: /personal/r/
+Disallow: /daily/r/
+Disallow: /shared/
+Disallow: /gift/*/sent
+
+Sitemap: https://vedicsky.app/sitemap.xml

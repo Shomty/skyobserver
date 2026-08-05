@@ -1,4 +1,5 @@
 import { debugLog } from '../../../lib/debug';
+import { trackEvent } from '../../../lib/analytics';
 import type { GiftSlug } from '../types';
 
 type GiftEvent =
@@ -25,10 +26,7 @@ type Props = {
   [key: string]: unknown;
 };
 
-/** Thin wrapper — no analytics SDK in the repo yet; logs via debug channel. */
 export function trackGiftEvent(event: GiftEvent, props: Props = {}): void {
   debugLog('gift-analytics', event, props);
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('gift:analytics', { detail: { event, props } }));
-  }
+  trackEvent(event, { feature: 'gift', ...props });
 }

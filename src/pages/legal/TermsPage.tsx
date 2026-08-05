@@ -4,7 +4,12 @@ const LAST_UPDATED = '25 July 2026';
 
 export default function TermsPage() {
   return (
-    <LegalShell title="Terms of Service" lastUpdated={LAST_UPDATED}>
+    <LegalShell
+      title="Terms of Service"
+      description="Terms of use for Vedic Sky Observer, including free readings, gift reports, accounts, and acceptable use."
+      path="/terms"
+      lastUpdated={LAST_UPDATED}
+    >
       <p>
         These terms cover your use of Vedic Sky Observer, including the free readings offered through
         the gift pages. By using the service you accept them.

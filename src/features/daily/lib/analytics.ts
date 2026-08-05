@@ -1,14 +1,5 @@
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
+import { trackEvent } from '../../../lib/analytics';
 
 export function trackDailyEvent(event: string, params?: Record<string, unknown>): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.gtag?.('event', event, params);
-  } catch {
-    // analytics is best-effort
-  }
+  trackEvent(event, { feature: 'daily', ...params });
 }

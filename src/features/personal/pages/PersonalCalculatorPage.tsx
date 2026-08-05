@@ -12,6 +12,7 @@ import { PersonalReportBody } from '../components/PersonalReportBody';
 import { PersonalReportPrintView } from '../components/PersonalReportPrintView';
 import { t } from '../copy/t';
 import { trackPersonalEvent } from '../lib/analytics';
+import { usePageMeta } from '../../../lib/seo';
 import { fetchPersonalReportById } from '../lib/personalReportApi';
 import { paginatePersonalReport } from '../lib/personalPrint';
 import { personalShareUrl } from '../lib/personalShareUrl';
@@ -90,10 +91,14 @@ function PersonalCalculatorPageContent() {
     }
   }, [activeReportId]);
 
+  usePageMeta({
+    title: urlReportId ? t('meta.sharedTitle') : t('meta.title'),
+    description: t('meta.description'),
+    path: urlReportId ? `/personal/r/${urlReportId}` : '/personal',
+    noindex: Boolean(urlReportId),
+  });
+
   useEffect(() => {
-    document.title = urlReportId ? t('meta.sharedTitle') : t('meta.title');
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', t('meta.description'));
     trackPersonalEvent('personal_page_viewed', { reportId: urlReportId });
   }, [urlReportId]);
 

@@ -1,10 +1,32 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vitest/config';
+import {defineConfig, type Plugin} from 'vitest/config';
+
+function injectSeoEnv(): Plugin {
+  const siteUrl = (process.env.VITE_SITE_URL ?? 'https://vedicsky.app').replace(/\/$/, '');
+  const gaId = process.env.VITE_GA_MEASUREMENT_ID ?? 'G-FSFQ96MPGT';
+  const gtmId = process.env.VITE_GTM_ID ?? 'GTM-PN7TR3J7';
+  const gsc = process.env.VITE_GSC_VERIFICATION ?? '';
+
+  return {
+    name: 'inject-seo-env',
+    transformIndexHtml(html) {
+      let out = html
+        .replaceAll('__SITE_URL__', siteUrl)
+        .replaceAll('__GA_MEASUREMENT_ID__', gaId)
+        .replaceAll('__GTM_ID__', gtmId);
+
+      const gscTag = gsc
+        ? `<meta name="google-site-verification" content="${gsc}" />`
+        : '';
+      return out.replace('<!-- gsc-verification -->', gscTag);
+    },
+  };
+}
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), injectSeoEnv()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),

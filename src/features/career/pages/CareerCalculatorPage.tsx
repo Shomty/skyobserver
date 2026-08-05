@@ -13,6 +13,7 @@ import { CareerReportBody } from '../components/CareerReportBody';
 import { CareerReportPrintView } from '../components/CareerReportPrintView';
 import { t } from '../copy/t';
 import { trackCareerEvent } from '../lib/analytics';
+import { usePageMeta } from '../../../lib/seo';
 import { paginateAndPrint } from '../lib/careerPrint';
 import { fetchCareerReportById } from '../lib/careerReportApi';
 import { careerShareUrl } from '../lib/careerShareUrl';
@@ -93,10 +94,14 @@ function CareerCalculatorPageContent() {
     }
   }, [activeReportId]);
 
+  usePageMeta({
+    title: urlReportId ? t('meta.sharedTitle') : t('meta.title'),
+    description: t('meta.description'),
+    path: urlReportId ? `/career/r/${urlReportId}` : '/career',
+    noindex: Boolean(urlReportId),
+  });
+
   useEffect(() => {
-    document.title = urlReportId ? t('meta.sharedTitle') : t('meta.title');
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', t('meta.description'));
     trackCareerEvent('career_page_viewed', { reportId: urlReportId });
   }, [urlReportId]);
 

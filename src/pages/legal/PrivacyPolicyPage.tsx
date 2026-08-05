@@ -4,7 +4,12 @@ const LAST_UPDATED = '25 July 2026';
 
 export default function PrivacyPolicyPage() {
   return (
-    <LegalShell title="Privacy Policy" lastUpdated={LAST_UPDATED}>
+    <LegalShell
+      title="Privacy Policy"
+      description="How Vedic Sky Observer collects, uses, stores, and deletes your birth details, email, and chart data."
+      path="/privacy"
+      lastUpdated={LAST_UPDATED}
+    >
       <p>
         Vedic Sky Observer calculates astrological charts from your birth details. Those details are
         personal data, and some people consider them sensitive. This page explains exactly what we

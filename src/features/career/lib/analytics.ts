@@ -1,4 +1,5 @@
 import { debugLog } from '../../../lib/debug';
+import { trackEvent } from '../../../lib/analytics';
 
 type CareerEvent =
   | 'career_page_viewed'
@@ -17,7 +18,5 @@ type Props = Record<string, unknown>;
 
 export function trackCareerEvent(event: CareerEvent, props: Props = {}): void {
   debugLog('career-analytics', event, props);
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('career:analytics', { detail: { event, props } }));
-  }
+  trackEvent(event, { feature: 'career', ...props });
 }
