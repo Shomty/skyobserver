@@ -8,7 +8,7 @@ export const SITE = {
   tagline: 'Birth-chart insights in plain language',
   description:
     'Free career path, personality blueprint, and daily energy reports — plus a private workspace for life chapters and emotional weather. Plain-language insights grounded in precision astronomy. No account required to start.',
-  url: rawUrl || 'https://vedicsky.app',
+  url: rawUrl || 'https://thesoulblueprint.online',
   locale: 'en_US',
   email: 'hello@vedicsky.app',
   twitterHandle: '@vedicskyapp',

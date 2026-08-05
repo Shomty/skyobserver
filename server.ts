@@ -360,7 +360,7 @@ async function startServer() {
   });
 
   // Health check (required by PaaS platforms)
-  const SITE_URL = (process.env.VITE_SITE_URL ?? process.env.SITE_URL ?? 'https://vedicsky.app').replace(/\/$/, '');
+  const SITE_URL = (process.env.VITE_SITE_URL ?? process.env.SITE_URL ?? 'https://thesoulblueprint.online').replace(/\/$/, '');
   const PUBLIC_SITEMAP_ROUTES: Array<{ path: string; changefreq: string; priority: string }> = [
     { path: '/', changefreq: 'weekly', priority: '1.0' },
     { path: '/career', changefreq: 'weekly', priority: '0.9' },

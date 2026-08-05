@@ -4,7 +4,7 @@ import path from 'path';
 import {defineConfig, type Plugin} from 'vitest/config';
 
 function injectSeoEnv(): Plugin {
-  const siteUrl = (process.env.VITE_SITE_URL ?? 'https://vedicsky.app').replace(/\/$/, '');
+  const siteUrl = (process.env.VITE_SITE_URL ?? 'https://thesoulblueprint.online').replace(/\/$/, '');
   const gaId = process.env.VITE_GA_MEASUREMENT_ID ?? 'G-FSFQ96MPGT';
   const gtmId = process.env.VITE_GTM_ID ?? 'GTM-PN7TR3J7';
   const gsc = process.env.VITE_GSC_VERIFICATION ?? '';

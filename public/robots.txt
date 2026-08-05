@@ -13,4 +13,4 @@ Disallow: /daily/r/
 Disallow: /shared/
 Disallow: /gift/*/sent
 
-Sitemap: https://vedicsky.app/sitemap.xml
+Sitemap: https://thesoulblueprint.online/sitemap.xml
