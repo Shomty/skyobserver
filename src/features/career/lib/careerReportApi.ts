@@ -1,6 +1,6 @@
 import type { PlanetPosition } from '../../../vedic-utils';
 import type { BirthInstant } from '../../gift/lib/birthInstant';
-import type { CareerAiSynthesis, CareerSnapshot } from '../types';
+import type { CareerAiPlainSynthesis, CareerAiSynthesis, CareerSnapshot } from '../types';
 
 export interface CareerReportSavePayload {
   email: string;
@@ -23,6 +23,7 @@ export interface CareerReportLoadResult {
   snapshot?: CareerSnapshot;
   positions?: PlanetPosition[];
   aiSynthesis?: CareerAiSynthesis;
+  aiPlainSynthesis?: CareerAiPlainSynthesis;
   cachedAt?: string;
   fullName?: string;
   birthDate?: string;
@@ -38,10 +39,15 @@ export interface CareerReportRecord extends CareerReportLoadResult {
   snapshot: CareerSnapshot;
   positions: PlanetPosition[];
   aiSynthesis?: CareerAiSynthesis;
+  aiPlainSynthesis?: CareerAiPlainSynthesis;
 }
 
 const inflight = new Map<string, Promise<CareerReportLoadResult>>();
 const synthesisInflight = new Map<string, Promise<{ saved: boolean; aiSynthesis: CareerAiSynthesis }>>();
+const plainSynthesisInflight = new Map<
+  string,
+  Promise<{ saved: boolean; aiPlainSynthesis: CareerAiPlainSynthesis }>
+>();
 
 function loadKey(email: string, fingerprint: string): string {
   return `load:${email}:${fingerprint}`;
@@ -122,6 +128,40 @@ export async function saveCareerSynthesis(payload: {
     });
 
   synthesisInflight.set(key, promise);
+  return promise;
+}
+
+/** Persist plain-English AI synthesis on the email-owned report. */
+export async function saveCareerPlainSynthesis(payload: {
+  email: string;
+  reportId: string;
+  aiPlainSynthesis: CareerAiPlainSynthesis;
+}): Promise<{ saved: boolean; aiPlainSynthesis: CareerAiPlainSynthesis; cachedAt?: string }> {
+  const key = `plain-syn:${payload.email}:${payload.reportId}`;
+  const existing = plainSynthesisInflight.get(key);
+  if (existing) return existing;
+
+  const promise = fetch('/api/career/report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload),
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Career plain synthesis save failed (${res.status})`);
+      }
+      return res.json() as Promise<{
+        saved: boolean;
+        aiPlainSynthesis: CareerAiPlainSynthesis;
+        cachedAt?: string;
+      }>;
+    })
+    .finally(() => {
+      plainSynthesisInflight.delete(key);
+    });
+
+  plainSynthesisInflight.set(key, promise);
   return promise;
 }
 

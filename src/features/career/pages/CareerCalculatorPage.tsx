@@ -24,7 +24,8 @@ import {
   useSetCareerPremiumEmail,
 } from '../context/CareerPremiumContext';
 import { useCareerCalculator } from '../hooks/useCareerCalculator';
-import { useCareerSynthesis } from '../hooks/useCareerSynthesis';
+import { CareerViewModeToggle } from '../components/CareerViewModeToggle';
+import { useCareerReportGuidance } from '../hooks/useCareerReportGuidance';
 import { secondaryButtonClass } from '../../gift/components/buttonStyles';
 
 type SharedLoadState = 'idle' | 'loading' | 'ready' | 'not-found' | 'error';
@@ -63,6 +64,11 @@ function CareerCalculatorPageContent() {
     cachedAt,
     birthFingerprint,
     aiSynthesis,
+    aiPlainSynthesis,
+    viewMode,
+    setViewMode,
+    applyCachedSynthesis,
+    applyCachedPlainSynthesis,
     loadSharedReport,
   } = useCareerCalculator();
 
@@ -73,14 +79,17 @@ function CareerCalculatorPageContent() {
 
   const activeReportId = urlReportId ?? reportId;
 
-  const synthesisState = useCareerSynthesis({
+  const reportGuidance = useCareerReportGuidance({
     email: reportEmail,
     birthFingerprint,
     reportId: activeReportId,
     snapshot,
+    positions,
     fullName: form.values.fullName,
-    cachedSynthesis: aiSynthesis,
-    premiumUnlocked,
+    cachedVedic: aiSynthesis,
+    cachedPlain: aiPlainSynthesis,
+    onVedicSaved: applyCachedSynthesis,
+    onPlainSaved: applyCachedPlainSynthesis,
   });
 
   const shareUrl = activeReportId ? careerShareUrl(activeReportId) : '';
@@ -210,6 +219,8 @@ function CareerCalculatorPageContent() {
               onGeocoderUnavailable={setGeocoderUnavailable}
               onAssumedNoonChange={setBirthTimeAssumedNoon}
               onHoneypot={setHoneypot}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
               onSubmit={() => void handleSubmit()}
             />
             {loading ? (
@@ -274,6 +285,7 @@ function CareerCalculatorPageContent() {
                 ) : null}
               </div>
               <div className="flex flex-col gap-2 sm:items-end">
+                <CareerViewModeToggle mode={viewMode} onChange={setViewMode} />
                 {shareUrl ? <CareerReportActions shareUrl={shareUrl} onPrint={handlePrint} /> : null}
                 <button type="button" onClick={handleRecalculate} className={secondaryButtonClass(theme)}>
                   {t('page.newReport')}
@@ -281,7 +293,13 @@ function CareerCalculatorPageContent() {
               </div>
             </div>
 
-            <CareerReportBody snapshot={snapshot} positions={positions} synthesis={synthesisState} />
+            <CareerReportBody
+              snapshot={snapshot}
+              positions={positions}
+              viewMode={viewMode}
+              vedicGuidance={reportGuidance.vedic}
+              plainGuidance={reportGuidance.plain}
+            />
 
             {shareUrl ? (
               <div className="flex justify-center pt-2 print:hidden">
@@ -295,7 +313,7 @@ function CareerCalculatorPageContent() {
               cachedAt={cachedAt}
               snapshot={snapshot}
               positions={positions}
-              synthesis={synthesisState}
+              synthesis={reportGuidance.vedic}
             />
           </div>
         ) : null}

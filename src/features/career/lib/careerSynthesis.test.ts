@@ -18,16 +18,16 @@ describe('buildCareerSynthesisPrompt', () => {
       MILOS_TEST_NOW,
     );
     const reading = snapshot.reading!;
-    const prompt = buildCareerSynthesisPrompt(reading, snapshot, 'Milos');
+    const prompt = buildCareerSynthesisPrompt(reading, snapshot, milosEnrichedPositions(), 'Milos');
 
     expect(prompt).toContain('Milos');
-    expect(prompt).toContain('d1');
-    expect(prompt).toContain('d9');
-    expect(prompt).toContain('d10');
-    expect(prompt).toContain('nakshatra');
+    expect(prompt).toContain('Gem');
+    expect(prompt).toContain('The Core Identity (D1)');
+    expect(prompt).toContain('The Inner Path & Union (D9)');
+    expect(prompt).toContain('The Path of Action (D10)');
+    expect(prompt).toContain('Current Timing (Dasha)');
     expect(prompt).toContain(reading.d1.tenthLord.planet);
     expect(prompt).toContain(reading.dasha.current.md.lord);
-    expect(prompt).toContain('4–6 flowing paragraphs');
   });
 });
 

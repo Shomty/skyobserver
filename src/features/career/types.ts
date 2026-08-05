@@ -12,6 +12,13 @@ export interface CareerAiSynthesis {
   generatedAt: string;
 }
 
+/** Cached plain-English career synthesis — saved per email report. */
+export interface CareerAiPlainSynthesis {
+  text: string;
+  fingerprint: string;
+  generatedAt: string;
+}
+
 export interface CareerInput {
   fullName: string;
   birthDate: string;

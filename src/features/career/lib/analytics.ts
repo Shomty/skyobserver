@@ -11,6 +11,7 @@ type CareerEvent =
   | 'career_report_printed'
   | 'career_print_failed'
   | 'career_synthesis_ready'
+  | 'career_plain_synthesis_ready'
   | 'career_honeypot_filled'
   | 'career_error';
 

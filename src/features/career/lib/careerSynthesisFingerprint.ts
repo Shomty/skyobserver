@@ -4,7 +4,7 @@ import { CAREER_READING_VERSION } from './careerFingerprint';
  * Prompt / synthesis version. Bump when the Gemini instructions or fact
  * payload change so cached interpretations regenerate.
  */
-export const CAREER_SYNTHESIS_PROMPT_VERSION = 1;
+export const CAREER_SYNTHESIS_PROMPT_VERSION = 2;
 
 /** Cache key for the AI synthesis paragraph — tied to birth fingerprint + engine. */
 export function careerSynthesisFingerprint(birthFingerprint: string): string {

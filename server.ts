@@ -14,6 +14,7 @@ import {
   isValidReportId,
   lookupCareerReportByEmail,
   readCareerReportById,
+  updateCareerReportPlainSynthesis,
   updateCareerReportSynthesis,
   writeCareerReport,
 } from './server/careerReportCache.ts';
@@ -730,6 +731,7 @@ ${urls}
         snapshot: cached.snapshot,
         positions: cached.positions,
         aiSynthesis: cached.aiSynthesis,
+        aiPlainSynthesis: cached.aiPlainSynthesis,
         cachedAt: cached.updatedAt,
         fullName: cached.fullName,
         birthDate: cached.birthDate,
@@ -756,6 +758,7 @@ ${urls}
       snapshot?: unknown;
       positions?: unknown[];
       aiSynthesis?: { text?: string; fingerprint?: string; generatedAt?: string };
+      aiPlainSynthesis?: { text?: string; fingerprint?: string; generatedAt?: string };
     };
 
     const email = typeof body.email === 'string' ? body.email : '';
@@ -813,6 +816,30 @@ ${urls}
         });
       }
 
+      // Persist plain-English AI synthesis — email must match the report owner
+      if (
+        body.aiPlainSynthesis &&
+        typeof body.reportId === 'string' &&
+        typeof body.aiPlainSynthesis.text === 'string' &&
+        typeof body.aiPlainSynthesis.fingerprint === 'string'
+      ) {
+        const stored = await updateCareerReportPlainSynthesis(body.reportId, email, {
+          text: body.aiPlainSynthesis.text,
+          fingerprint: body.aiPlainSynthesis.fingerprint,
+          generatedAt:
+            typeof body.aiPlainSynthesis.generatedAt === 'string'
+              ? body.aiPlainSynthesis.generatedAt
+              : new Date().toISOString(),
+        });
+
+        return res.json({
+          saved: true,
+          reportId: stored.reportId,
+          aiPlainSynthesis: stored.aiPlainSynthesis,
+          cachedAt: stored.updatedAt,
+        });
+      }
+
       // Load — return cached report when email + fingerprint match
       const lookup = await lookupCareerReportByEmail(email, body.fingerprint);
       if (lookup.hit === false) {
@@ -832,6 +859,7 @@ ${urls}
         snapshot: cached.snapshot,
         positions: cached.positions,
         aiSynthesis: cached.aiSynthesis,
+        aiPlainSynthesis: cached.aiPlainSynthesis,
         cachedAt: cached.updatedAt,
         fullName: cached.fullName,
         birthDate: cached.birthDate,

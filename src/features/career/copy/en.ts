@@ -74,18 +74,31 @@ export const en = {
     'Classical BPHS teachings across D1, D9, and D10 — how your body, inner dharma, and professional action align. Teasers are free; full Parashari paragraphs unlock with a free account.',
   'parashari.premiumNote': 'PREMIUM sections — create a free account to read the full analysis',
 
-  'synthesis.kicker': 'Premium · AI Synthesis',
+  'synthesis.kicker': 'Gem · Jyotish Consultation',
   'synthesis.title': 'Your Core Career Reading',
   'synthesis.subtitle':
-    'A unified Parashari interpretation weaving D1, D9, D10, dasha timing, and nakshatra layers — generated once and saved to your report.',
-  'synthesis.loading': 'Consulting the celestial intelligence…',
+    'An in-depth Parashari analysis across D1, D9, and D10 with dasha timing — generated once by Gem and saved to your report.',
+  'synthesis.loading': 'Gem is consulting your chart…',
   'synthesis.cachedNote': 'Saved to your report — no new API call on reload.',
-  'synthesis.teaser':
-    'Your chart reveals a layered career path where visible promise, inner dharma, and professional action must be read together. Unlock the full AI synthesis to receive a personalized consultation paragraph integrating every varga and your current dasha window.',
+
+  'plainSynthesis.kicker': 'Plain language',
+  'plainSynthesis.title': 'Your Career Reading',
+  'plainSynthesis.subtitle':
+    'The same career signals translated into everyday coaching language — generated once and saved to your report.',
+  'plainSynthesis.loading': 'Preparing your plain-language career reading…',
+  'plainSynthesis.cachedNote': 'Saved to your report — no new API call on reload.',
+
+  'viewMode.label': 'Report language',
+  'viewMode.vedic': 'Vedic',
+  'viewMode.plain': 'Plain language',
+  'viewMode.hint':
+    'Vedic shows classical chart analysis plus Gem\'s full Jyotish consultation. Plain language translates the same signals into everyday career coaching (one AI call each, saved to your report).',
+
+  'plain.note': 'Plain-language career coaching — switch to Vedic for chart details and Gem\'s full consultation.',
 
   'upsell.title': 'Unlock your full career report',
   'upsell.body':
-    'Unlock all four Parashari Varga sections, your AI Core Career Synthesis (saved to your report — never re-generated on reload), Career Drive score, and extra career fields.',
+    'Unlock all four Parashari Varga sections, Career Drive score, and extra career fields. AI readings (Vedic and plain) are included with your email.',
   'upsell.cta': 'Create free account',
   'upsell.note': 'Free snapshot above · Full report with signup',
 
@@ -95,7 +108,7 @@ export const en = {
 
   'faq.title': 'Frequently asked questions',
   'faq.q1': 'Is this really free?',
-  'faq.a1': 'Yes — the snapshot above is free and requires no account. The full AI report unlocks after signup.',
+  'faq.a1': 'Yes — the snapshot and AI readings are free with your email. Full Parashari sections unlock after signup.',
   'faq.q2': 'How accurate is the birth time?',
   'faq.a2': 'Career indicators depend heavily on an accurate birth time. Use your birth certificate if possible.',
   'faq.q3': 'What is the 10th house?',

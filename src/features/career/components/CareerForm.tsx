@@ -7,6 +7,8 @@ import { t as giftT } from '../../gift/copy/t';
 import type { FieldId } from '../../gift/types';
 import { t } from '../copy/t';
 import type { CareerFormState } from '../hooks/useCareerCalculator';
+import type { CareerViewMode } from '../lib/careerViewMode';
+import { CareerViewModeToggle } from './CareerViewModeToggle';
 
 const FIELDS: FieldId[] = ['fullName', 'email', 'birthDate', 'birthTime', 'birthPlace'];
 
@@ -19,6 +21,8 @@ interface Props {
   onGeocoderUnavailable: (unavailable: boolean) => void;
   onAssumedNoonChange: (assumed: boolean) => void;
   onHoneypot: (value: string) => void;
+  viewMode: CareerViewMode;
+  onViewModeChange: (mode: CareerViewMode) => void;
   onSubmit: () => void;
 }
 
@@ -31,6 +35,8 @@ export function CareerForm({
   onGeocoderUnavailable,
   onAssumedNoonChange,
   onHoneypot,
+  viewMode,
+  onViewModeChange,
   onSubmit,
 }: Props) {
   const { theme } = useTheme();
@@ -71,6 +77,13 @@ export function CareerForm({
           onGeocoderUnavailable={onGeocoderUnavailable}
         />
       ))}
+
+      <div className="space-y-2">
+        <CareerViewModeToggle mode={viewMode} onChange={onViewModeChange} />
+        <p className={cn('text-caption', theme === 'dark' ? 'text-white/45' : 'text-slate-500')}>
+          {t('viewMode.hint')}
+        </p>
+      </div>
 
       <button type="submit" disabled={loading} className={cn(primaryButtonClass(), 'w-full sm:w-auto')}>
         {loading ? t('page.loading') : t('page.submit')}

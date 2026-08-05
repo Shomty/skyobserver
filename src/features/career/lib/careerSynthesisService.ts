@@ -1,3 +1,4 @@
+import type { PlanetPosition } from '../../../vedic-utils';
 import type { CareerAiSynthesis, CareerSnapshot } from '../types';
 import type { CareerReading } from './careerReading';
 import { saveCareerSynthesis } from './careerReportApi';
@@ -14,6 +15,7 @@ export interface EnsureCareerSynthesisOptions {
   reportId: string;
   reading: CareerReading;
   snapshot: CareerSnapshot;
+  positions: PlanetPosition[];
   fullName?: string;
   cached?: CareerAiSynthesis | null;
 }
@@ -78,6 +80,7 @@ export async function ensureCareerSynthesis(
     const text = await generateCareerSynthesisText(
       options.reading,
       options.snapshot,
+      options.positions,
       options.fullName,
     );
     const synthesis: CareerAiSynthesis = {

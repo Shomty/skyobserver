@@ -12,8 +12,10 @@ import { careerBirthFingerprint, normalizeCareerEmail } from '../lib/careerFinge
 import { loadCareerReport, saveCareerReport } from '../lib/careerReportApi';
 import type { CareerReportLoadResult } from '../lib/careerReportApi';
 import { trackCareerEvent } from '../lib/analytics';
+import { clearCareerPlainSynthesisSession } from '../lib/careerPlainSynthesisService';
 import { clearCareerSynthesisSession } from '../lib/careerSynthesisService';
-import type { CareerAiSynthesis, CareerSnapshot } from '../types';
+import type { CareerAiPlainSynthesis, CareerAiSynthesis, CareerSnapshot } from '../types';
+import { readCareerViewMode, writeCareerViewMode, type CareerViewMode } from '../lib/careerViewMode';
 
 const FORM_FIELDS: FieldId[] = ['fullName', 'email', 'birthDate', 'birthTime', 'birthPlace'];
 
@@ -24,6 +26,7 @@ export interface CareerFormState {
   geocoderUnavailable: boolean;
   birthTimeAssumedNoon: boolean;
   honeypot: string;
+  viewMode: CareerViewMode;
 }
 
 const initialState: CareerFormState = {
@@ -33,6 +36,7 @@ const initialState: CareerFormState = {
   geocoderUnavailable: false,
   birthTimeAssumedNoon: false,
   honeypot: '',
+  viewMode: readCareerViewMode(),
 };
 
 export function useCareerCalculator() {
@@ -47,6 +51,12 @@ export function useCareerCalculator() {
   const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [birthFingerprint, setBirthFingerprint] = useState<string | null>(null);
   const [aiSynthesis, setAiSynthesis] = useState<CareerAiSynthesis | null>(null);
+  const [aiPlainSynthesis, setAiPlainSynthesis] = useState<CareerAiPlainSynthesis | null>(null);
+
+  const setViewMode = useCallback((mode: CareerViewMode) => {
+    writeCareerViewMode(mode);
+    setForm((prev) => ({ ...prev, viewMode: mode }));
+  }, []);
 
   const setField = useCallback((id: FieldId, value: string) => {
     setForm((prev) => ({
@@ -138,6 +148,7 @@ export function useCareerCalculator() {
         setReportId(cached.reportId);
         setCachedAt(cached.cachedAt ?? null);
         setAiSynthesis(cached.aiSynthesis ?? null);
+        setAiPlainSynthesis(cached.aiPlainSynthesis ?? null);
         setFromCache(true);
         if (cached.fullName && !form.values.fullName) {
           setForm((prev) => ({ ...prev, values: { ...prev.values, fullName: cached.fullName } }));
@@ -172,6 +183,7 @@ export function useCareerCalculator() {
       setSnapshot(result);
       setFromCache(false);
       setAiSynthesis(null);
+      setAiPlainSynthesis(null);
 
       let savedReportId: string | null = null;
       try {
@@ -213,6 +225,7 @@ export function useCareerCalculator() {
 
   const reset = useCallback(() => {
     clearCareerSynthesisSession(reportEmail ?? undefined);
+    clearCareerPlainSynthesisSession(reportEmail ?? undefined);
     setSnapshot(null);
     setPositions(null);
     setError(null);
@@ -222,7 +235,8 @@ export function useCareerCalculator() {
     setCachedAt(null);
     setBirthFingerprint(null);
     setAiSynthesis(null);
-    setForm(initialState);
+    setAiPlainSynthesis(null);
+    setForm({ ...initialState, viewMode: readCareerViewMode() });
   }, [reportEmail]);
 
   const loadSharedReport = useCallback(
@@ -232,6 +246,7 @@ export function useCareerCalculator() {
       positions: PlanetPosition[];
       fingerprint?: string;
       aiSynthesis?: CareerAiSynthesis;
+      aiPlainSynthesis?: CareerAiPlainSynthesis;
       cachedAt?: string;
       fullName?: string;
       birthDate?: string;
@@ -245,6 +260,7 @@ export function useCareerCalculator() {
       setCachedAt(record.cachedAt ?? null);
       setBirthFingerprint(record.fingerprint ?? null);
       setAiSynthesis(record.aiSynthesis ?? null);
+      setAiPlainSynthesis(record.aiPlainSynthesis ?? null);
       setFromCache(true);
       if (record.email) setReportEmail(normalizeCareerEmail(record.email));
       setForm((prev) => ({
@@ -286,6 +302,11 @@ export function useCareerCalculator() {
     cachedAt,
     birthFingerprint,
     aiSynthesis,
+    aiPlainSynthesis,
+    viewMode: form.viewMode,
+    setViewMode,
+    applyCachedSynthesis: setAiSynthesis,
+    applyCachedPlainSynthesis: setAiPlainSynthesis,
     calculate,
     reset,
     loadSharedReport,

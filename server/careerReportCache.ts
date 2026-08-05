@@ -33,6 +33,8 @@ export interface StoredCareerAiSynthesis {
   generatedAt: string;
 }
 
+export type StoredCareerAiPlainSynthesis = StoredCareerAiSynthesis;
+
 export interface StoredCareerReport {
   reportId: string;
   email: string;
@@ -46,6 +48,8 @@ export interface StoredCareerReport {
   positions: unknown[];
   /** Premium Gemini synthesis — persisted so reloads never call the API again. */
   aiSynthesis?: StoredCareerAiSynthesis;
+  /** Plain-English Gemini synthesis — persisted per email report. */
+  aiPlainSynthesis?: StoredCareerAiPlainSynthesis;
   cachedAt: string;
   updatedAt: string;
 }
@@ -202,6 +206,53 @@ export async function updateCareerReportSynthesis(
       text: aiSynthesis.text.trim(),
       fingerprint: aiSynthesis.fingerprint,
       generatedAt: aiSynthesis.generatedAt || now,
+    },
+    updatedAt: now,
+  };
+
+  const serialized = JSON.stringify(stored);
+  if (serialized.length > MAX_SNAPSHOT_BYTES) {
+    throw new Error('Report payload too large');
+  }
+
+  await writeFile(reportPath(reportId), serialized, 'utf8');
+  return stored;
+}
+
+export async function updateCareerReportPlainSynthesis(
+  reportId: string,
+  email: string,
+  aiPlainSynthesis: StoredCareerAiPlainSynthesis,
+): Promise<StoredCareerReport> {
+  if (!isValidReportId(reportId)) {
+    throw new Error('Invalid report id');
+  }
+  const normalized = normalizeEmail(email);
+  if (!isValidEmail(normalized)) {
+    throw new Error('Valid email is required');
+  }
+  if (typeof aiPlainSynthesis.text !== 'string' || aiPlainSynthesis.text.trim().length < 80) {
+    throw new Error('Plain synthesis text is too short');
+  }
+  if (typeof aiPlainSynthesis.fingerprint !== 'string' || aiPlainSynthesis.fingerprint.length < 8) {
+    throw new Error('Plain synthesis fingerprint is required');
+  }
+
+  const existing = await readCareerReportById(reportId);
+  if (!existing) {
+    throw new Error('Report not found');
+  }
+  if (existing.email !== normalized) {
+    throw new Error('Report does not belong to this email');
+  }
+
+  const now = new Date().toISOString();
+  const stored: StoredCareerReport = {
+    ...existing,
+    aiPlainSynthesis: {
+      text: aiPlainSynthesis.text.trim(),
+      fingerprint: aiPlainSynthesis.fingerprint,
+      generatedAt: aiPlainSynthesis.generatedAt || now,
     },
     updatedAt: now,
   };
