@@ -5,9 +5,9 @@ export const SITE = {
   name: 'Soul Blueprint',
   brand: 'Vedic Sky',
   legalName: 'Vedic Sky Observer',
-  tagline: 'Sidereal Vedic astrology with AI-powered insights',
+  tagline: 'Birth-chart insights in plain language',
   description:
-    'Map your personality blueprint, life chapters, and daily emotional weather in one calm workspace. Free Vedic career, personal, and daily report calculators — precision astronomy, Lahiri ayanamsa, private by default.',
+    'Free career path, personality blueprint, and daily energy reports — plus a private workspace for life chapters and emotional weather. Plain-language insights grounded in precision astronomy. No account required to start.',
   url: rawUrl || 'https://vedicsky.app',
   locale: 'en_US',
   email: 'hello@vedicsky.app',

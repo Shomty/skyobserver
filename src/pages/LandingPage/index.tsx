@@ -10,7 +10,7 @@ import { LandingHero } from './LandingHero';
 import { LandingFeatureGrid } from './LandingFeatureGrid';
 import { LandingSignUpCTA } from './LandingSignUpCTA';
 import { LandingFooter } from './LandingFooter';
-import { CareerTeaser, CurrentPanchangTeaser, LandingCalculators, LiveChartTeaser, SampleAIInterpretation, TimingTeaser } from './components';
+import { CurrentPanchangTeaser, LiveChartTeaser, SampleAIInterpretation, TimingTeaser } from './components';
 import { AuthDialog, type AuthMode } from '../../features/auth';
 import { loginWithEmail, registerWithEmail, resetPassword, signInWithGoogle } from '../../firebase';
 
@@ -22,7 +22,7 @@ const LandingPage: React.FC = () => {
   const [authOpen, setAuthOpen] = useState(false);
 
   usePageMeta({
-    title: `Soul Blueprint — Free Vedic Astrology Reports & Personal Workspace | ${SITE.brand}`,
+    title: 'Soul Blueprint — Free Career, Personal & Daily Birth-Chart Reports',
     description: SITE.description,
     path: '/',
     jsonLd: landingJsonLd(),
@@ -77,10 +77,8 @@ const LandingPage: React.FC = () => {
             <CurrentPanchangTeaser />
             <TimingTeaser />
             <SampleAIInterpretation />
-            <CareerTeaser />
           </div>
         </div>
-        <LandingCalculators />
         <LandingFeatureGrid />
         <LandingSignUpCTA onOpenAuth={openAuth} />
       </main>

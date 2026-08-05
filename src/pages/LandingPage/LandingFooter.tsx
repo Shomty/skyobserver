@@ -3,11 +3,10 @@ import { Link } from 'react-router-dom';
 import { Compass } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { cn } from '../../lib/utils';
+import { FREE_REPORTS } from './lib/freeReportsConfig';
 
 const FOOTER_LINKS = [
-  { to: '/career', label: 'Career calculator' },
-  { to: '/personal', label: 'Personal calculator' },
-  { to: '/daily', label: 'Daily calculator' },
+  ...FREE_REPORTS.map(({ href, seoLabel }) => ({ to: href, label: seoLabel })),
   { to: '/gift', label: 'Gift a reading' },
   { to: '/privacy', label: 'Privacy' },
   { to: '/terms', label: 'Terms' },

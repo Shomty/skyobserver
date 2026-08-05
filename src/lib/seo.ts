@@ -79,6 +79,27 @@ export function usePageMeta(meta: PageMeta): void {
   }, [meta.title, meta.description, meta.path, meta.noindex, meta.ogType, meta.ogImage]);
 }
 
+const FREE_REPORT_PAGES = [
+  {
+    path: '/career',
+    name: 'Free Career Path Report',
+    description:
+      'Discover your professional strengths, work fit, and career timing from your birth details — plain-language report with share link.',
+  },
+  {
+    path: '/personal',
+    name: 'Free Personality Blueprint Report',
+    description:
+      'Explore your personality wheel, inner vs outer self, life themes, and blind spots — instant personal snapshot, no account required.',
+  },
+  {
+    path: '/daily',
+    name: 'Free Daily Energy Report',
+    description:
+      'Check today\'s emotional weather, 7-day energy forecast, and practical timing windows personalized to your chart and location.',
+  },
+] as const;
+
 export function landingJsonLd(): Array<Record<string, unknown>> {
   return [
     {
@@ -108,5 +129,29 @@ export function landingJsonLd(): Array<Record<string, unknown>> {
       description: SITE.description,
       url: SITE.url,
     },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: 'Free birth-chart reports',
+      description: 'Career, personal, and daily reports in plain language — free, instant, shareable.',
+      itemListElement: FREE_REPORT_PAGES.map((page, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        url: absoluteUrl(page.path),
+        name: page.name,
+        description: page.description,
+      })),
+    },
+    ...FREE_REPORT_PAGES.map(page => ({
+      '@context': 'https://schema.org',
+      '@type': 'WebApplication',
+      name: page.name,
+      url: absoluteUrl(page.path),
+      description: page.description,
+      applicationCategory: 'LifestyleApplication',
+      operatingSystem: 'Web',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      isPartOf: { '@type': 'WebSite', name: SITE.name, url: SITE.url },
+    })),
   ];
 }

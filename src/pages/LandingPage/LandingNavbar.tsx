@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Compass, Menu, Moon, Sun, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
+import { FREE_REPORTS } from './lib/freeReportsConfig';
 
 interface LandingNavbarProps {
   onOpenAuth: (mode: 'signin' | 'signup') => void;
@@ -47,9 +49,17 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onOpenAuth }) => {
           </span>
         </a>
 
-        <div className="hidden items-center gap-6 md:flex">
+        <div className="hidden items-center gap-5 lg:flex">
+          {FREE_REPORTS.map(({ href, eyebrow }) => (
+            <Link
+              key={href}
+              to={href}
+              className={cn('text-sm transition-colors', isDark ? 'text-white/65 hover:text-white' : 'text-ink-muted hover:text-ink-primary')}
+            >
+              {eyebrow}
+            </Link>
+          ))}
           <a href="#observatory" className={cn('text-sm transition-colors', isDark ? 'text-white/65 hover:text-white' : 'text-ink-muted hover:text-ink-primary')}>Explore</a>
-          <a href="#calculators" className={cn('text-sm transition-colors', isDark ? 'text-white/65 hover:text-white' : 'text-ink-muted hover:text-ink-primary')}>Free tools</a>
           <a href="#inside" className={cn('text-sm transition-colors', isDark ? 'text-white/65 hover:text-white' : 'text-ink-muted hover:text-ink-primary')}>Features</a>
           <button onClick={() => onOpenAuth('signin')} className={cn('text-sm transition-colors', isDark ? 'text-white/70 hover:text-white' : 'text-ink-secondary hover:text-ink-primary')}>Sign in</button>
           <button
@@ -102,7 +112,16 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onOpenAuth }) => {
           isDark ? 'border-white/10 bg-[#0d0914]/95' : 'border-border-gold bg-surface-card/95'
         )}>
           <a href="#observatory" onClick={() => setMenuOpen(false)} className={cn('rounded-xl px-4 py-3 text-sm', isDark ? 'text-white/75' : 'text-ink-secondary')}>Explore</a>
-          <a href="#calculators" onClick={() => setMenuOpen(false)} className={cn('rounded-xl px-4 py-3 text-sm', isDark ? 'text-white/75' : 'text-ink-secondary')}>Free tools</a>
+          {FREE_REPORTS.map(({ href, eyebrow }) => (
+            <Link
+              key={href}
+              to={href}
+              onClick={() => setMenuOpen(false)}
+              className={cn('rounded-xl px-4 py-3 text-sm', isDark ? 'text-white/75' : 'text-ink-secondary')}
+            >
+              {eyebrow} report
+            </Link>
+          ))}
           <a href="#inside" onClick={() => setMenuOpen(false)} className={cn('rounded-xl px-4 py-3 text-sm', isDark ? 'text-white/75' : 'text-ink-secondary')}>Features</a>
           <button onClick={() => { setMenuOpen(false); onOpenAuth('signin'); }} className={cn('rounded-xl px-4 py-3 text-left text-sm', isDark ? 'text-white/75' : 'text-ink-secondary')}>Sign in</button>
           <button onClick={() => { setMenuOpen(false); onOpenAuth('signup'); }} className="rounded-xl bg-jyotish-gold px-4 py-3 text-sm font-semibold text-[#1a0b2e]">Create your profile</button>

@@ -1,8 +1,8 @@
 /** English copy for the public daily energy report at /daily */
 export const en = {
-  'meta.title': 'Daily Vedic Energy Report | Vedic Sky',
+  'meta.title': 'Free Daily Energy Report — Mood Forecast & Weekly Timing | Soul Blueprint',
   'meta.description':
-    'Personalized daily energy and 7-day forecast from your birth chart, current transits, and location — free instant report.',
+    'Check today\'s emotional weather, 7-day energy forecast, and practical timing windows — personalized to your birth chart and current location. Free instant report.',
 
   'page.title': 'Daily Energy Report',
   'page.subtitle':

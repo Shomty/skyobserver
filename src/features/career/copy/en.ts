@@ -1,8 +1,8 @@
 /** English copy for the public career calculator at /career */
 export const en = {
-  'meta.title': 'Free Vedic Career Report Calculator | Vedic Sky',
+  'meta.title': 'Free Career Path Report — Work Fit, Strengths & Timing | Soul Blueprint',
   'meta.description':
-    'Discover your 10th house, career dashas, and professional strengths from your birth chart — free instant snapshot.',
+    'Discover your professional strengths, ideal work environments, and career timing from your birth details — free instant report in plain language with share link.',
 
   'page.title': 'Career Report Calculator',
   'page.subtitle':

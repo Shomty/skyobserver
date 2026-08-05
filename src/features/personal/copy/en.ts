@@ -1,8 +1,8 @@
 /** English copy for the public personal insight calculator at /personal */
 export const en = {
-  'meta.title': 'Free Vedic Personal Insight Report | Vedic Sky',
+  'meta.title': 'Free Personality Blueprint — Inner Self, Life Themes & Strengths | Soul Blueprint',
   'meta.description':
-    'Discover your Personality Wheel, inner vs outer self, life mission, and shadow themes from your birth chart — free instant snapshot.',
+    'Explore your personality wheel, inner vs outer self, life mission themes, and blind spots from your birth details — free instant report in plain language.',
 
   'page.title': 'Personal Insight Report',
   'page.subtitle':

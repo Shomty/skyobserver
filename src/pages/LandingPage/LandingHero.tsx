@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
+import { Link } from 'react-router-dom';
 import { ArrowDownRight, Orbit } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
 import { CelestialBackground } from '../../components/CelestialBackground';
+import { FREE_REPORTS } from './lib/freeReportsConfig';
 
 interface LandingHeroProps {
   onOpenAuth: (mode: 'signin' | 'signup') => void;
@@ -91,6 +93,24 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onOpenAuth, children }
             <span>Private by default</span>
             <span>Reflective AI guidance</span>
           </div>
+
+          <nav aria-label="Free reports" className="mt-8 flex flex-wrap gap-2">
+            {FREE_REPORTS.map(({ href, eyebrow, seoLabel }) => (
+              <Link
+                key={href}
+                to={href}
+                title={seoLabel}
+                className={cn(
+                  'rounded-full border px-4 py-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-jyotish-gold/50',
+                  isDark
+                    ? 'border-white/15 text-white/70 hover:border-jyotish-gold/40 hover:text-white'
+                    : 'border-border-gold text-ink-secondary hover:border-jyotish-gold/50 hover:text-ink-primary',
+                )}
+              >
+                Free {eyebrow.toLowerCase()} report
+              </Link>
+            ))}
+          </nav>
         </div>
 
         <motion.div
