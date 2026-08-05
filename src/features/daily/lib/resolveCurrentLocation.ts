@@ -8,6 +8,7 @@ interface ReverseGeocodeBody {
   countryName?: string;
   latitude?: number;
   longitude?: number;
+  timezone?: string;
 }
 
 function labelFromReverse(body: ReverseGeocodeBody): string {
@@ -16,20 +17,38 @@ function labelFromReverse(body: ReverseGeocodeBody): string {
     .join(', ');
 }
 
-async function timezoneForCoords(lat: number, lon: number, labelHint: string): Promise<PlaceResolution | null> {
-  const results = await searchPlaces(labelHint || `${lat.toFixed(2)},${lon.toFixed(2)}`);
+async function timezoneFromCoords(lat: number, lon: number): Promise<string | null> {
+  const res = await fetch(`/api/timezone?lat=${lat}&lon=${lon}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) return null;
+  const body = (await res.json()) as { timezone?: string };
+  return body.timezone ?? null;
+}
+
+/** Build a resolved place from coordinates + label, using the same geocode stack as birth place. */
+async function placeFromCoords(lat: number, lon: number, label: string): Promise<PlaceResolution> {
+  const timezone = await timezoneFromCoords(lat, lon);
+  if (timezone) {
+    return { label, latitude: lat, longitude: lon, timezone };
+  }
+
+  // Fallback: forward geocode by place name (same path as birth-place autocomplete).
+  const results = await searchPlaces(label || `${lat.toFixed(2)}, ${lon.toFixed(2)}`);
   const nearest = results[0];
   if (nearest) {
     return {
       ...nearest,
       latitude: lat,
       longitude: lon,
+      label: label || nearest.label,
     };
   }
-  return null;
+
+  throw new Error('Could not resolve timezone for your location');
 }
 
-/** Browser GPS → reverse geocode → Open-Meteo timezone lookup. */
+/** Browser GPS → reverse geocode label + coordinate-based timezone lookup. */
 export async function resolveBrowserGeolocation(): Promise<PlaceResolution> {
   if (typeof navigator === 'undefined' || !navigator.geolocation) {
     throw new Error('Geolocation is not available in this browser');
@@ -51,9 +70,17 @@ export async function resolveBrowserGeolocation(): Promise<PlaceResolution> {
 
   const body = (await revRes.json()) as ReverseGeocodeBody;
   const label = labelFromReverse(body) || 'Current location';
-  const place = await timezoneForCoords(coords.latitude, coords.longitude, label);
-  if (!place) throw new Error('Could not resolve timezone for your location');
-  return { ...place, label: place.label || label };
+
+  if (body.timezone) {
+    return {
+      label,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      timezone: body.timezone,
+    };
+  }
+
+  return placeFromCoords(coords.latitude, coords.longitude, label);
 }
 
 interface IpLocationResponse {
@@ -82,7 +109,5 @@ export async function resolveIpLocation(): Promise<PlaceResolution> {
     };
   }
 
-  const place = await timezoneForCoords(data.latitude, data.longitude, data.label);
-  if (!place) throw new Error('Could not resolve timezone for approximate location');
-  return { ...place, label: data.label };
+  return placeFromCoords(data.latitude, data.longitude, data.label);
 }

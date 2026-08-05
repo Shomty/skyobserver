@@ -3,12 +3,16 @@ import { useTheme } from '../../../context/ThemeContext';
 import { cn } from '../../../lib/utils';
 import { t } from '../copy/t';
 import type { DailyPlainGuidancePayload } from '../lib/dailyGuidanceFingerprint';
+import type { DayForecast } from '../lib/dailyForecastEngine';
+import { resolvePlainDayRead } from '../lib/resolvePlainDayRead';
 
 interface Props {
   guidance: DailyPlainGuidancePayload | null;
   loading: boolean;
   error: string | null;
   fromCache: boolean;
+  selectedDay: DayForecast | null;
+  selectedDayIndex: number;
 }
 
 function Paragraphs({ text }: { text: string }) {
@@ -30,8 +34,18 @@ function Paragraphs({ text }: { text: string }) {
   );
 }
 
-export function DailyPlainGuidancePanel({ guidance, loading, error, fromCache }: Props) {
+export function DailyPlainGuidancePanel({
+  guidance,
+  loading,
+  error,
+  fromCache,
+  selectedDay,
+  selectedDayIndex,
+}: Props) {
   const { theme } = useTheme();
+  const dayRead =
+    guidance && selectedDay ? resolvePlainDayRead(guidance, selectedDay, selectedDayIndex) : null;
+  const dayLabel = selectedDay?.isToday ? t('plain.today') : (selectedDay?.label ?? t('plain.today'));
 
   return (
     <section
@@ -80,11 +94,11 @@ export function DailyPlainGuidancePanel({ guidance, loading, error, fromCache }:
               {t('plain.disclaimer')}
             </p>
             {[
-              { key: 'todayRead', label: t('plain.today') },
-              { key: 'innerFoundation', label: t('plain.foundation') },
-              { key: 'periodGuidance', label: t('plain.period') },
-              { key: 'practicalMoves', label: t('plain.moves') },
-            ].map(({ key, label }) => (
+              { key: 'dayRead', label: dayLabel, text: dayRead },
+              { key: 'innerFoundation', label: t('plain.foundation'), text: guidance.innerFoundation },
+              { key: 'periodGuidance', label: t('plain.period'), text: guidance.periodGuidance },
+              { key: 'practicalMoves', label: t('plain.moves'), text: guidance.practicalMoves },
+            ].map(({ key, label, text }) => (
               <article
                 key={key}
                 className={cn(
@@ -94,7 +108,7 @@ export function DailyPlainGuidancePanel({ guidance, loading, error, fromCache }:
               >
                 <h4 className="font-serif text-subtitle text-emerald-300/90">{label}</h4>
                 <div className="mt-3">
-                  <Paragraphs text={guidance[key as keyof DailyPlainGuidancePayload] as string} />
+                  {text ? <Paragraphs text={text} /> : null}
                 </div>
               </article>
             ))}

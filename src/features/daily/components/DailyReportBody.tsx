@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useTheme } from '../../../context/ThemeContext';
 import { cn } from '../../../lib/utils';
 import type { PlanetPosition } from '../../../vedic-utils';
@@ -25,13 +26,22 @@ interface Props {
 export function DailyReportBody({ snapshot, positions, viewMode, plainGuidance }: Props) {
   const { theme } = useTheme();
   const isVedic = viewMode === 'vedic';
+  const [selectedDayIndex, setSelectedDayIndex] = useState(snapshot.forecast.todayIndex);
+  const selectedDay = snapshot.forecast.days[selectedDayIndex] ?? snapshot.forecast.days[0] ?? null;
+  const plainPayload = plainGuidance.guidance?.guidance ?? null;
+
+  useEffect(() => {
+    setSelectedDayIndex(snapshot.forecast.todayIndex);
+  }, [snapshot.forecastDate, snapshot.forecast.todayIndex]);
 
   return (
     <>
       <DailyForecastPanel
         forecast={snapshot.forecast}
         viewMode={viewMode}
-        plainWeekDays={plainGuidance.guidance?.guidance.weekDays}
+        plainGuidance={plainPayload}
+        selectedIndex={selectedDayIndex}
+        onSelectDay={setSelectedDayIndex}
       />
 
       <p className={cn('text-caption text-center', theme === 'dark' ? 'text-white/40' : 'text-slate-400')}>
@@ -42,10 +52,12 @@ export function DailyReportBody({ snapshot, positions, viewMode, plainGuidance }
 
       {!isVedic ? (
         <DailyPlainGuidancePanel
-          guidance={plainGuidance.guidance?.guidance ?? null}
+          guidance={plainPayload}
           loading={plainGuidance.loading}
           error={plainGuidance.error}
           fromCache={plainGuidance.fromCache}
+          selectedDay={selectedDay}
+          selectedDayIndex={selectedDayIndex}
         />
       ) : null}
 

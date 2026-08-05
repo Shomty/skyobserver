@@ -58,12 +58,13 @@ ${seed.lifeChapter}
 Guidelines:
 1. Ground every sentence in the profile above — no generic horoscope filler.
 2. weekDays MUST contain exactly 7 entries matching the dates/labels implied in the week pattern, in order.
-3. Each weekDays[].read is 2–3 short paragraphs on that day's psychological tone, relationships, and focus — no lists.
-4. todayRead expands today's signals into an immediate, actionable read (morning-to-evening feel).
-5. innerFoundation summarizes stable traits (not today's weather).
-6. periodGuidance addresses the current life chapter in plain decisions/habits language.
-7. practicalMoves: 2–3 concrete actions for this week.
-8. Never mention the origin system (astrology, Vedic, charts, transits).
+3. Each weekDays[].date MUST be copied exactly from the week pattern (YYYY-MM-DD). Each weekDays[].label MUST match the corresponding day label.
+4. Each weekDays[].read is 2–3 short paragraphs on that day's psychological tone, relationships, and focus — no lists.
+5. todayRead expands today's signals into an immediate, actionable read (morning-to-evening feel).
+6. innerFoundation summarizes stable traits (not today's weather).
+7. periodGuidance addresses the current life chapter in plain decisions/habits language.
+8. practicalMoves: 2–3 concrete actions for this week.
+9. Never mention the origin system (astrology, Vedic, charts, transits).
 
 Return JSON with: todayRead, weekDays[{date,label,read}], innerFoundation, periodGuidance, practicalMoves.`;
 }

@@ -209,6 +209,20 @@ function buildBirthInfoFromIso(isoDate: string, lat: number, lon: number, timezo
   };
 }
 
+/** IANA timezone from lat/lon via Open-Meteo (same provider as /api/geocode). */
+async function fetchTimezoneForCoords(lat: number, lon: number): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&timezone=auto`,
+    );
+    if (!response.ok) return null;
+    const data = await response.json() as { timezone?: string };
+    return typeof data.timezone === 'string' && data.timezone ? data.timezone : null;
+  } catch {
+    return null;
+  }
+}
+
 function mapVimshottariDashas(chart: VedicChartCalculations, targetDate?: Date) {
   const vimshottari = chart.dashas?.vimshottari;
   if (!vimshottari?.dashaPeriods) {
@@ -465,29 +479,59 @@ async function startServer() {
       return res.status(400).json({ error: 'Lat and Lon are required' });
     }
 
+    const latitude = Number(lat);
+    const longitude = Number(lon);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+
     try {
-      const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+      const timezone = await fetchTimezoneForCoords(latitude, longitude);
+
+      const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
       if (bdcResponse.ok) {
         if (DEBUG_SERVER_LOGS) {
           serverLog('log', 'reverse-geocode', 'BigDataCloud reverse geocoding succeeded');
         }
-        return res.json(await bdcResponse.json());
+        const body = await bdcResponse.json() as Record<string, unknown>;
+        return res.json({ ...body, ...(timezone ? { timezone } : {}) });
       }
 
-      const nominatimResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
+      const nominatimResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`, {
         headers: { 'User-Agent': 'VedicSkyObserver/1.0' }
       });
       if (nominatimResponse.ok) {
         if (DEBUG_SERVER_LOGS) {
           serverLog('log', 'reverse-geocode', 'Nominatim reverse geocoding fallback succeeded');
         }
-        res.json(await nominatimResponse.json());
-      } else {
-        serverLog('warn', 'reverse-geocode', 'Reverse geocoding services failed', { status: nominatimResponse.status });
-        res.status(nominatimResponse.status).json({ error: 'Failed to fetch from reverse geocoding services' });
+        const body = await nominatimResponse.json() as Record<string, unknown>;
+        return res.json({ ...body, ...(timezone ? { timezone } : {}) });
       }
+      serverLog('warn', 'reverse-geocode', 'Reverse geocoding services failed', { status: nominatimResponse.status });
+      res.status(nominatimResponse.status).json({ error: 'Failed to fetch from reverse geocoding services' });
     } catch (e) {
       serverLog('error', 'reverse-geocode', 'Proxy reverse geocoding error', e);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+
+  // IANA timezone from coordinates — used by GPS/IP location on /daily.
+  app.get('/api/timezone', rateLimit, async (req, res) => {
+    const { lat, lon } = req.query;
+    const latitude = Number(lat);
+    const longitude = Number(lon);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return res.status(400).json({ error: 'Valid lat and lon are required' });
+    }
+
+    try {
+      const timezone = await fetchTimezoneForCoords(latitude, longitude);
+      if (!timezone) {
+        return res.status(503).json({ error: 'Timezone lookup failed' });
+      }
+      res.json({ timezone, latitude, longitude });
+    } catch (e) {
+      serverLog('error', 'timezone', 'Timezone lookup error', e);
       res.status(500).json({ error: 'Internal Server Error' });
     }
   });
@@ -541,19 +585,7 @@ async function startServer() {
         serverLog('log', 'ip-location', 'Resolved approximate location', { clientIp, label });
       }
 
-      // Resolve timezone via Open-Meteo so the client does not need a second geocode hop.
-      let timezone: string | undefined;
-      try {
-        const geoRes = await fetch(
-          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(data.city ?? 'Unknown')}&count=1`,
-        );
-        if (geoRes.ok) {
-          const geo = await geoRes.json() as { results?: Array<{ timezone?: string }> };
-          timezone = geo.results?.[0]?.timezone;
-        }
-      } catch {
-        // Client can still resolve timezone via searchPlaces.
-      }
+      const timezone = await fetchTimezoneForCoords(data.lat, data.lon);
 
       res.json({
         latitude: data.lat,

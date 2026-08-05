@@ -1,16 +1,18 @@
-import { useState } from 'react';
 import { useTheme } from '../../../context/ThemeContext';
 import { cn } from '../../../lib/utils';
 import { t } from '../copy/t';
 import { energyLevelColor, type DailyForecast, type DayForecast } from '../lib/dailyForecastEngine';
-import type { DailyPlainDayRead } from '../lib/dailyGuidanceFingerprint';
+import type { DailyPlainGuidancePayload } from '../lib/dailyGuidanceFingerprint';
+import { resolvePlainDayRead } from '../lib/resolvePlainDayRead';
 import type { DailyViewMode } from '../lib/dailyViewMode';
 import { DailyEnergyCard } from './DailyEnergyCard';
 
 interface Props {
   forecast: DailyForecast;
   viewMode: DailyViewMode;
-  plainWeekDays?: DailyPlainDayRead[];
+  plainGuidance?: DailyPlainGuidancePayload | null;
+  selectedIndex: number;
+  onSelectDay: (index: number) => void;
 }
 
 function DayDetail({
@@ -90,11 +92,19 @@ function DayDetail({
   );
 }
 
-export function DailyForecastPanel({ forecast, viewMode, plainWeekDays }: Props) {
+export function DailyForecastPanel({
+  forecast,
+  viewMode,
+  plainGuidance,
+  selectedIndex,
+  onSelectDay,
+}: Props) {
   const { theme } = useTheme();
-  const [selectedIndex, setSelectedIndex] = useState(forecast.todayIndex);
   const selected = forecast.days[selectedIndex] ?? forecast.days[0];
-  const plainForDay = plainWeekDays?.find((d) => d.date === selected?.date)?.read;
+  const plainForDay =
+    selected && plainGuidance
+      ? resolvePlainDayRead(plainGuidance, selected, selectedIndex)
+      : undefined;
 
   return (
     <section
@@ -120,7 +130,7 @@ export function DailyForecastPanel({ forecast, viewMode, plainWeekDays }: Props)
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => setSelectedIndex(index)}
+              onClick={() => onSelectDay(index)}
               className={cn(
                 'flex min-w-[4.5rem] shrink-0 flex-col items-center rounded-xl border px-3 py-2.5 transition',
                 active
