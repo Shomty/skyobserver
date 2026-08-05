@@ -1,4 +1,4 @@
-import { Type } from "@google/genai";
+import { GeminiType as Type } from "../lib/geminiSchema";
 import { PlanetPosition, PanchangData, TransitEvent, NAKSHATRA_DATA, SudarshanaChakraResult, SudarshanaLayer, calculateDrishti, getPlanetInHouseInterpretation, analyzeLagnaLord, getVargottamaPlanets, injectKaalVelaPoints, RASHIS } from "../vedic-utils";
 import { callGeminiProxy } from "../lib/api-utils";
 import { DivisionalChartInfo, computeDivisionalChart } from "../lib/divisionalChartUtils";

@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config(); // fallback to .env
 import express from 'express';
+import compression from 'compression';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -330,6 +331,11 @@ async function startServer() {
 
   // Honor X-Forwarded-For when the app sits behind nginx or another reverse proxy.
   app.set('trust proxy', true);
+
+  // Gzip/deflate every text-based response (JS/CSS/HTML/JSON) — the built
+  // assets were being served completely uncompressed, which dominated load
+  // time on mobile networks far more than any client-side rendering cost.
+  app.use(compression());
 
   app.use(express.json({ limit: '2mb' }));
   app.use((req, res, next) => {
@@ -1196,8 +1202,22 @@ ${urls}
     const distPath = path.join(process.cwd(), 'dist');
     // acceptRanges: false prevents browsers from caching partial 206 responses
     // which can cause blank pages on first load of large JS bundles.
-    app.use(express.static(distPath, { acceptRanges: false }));
+    app.use(express.static(distPath, {
+      acceptRanges: false,
+      // Vite fingerprints every file under /assets with a content hash, so
+      // it is safe to cache those responses forever — a new deploy produces
+      // new filenames. Everything else (notably index.html, which references
+      // the current hashes) must always be revalidated.
+      setHeaders: (res, filePath) => {
+        if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      },
+    }));
     app.get('*', (_req, res) => {
+      res.set('Cache-Control', 'no-cache');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts';
-import { Type } from "@google/genai";
+import { GeminiType as Type } from "../lib/geminiSchema";
 import { 
   Clock, Play, Pause, Rewind, FastForward, User as UserIcon, Save, MapPin, 
   LayoutGrid, Sparkles, Activity, Zap, CalendarDays, Sun, Grid, Layers,

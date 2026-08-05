@@ -1,4 +1,4 @@
-import { Type } from '@google/genai';
+import { GeminiType as Type } from '../../../lib/geminiSchema';
 import { callGeminiProxy } from '../../../lib/api-utils';
 import { hasAstrologyLeakage } from '../../personal/lib/personalPsychLeakage';
 import type { DailyPlainEnergyProfile, DailyPlainGuidancePayload } from './dailyGuidanceFingerprint';

@@ -1,7 +1,6 @@
 @import "@fontsource-variable/cormorant-garamond";
 @import "@fontsource-variable/cormorant-garamond/wght-italic.css";
 @import "@fontsource-variable/ibm-plex-sans";
-@import "@fontsource/ibm-plex-mono";
 @import "tailwindcss";
 
 @theme {
@@ -32,7 +31,7 @@
   /* Typography: readable body face + expressive display serif */
   --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-serif: 'Cormorant Garamond Variable', Georgia, 'Times New Roman', serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
 
   /* Semantic type scale — 13px floor, fluid on larger viewports */
   --text-caption: 0.8125rem;
@@ -129,7 +128,51 @@
   50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.1; }
 }
 
+@keyframes landing-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes landing-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes landing-scale-in {
+  from { opacity: 0; transform: scale(0.96) rotate(1deg); }
+  to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
 @layer components {
+  .landing-animate-fade-up {
+    animation: landing-fade-up 0.75s ease-out both;
+  }
+
+  .landing-animate-fade-up-sm {
+    animation: landing-fade-up 0.5s ease-out both;
+  }
+
+  .landing-animate-fade-in {
+    animation: landing-fade-in 0.7s ease-out both;
+  }
+
+  .landing-animate-scale-in {
+    animation: landing-scale-in 0.8s ease-out both;
+  }
+
+  .landing-animate-delay-1 { animation-delay: 0.1s; }
+  .landing-animate-delay-2 { animation-delay: 0.22s; }
+  .landing-animate-delay-3 { animation-delay: 0.35s; }
+  .landing-animate-delay-4 { animation-delay: 0.48s; }
+
+  .landing-animate-in-view {
+    animation: landing-fade-up 0.5s ease-out both;
+  }
+
+  .landing-animate-in-view-delay-1 { animation-delay: 0.08s; }
+  .landing-animate-in-view-delay-2 { animation-delay: 0.16s; }
+  .landing-animate-in-view-delay-3 { animation-delay: 0.24s; }
+
   .universe-bg {
     @apply transition-colors duration-500;
     position: relative;

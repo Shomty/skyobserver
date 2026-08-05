@@ -1,14 +1,16 @@
 import {StrictMode, Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
-import App from './App.tsx';
 import './index.css';
 
 import {ThemeProvider} from './context/ThemeContext.tsx';
 import {BrowserRouter, Routes, Route, useLocation} from 'react-router-dom';
 import {ErrorBoundary} from './components/ErrorBoundary.tsx';
 import {AnalyticsPageView} from './components/AnalyticsPageView.tsx';
+import {HomeRoute} from './routes/HomeRoute.tsx';
 import {lazyWithReload} from './lib/lazyWithReload.ts';
 import {debugLog, installDebugConsole, isDebugEnabled} from './lib/debug.ts';
+
+const App = lazyWithReload(() => import('./App.tsx'));
 
 const SharedChatPage = lazyWithReload(() => import('./pages/SharedChatPage.tsx'));
 const GiftChooserPage = lazyWithReload(
@@ -188,7 +190,15 @@ function RoutedApp() {
             </Suspense>
           }
         />
-        <Route path="*" element={<App />} />
+        <Route path="/" element={<HomeRoute />} />
+        <Route
+          path="/*"
+          element={
+            <Suspense fallback={null}>
+              <App />
+            </Suspense>
+          }
+        />
       </Routes>
     </ErrorBoundary>
   );

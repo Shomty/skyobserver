@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'motion/react';
 import { ArrowUpRight, LockKeyhole } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { cn } from '../../lib/utils';
@@ -15,13 +14,9 @@ export const LandingSignUpCTA: React.FC<LandingSignUpCTAProps> = ({ onOpenAuth }
   return (
     <section className={cn('landing-section-cta relative z-10 px-5 py-20 md:px-8 md:py-24', isDark ? 'dark' : 'light')}>
       <div className="mx-auto max-w-7xl">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+        <div
           className={cn(
-            'relative overflow-hidden rounded-2xl border px-7 py-12 md:px-14 md:py-16',
+            'landing-animate-fade-up relative overflow-hidden rounded-2xl border px-7 py-12 motion-reduce:animate-none md:px-14 md:py-16',
             isDark
               ? 'border-cosmic-accent/20 bg-[linear-gradient(135deg,#2e1065_0%,#1a0b2e_45%,#0f051d_100%)] text-white'
               : 'border-border-gold bg-[linear-gradient(135deg,#fff9f0_0%,#fffcf7_45%,#f4f0e8_100%)] text-ink-primary',
@@ -61,7 +56,7 @@ export const LandingSignUpCTA: React.FC<LandingSignUpCTAProps> = ({ onOpenAuth }
           <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full border border-cosmic-accent/15" />
           <div className="pointer-events-none absolute -right-4 -top-12 h-48 w-48 rounded-full border border-jyotish-gold/10" />
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(157,124,255,0.16),transparent_45%)]" />
-        </motion.div>
+        </div>
       </div>
     </section>
   );

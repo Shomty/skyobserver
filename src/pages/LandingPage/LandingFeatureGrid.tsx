@@ -1,10 +1,16 @@
 import React from 'react';
-import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
 import { FREE_REPORTS } from './lib/freeReportsConfig';
+
+const STAGGER_CLASS = [
+  '',
+  'landing-animate-in-view-delay-1',
+  'landing-animate-in-view-delay-2',
+  'landing-animate-in-view-delay-3',
+] as const;
 
 export const LandingFeatureGrid: React.FC = () => {
   const { theme } = useTheme();
@@ -28,14 +34,11 @@ export const LandingFeatureGrid: React.FC = () => {
 
         <div className="grid gap-4 lg:grid-cols-3">
           {FREE_REPORTS.map(({ id, icon: Icon, href, eyebrow, title, description, cta, highlights }, i) => (
-            <motion.article
+            <article
               key={id}
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08, duration: 0.5, ease: 'easeOut' }}
               className={cn(
-                'dashboard-panel flex h-full flex-col p-6 sm:p-8',
+                'dashboard-panel landing-animate-in-view flex h-full flex-col p-6 motion-reduce:animate-none sm:p-8',
+                STAGGER_CLASS[i] ?? '',
                 isDark ? 'dark' : 'light',
               )}
             >
@@ -69,7 +72,7 @@ export const LandingFeatureGrid: React.FC = () => {
                 {cta}
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
-            </motion.article>
+            </article>
           ))}
         </div>
       </div>

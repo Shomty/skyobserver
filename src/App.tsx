@@ -64,7 +64,7 @@ import { Archives } from './components/Archives';
 import { DateTimePicker } from './components/DateTimePicker';
 import { toDateTimeLocalValue } from './lib/dateInputUtils';
 import { useTheme } from './context/ThemeContext';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import AIAssistant from './components/AIAssistant';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -82,7 +82,6 @@ const CosmicReport = lazyWithReload(() => import('./components/CosmicReport.tsx'
 const AIChatPage = lazyWithReload(() => import('./pages/AIChatPage.tsx'));
 const ProfilesPage = lazyWithReload(() => import('./pages/ProfilesPage.tsx'));
 const SudarshanaChakraPage = lazyWithReload(() => import('./pages/SudarshanaChakraPage.tsx'));
-const LandingPage = lazyWithReload(() => import('./pages/LandingPage/index.tsx'));
 const AdminPage = lazyWithReload(() => import('./pages/AdminPage.tsx'));
 import { callGeminiProxy, withRetry, getErrorMessage } from './lib/api-utils';
 import { debugError, debugLog, debugWarn } from './lib/debug';
@@ -1656,11 +1655,7 @@ INTERPRETATION GUIDELINES:
   }
 
   if (isAuthReady && !user) {
-    return (
-      <React.Suspense fallback={<div className="min-h-screen universe-bg light" />}>
-        <LandingPage />
-      </React.Suspense>
-    );
+    return <Navigate to="/" replace />;
   }
 
   if (authProfileError) {

@@ -55,7 +55,6 @@ export default defineConfig({
           if (id.includes('node_modules/firebase/')) return 'vendor-firebase';
           if (id.includes('node_modules/recharts/')) return 'vendor-charts';
           if (id.includes('node_modules/astronomy-engine/')) return 'vendor-astro';
-          if (id.includes('node_modules/@google/')) return 'vendor-ai';
         },
       },
     },
