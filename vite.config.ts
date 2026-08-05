@@ -1,7 +1,22 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import type {IndexHtmlTransformContext} from 'vite';
 import {defineConfig, type Plugin} from 'vitest/config';
+
+const LANDING_FONT_DEV =
+  '/node_modules/@fontsource-variable/cormorant-garamond/files/cormorant-garamond-latin-wght-normal.woff2';
+
+function landingFontHrefFromBundle(ctx: IndexHtmlTransformContext): string {
+  const bundle = ctx.bundle;
+  if (!bundle) return '';
+  for (const fileName of Object.keys(bundle)) {
+    if (fileName.includes('cormorant-garamond-latin-wght-normal') && fileName.endsWith('.woff2')) {
+      return `/${fileName}`;
+    }
+  }
+  return '';
+}
 
 function injectSeoEnv(): Plugin {
   const siteUrl = (process.env.VITE_SITE_URL ?? 'https://thesoulblueprint.online').replace(/\/$/, '');
@@ -9,18 +24,29 @@ function injectSeoEnv(): Plugin {
   const gtmId = process.env.VITE_GTM_ID ?? 'GTM-PN7TR3J7';
   const gsc = process.env.VITE_GSC_VERIFICATION ?? '';
 
+  const inject = (html: string, fontHref: string) => {
+    let out = html
+      .replaceAll('__SITE_URL__', siteUrl)
+      .replaceAll('__GA_MEASUREMENT_ID__', gaId)
+      .replaceAll('__GTM_ID__', gtmId);
+
+    const gscTag = gsc
+      ? `<meta name="google-site-verification" content="${gsc}" />`
+      : '';
+    out = out.replace('<!-- gsc-verification -->', gscTag);
+
+    const fontPreload = `<link rel="preload" href="${fontHref}" as="font" type="font/woff2" crossorigin />`;
+    return out.replace('<!-- landing-font-preload -->', fontPreload);
+  };
+
   return {
     name: 'inject-seo-env',
-    transformIndexHtml(html) {
-      let out = html
-        .replaceAll('__SITE_URL__', siteUrl)
-        .replaceAll('__GA_MEASUREMENT_ID__', gaId)
-        .replaceAll('__GTM_ID__', gtmId);
-
-      const gscTag = gsc
-        ? `<meta name="google-site-verification" content="${gsc}" />`
-        : '';
-      return out.replace('<!-- gsc-verification -->', gscTag);
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        const fontHref = landingFontHrefFromBundle(ctx) || LANDING_FONT_DEV;
+        return inject(html, fontHref);
+      },
     },
   };
 }

@@ -1,5 +1,5 @@
 import React, { lazy, useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
 import { trackEvent } from '../../lib/analytics';
@@ -12,12 +12,10 @@ import { LandingSignUpCTA } from './LandingSignUpCTA';
 import { LandingFooter } from './LandingFooter';
 import { SampleAIInterpretation, TimingTeaser } from './components';
 import { LazyWhenVisible } from '../../components/LazyWhenVisible';
+import { HeroChartTeaser } from './components/HeroChartTeaser';
 import { AuthDialog, type AuthMode } from '../../features/auth';
 import { Loader2 } from 'lucide-react';
 
-const LiveChartTeaser = lazy(() =>
-  import('./components/LiveChartTeaser').then((m) => ({ default: m.LiveChartTeaser })),
-);
 const CurrentPanchangTeaser = lazy(() =>
   import('./components/CurrentPanchangTeaser').then((m) => ({ default: m.CurrentPanchangTeaser })),
 );
@@ -30,6 +28,7 @@ type AuthActions = {
 };
 
 const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [searchParams] = useSearchParams();
@@ -83,9 +82,7 @@ const LandingPage: React.FC = () => {
       <LandingNavbar onOpenAuth={openAuth} />
       <main id="main-content">
         <LandingHero onOpenAuth={openAuth}>
-          <LazyWhenVisible minHeight="20rem" fallback={<div className="min-h-[20rem] rounded-2xl bg-white/[0.03]" aria-hidden="true" />}>
-            <LiveChartTeaser compact />
-          </LazyWhenVisible>
+          <HeroChartTeaser compact />
         </LandingHero>
         <div id="observatory" className={cn('dashboard-shell relative z-10 px-5 pb-16 pt-10 sm:px-8 sm:pb-20 sm:pt-12', isDark ? 'dark' : 'light')}>
           <div className="mx-auto max-w-7xl space-y-4">
@@ -126,6 +123,10 @@ const LandingPage: React.FC = () => {
             onEmailSignIn={authActions.loginWithEmail}
             onEmailSignUp={authActions.registerWithEmail}
             onResetPassword={authActions.resetPassword}
+            onSuccess={() => {
+              setAuthOpen(false);
+              navigate('/sky');
+            }}
           />
         ) : (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/40" role="status" aria-label="Loading sign in">

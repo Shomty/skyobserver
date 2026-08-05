@@ -1,6 +1,5 @@
-import {StrictMode, Suspense} from 'react';
+import {StrictMode, Suspense, useEffect, useRef} from 'react';
 import {createRoot} from 'react-dom/client';
-import './index.css';
 
 import {ThemeProvider} from './context/ThemeContext.tsx';
 import {BrowserRouter, Routes, Route, useLocation} from 'react-router-dom';
@@ -11,6 +10,28 @@ import {lazyWithReload} from './lib/lazyWithReload.ts';
 import {debugLog, installDebugConsole, isDebugEnabled} from './lib/debug.ts';
 
 const App = lazyWithReload(() => import('./App.tsx'));
+
+function ensureAppStyles() {
+  void import('./loadAppStyles.ts');
+}
+
+if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+  ensureAppStyles();
+}
+
+/** Loads dashboard CSS when navigating off the homepage (standalone routes, post-login). */
+function AppStylesBootstrap() {
+  const { pathname } = useLocation();
+  const stylesLoaded = useRef(typeof window !== 'undefined' && window.location.pathname !== '/');
+
+  useEffect(() => {
+    if (pathname === '/' || stylesLoaded.current) return;
+    stylesLoaded.current = true;
+    ensureAppStyles();
+  }, [pathname]);
+
+  return null;
+}
 
 const SharedChatPage = lazyWithReload(() => import('./pages/SharedChatPage.tsx'));
 const GiftChooserPage = lazyWithReload(
@@ -208,6 +229,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       <BrowserRouter>
+        <AppStylesBootstrap />
         <AnalyticsPageView />
         <RoutedApp />
       </BrowserRouter>

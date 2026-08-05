@@ -1,0 +1,13 @@
+/* Deferred webfonts for the authenticated app — not loaded on the homepage. */
+@import "@fontsource-variable/cormorant-garamond/wght-italic.css";
+@import "@fontsource-variable/ibm-plex-sans";
+
+@font-face {
+  font-family: 'Cormorant Garamond Variable';
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans Variable';
+  font-display: swap;
+}
