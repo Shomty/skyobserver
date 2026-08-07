@@ -31,24 +31,22 @@ export function PersonalDashaStrip({ dasha }: Props) {
       )}
     >
       <h3 className="font-serif text-title">{t('chapter.title')}</h3>
-      <ul className="mt-4 space-y-3">
+      <ul className="mt-4 grid gap-3 lg:grid-cols-2 lg:gap-4">
         {rows.map((row) => (
           <li
             key={row.label}
             className={cn(
-              'flex flex-col gap-1 rounded-lg px-3 py-2 sm:flex-row sm:items-center sm:justify-between',
+              'rounded-xl px-4 py-3.5',
               theme === 'dark' ? 'bg-white/[0.04]' : 'bg-slate-50',
             )}
           >
-            <span className={cn('text-caption', theme === 'dark' ? 'text-white/50' : 'text-slate-500')}>
+            <p className={cn('text-caption font-medium uppercase tracking-wide', theme === 'dark' ? 'text-white/50' : 'text-slate-500')}>
               {row.label}
-            </span>
-            <span className="text-body font-medium">
-              <span className="text-jyotish-gold">{row.theme}</span>
-              <span className={cn('ml-2 text-caption', theme === 'dark' ? 'text-white/40' : 'text-slate-400')}>
-                {row.range}
-              </span>
-            </span>
+            </p>
+            <p className="mt-2 text-body-lg font-medium leading-relaxed text-jyotish-gold">{row.theme}</p>
+            <p className={cn('mt-1.5 text-caption tabular-nums', theme === 'dark' ? 'text-white/40' : 'text-slate-400')}>
+              {row.range}
+            </p>
           </li>
         ))}
       </ul>

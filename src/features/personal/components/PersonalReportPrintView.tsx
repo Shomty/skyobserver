@@ -36,10 +36,10 @@ interface Props {
 }
 
 const sectionTitle: CSSProperties = {
-  fontSize: 14,
+  fontSize: 16,
   fontWeight: 700,
   color: INK,
-  margin: '0 0 8px',
+  margin: '0 0 10px',
 };
 
 const card: CSSProperties = {
@@ -133,19 +133,19 @@ export function PersonalReportPrintView({
 
       <section style={{ marginBottom: 20 }}>
         <h2 style={sectionTitle}>{t('chapter.title')}</h2>
-        {chapterRows.map((row) => (
-          <div
-            key={row.label}
-            className="personal-print-dasha-row"
-            style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}
-          >
-            <span style={{ fontSize: 11, color: MUTED }}>{row.label}</span>
-            <span style={{ fontSize: 12, fontWeight: 600, textAlign: 'right', maxWidth: '70%' }}>
-              {row.theme}
-              <span style={{ marginLeft: 8, fontSize: 11, color: '#888', fontWeight: 400 }}>{fmtRange(row.ref)}</span>
-            </span>
-          </div>
-        ))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+          {chapterRows.map((row) => (
+            <div key={row.label} className="personal-print-dasha-row" style={card}>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.6, textTransform: 'uppercase', color: MUTED }}>
+                {row.label}
+              </div>
+              <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.55, fontWeight: 600, color: GOLD }}>
+                {row.theme}
+              </div>
+              <div style={{ marginTop: 4, fontSize: 11, color: '#888' }}>{fmtRange(row.ref)}</div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section style={{ marginBottom: 20 }}>
@@ -232,7 +232,7 @@ export function PersonalReportPrintView({
           return (
             <div key={section.id} className="personal-print-card" style={card}>
               <div className="personal-print-section-header">
-                <div style={{ fontSize: 14, fontWeight: 700, color: GOLD }}>{section.title}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: GOLD }}>{section.title}</div>
                 <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>{section.subtitle}</div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#222', marginTop: 6 }}>{section.teaser}</div>
               </div>

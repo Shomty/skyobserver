@@ -44,7 +44,7 @@ function SectionCard({ section }: { section: ParashariSection }) {
         theme === 'dark' ? 'bg-white/[0.02] border-white/10' : 'bg-slate-50/80 border-slate-200'
       )}
     >
-      <h4 className="font-serif text-lg text-jyotish-gold">{section.title}</h4>
+      <h4 className="font-serif text-subtitle text-jyotish-gold">{section.title}</h4>
       <p className={cn('mt-0.5 text-caption', theme === 'dark' ? 'text-white/45' : 'text-slate-500')}>
         {section.subtitle}
       </p>
