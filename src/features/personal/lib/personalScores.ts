@@ -14,7 +14,7 @@ export function computeInnerStrength(reading: PersonalReading): PersonalScore {
   let label = 'Developing inner resilience';
   if (value >= 75) label = 'Strong inner foundation';
   else if (value >= 55) label = 'Mixed — promise and friction coexist';
-  else label = 'Shadow work is load-bearing now';
+  else label = 'Inner integration is load-bearing now';
 
   return { value, label };
 }
@@ -55,8 +55,8 @@ export function computeLifeClarity(reading: PersonalReading): PersonalScore {
   if (reading.synthesis.confidence === 'low') score -= 10;
 
   const value = Math.max(15, Math.min(95, score));
-  let label = 'Dharma direction still forming';
-  if (value >= 75) label = 'Clear life-mission themes';
+  let label = 'Life purpose still forming';
+  if (value >= 75) label = 'Clear purpose themes';
   else if (value >= 55) label = 'Purpose visible, path uneven';
 
   return { value, label, locked: false };

@@ -33,5 +33,5 @@ export function absoluteUrl(path: string): string {
 }
 
 export function defaultOgImageUrl(): string {
-  return absoluteUrl('/og-image.svg');
+  return absoluteUrl('/og-image.png');
 }

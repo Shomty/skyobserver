@@ -8,6 +8,7 @@ import { SITE } from '../../lib/siteConfig';
 import { LandingNavbar } from './LandingNavbar';
 import { LandingHero } from './LandingHero';
 import { LandingFeatureGrid } from './LandingFeatureGrid';
+import { LandingAbout } from './LandingAbout';
 import { LandingSignUpCTA } from './LandingSignUpCTA';
 import { LandingFooter } from './LandingFooter';
 import { SampleAIInterpretation, TimingTeaser } from './components';
@@ -109,6 +110,7 @@ const LandingPage: React.FC = () => {
           </div>
         </div>
         <LandingFeatureGrid />
+        <LandingAbout />
         <LandingSignUpCTA onOpenAuth={openAuth} />
       </main>
       <LandingFooter />

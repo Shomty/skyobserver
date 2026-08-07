@@ -1,11 +1,10 @@
 import { useMemo, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
-import NorthIndianChart from '../../../components/NorthIndianChart';
 import { ThemeContext } from '../../../context/ThemeContext';
-import { RASHIS, type PlanetPosition } from '../../../vedic-utils';
 import type { PersonalAiGuidance, PersonalPsychGuidanceFields, PersonalSnapshot } from '../types';
 import { usePersonalPremiumUnlocked } from '../context/PersonalPremiumContext';
+import { chapterThemeLong, lifeAreaYearFocus, signStyle, lifeAreaShort, activatedAreaLabel } from '../lib/personalPsychLabels';
 import { t } from '../copy/t';
 
 const GOLD = '#b8860b';
@@ -33,7 +32,6 @@ interface Props {
   birthPlaceLabel?: string;
   cachedAt?: string | null;
   snapshot: PersonalSnapshot;
-  positions: PlanetPosition[];
   guidance: GuidanceState;
 }
 
@@ -62,33 +60,27 @@ export function PersonalReportPrintView({
   birthPlaceLabel,
   cachedAt,
   snapshot,
-  positions,
   guidance,
 }: Props) {
   const premiumUnlocked = usePersonalPremiumUnlocked();
   const wheel = snapshot.personalityWheel;
-  const ascIndex = RASHIS.indexOf(snapshot.ascendantSignName);
-
-  const highlightedPositions = useMemo(
-    () =>
-      positions.map((p) => {
-        if (p.name === 'Moon') return { ...p, color: '#888' };
-        if (p.name === 'Sun') return { ...p, color: GOLD_LIGHT };
-        return p;
-      }),
-    [positions],
-  );
+  const display = {
+    outerStyle: wheel.outerStyle ?? signStyle(wheel.lagnaSign).split(',')[0],
+    emotionalStyle: wheel.emotionalStyle ?? signStyle(wheel.moonSign).split(',')[0],
+    driveStyle: wheel.driveStyle ?? signStyle(wheel.sunSign).split(',')[0],
+    identityFocus: wheel.identityFocus ?? lifeAreaShort(wheel.lagnaLordHouse),
+  };
 
   const lightTheme = useMemo(
     () => ({ theme: 'light' as const, setTheme: () => {}, toggleTheme: () => {} }),
     [],
   );
 
-  const dashaRows = [
-    { label: t('dasha.mahadasha'), ref: snapshot.dasha.mahadasha },
-    { label: t('dasha.antardasha'), ref: snapshot.dasha.antardasha },
-    { label: t('dasha.pratyantardasha'), ref: snapshot.dasha.pratyantardasha },
-    { label: t('dasha.nextAntardasha'), ref: snapshot.dasha.nextAntardasha },
+  const chapterRows = [
+    { label: t('chapter.major'), theme: chapterThemeLong(snapshot.dasha.mahadasha.planet), ref: snapshot.dasha.mahadasha },
+    { label: t('chapter.active'), theme: chapterThemeLong(snapshot.dasha.antardasha.planet), ref: snapshot.dasha.antardasha },
+    { label: t('chapter.near'), theme: chapterThemeLong(snapshot.dasha.pratyantardasha.planet), ref: snapshot.dasha.pratyantardasha },
+    { label: t('chapter.next'), theme: chapterThemeLong(snapshot.dasha.nextAntardasha.planet), ref: snapshot.dasha.nextAntardasha },
   ];
 
   const scoreRows = [
@@ -97,11 +89,13 @@ export function PersonalReportPrintView({
     snapshot.scores.lifeClarity,
   ];
 
+  void lightTheme;
+
   const content = (
     <div id="personal-report-print-root" className="hidden personal-print-doc" style={{ padding: 24 }}>
       <header style={{ borderBottom: `2px solid ${GOLD_LIGHT}`, paddingBottom: 12, marginBottom: 20 }}>
         <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: GOLD, fontWeight: 700 }}>
-          Vedic Sky Observer
+          Soul Blueprint
         </div>
         <h1 className="personal-print-doc-title" style={{ fontSize: 22, fontWeight: 700, margin: '8px 0 0', color: INK }}>
           {t('result.title')}
@@ -117,36 +111,37 @@ export function PersonalReportPrintView({
         ) : null}
       </header>
 
-      <section className="personal-print-chart-box" style={{ marginBottom: 20 }}>
-        <h2 style={sectionTitle}>{t('chart.title')}</h2>
-        <p style={{ margin: '0 0 10px', fontSize: 11, color: MUTED }}>
-          {t('chart.hint')} · {snapshot.ascendantSignName}
-        </p>
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <div style={{ width: 300, height: 300 }}>
-            <ThemeContext.Provider value={lightTheme}>
-              <NorthIndianChart
-                positions={highlightedPositions}
-                selectedZodiac={ascIndex >= 0 ? ascIndex : null}
-                showHover={false}
-                className="w-full h-full print-chart"
-              />
-            </ThemeContext.Provider>
-          </div>
+      <section className="personal-print-card" style={{ ...card, marginBottom: 20 }}>
+        <h2 style={sectionTitle}>{t('blueprint.title')}</h2>
+        <p style={{ margin: '0 0 10px', fontSize: 11, color: MUTED }}>{t('blueprint.subtitle')}</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          {[
+            { label: t('blueprint.persona'), value: display.outerStyle },
+            { label: t('blueprint.emotion'), value: display.emotionalStyle },
+            { label: t('blueprint.drive'), value: display.driveStyle },
+          ].map((layer) => (
+            <div key={layer.label} style={{ border: '1px solid #eee', borderRadius: 6, padding: 10 }}>
+              <div style={{ fontSize: 9, textTransform: 'uppercase', color: MUTED }}>{layer.label}</div>
+              <div style={{ marginTop: 4, fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>{layer.value}</div>
+            </div>
+          ))}
         </div>
+        <p style={{ margin: '10px 0 0', fontSize: 12, color: '#333' }}>
+          {t('blueprint.identityFocus')}: {display.identityFocus}
+        </p>
       </section>
 
       <section style={{ marginBottom: 20 }}>
-        <h2 style={sectionTitle}>{t('dasha.title')}</h2>
-        {dashaRows.map((row) => (
+        <h2 style={sectionTitle}>{t('chapter.title')}</h2>
+        {chapterRows.map((row) => (
           <div
             key={row.label}
             className="personal-print-dasha-row"
             style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}
           >
             <span style={{ fontSize: 11, color: MUTED }}>{row.label}</span>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>
-              {row.ref.planet}
+            <span style={{ fontSize: 12, fontWeight: 600, textAlign: 'right', maxWidth: '70%' }}>
+              {row.theme}
               <span style={{ marginLeft: 8, fontSize: 11, color: '#888', fontWeight: 400 }}>{fmtRange(row.ref)}</span>
             </span>
           </div>
@@ -170,34 +165,32 @@ export function PersonalReportPrintView({
       <section className="personal-print-card" style={{ ...card, marginBottom: 20 }}>
         <h2 style={sectionTitle}>{t('wheel.title')}</h2>
         <p style={{ margin: 0, fontWeight: 600, color: '#222', fontSize: 13 }}>
-          {t('wheel.heading', { lagna: wheel.lagnaSign, moon: wheel.moonSign, sun: wheel.sunSign })}
+          {t('wheel.heading', { outer: display.outerStyle, emotional: display.emotionalStyle, drive: display.driveStyle })}
         </p>
         <p style={{ margin: '8px 0 0', lineHeight: 1.5, color: '#333', fontSize: 12 }}>
-          {t('wheel.body', {
-            lord: wheel.lagnaLord,
-            house: wheel.lagnaLordHouse,
-            element: wheel.element,
-            guna: wheel.guna,
-          })}
+          {t('wheel.body', { focus: display.identityFocus })}
         </p>
       </section>
 
       <section style={{ marginBottom: 20 }}>
         <h2 style={sectionTitle}>{t('timing.title')}</h2>
         <div className="personal-print-timing-row" style={card}>
-          <div style={{ fontSize: 10, textTransform: 'uppercase', color: MUTED }}>{t('timing.activeSudarshana')}</div>
-          <div style={{ marginTop: 4, fontSize: 13, fontWeight: 600 }}>
-            {t('timing.activeArea', {
-              house: snapshot.timing.activeSudarshanaHouse,
-              area: snapshot.timing.activeLifeArea.split(',')[0],
-            })}
+          <div style={{ fontSize: 10, textTransform: 'uppercase', color: MUTED }}>{t('timing.activeFocus')}</div>
+          <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.55, color: '#333' }}>
+            {snapshot.timing.activeYearFocus ?? lifeAreaYearFocus(snapshot.timing.activeSudarshanaHouse)}
+          </div>
+        </div>
+        <div className="personal-print-timing-row" style={{ ...card, marginBottom: 0 }}>
+          <div style={{ fontSize: 10, textTransform: 'uppercase', color: MUTED }}>{t('timing.current')}</div>
+          <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.55, fontWeight: 600, color: GOLD }}>
+            {snapshot.timing.currentChapterTheme ?? chapterThemeLong(snapshot.timing.currentPeriodLord)}
           </div>
         </div>
         {snapshot.timing.activatedLifeAreas.length > 0 ? (
-          <div className="personal-print-timing-row" style={{ ...card, marginBottom: 0 }}>
-            <div style={{ fontSize: 10, textTransform: 'uppercase', color: MUTED }}>{t('timing.dashaAreas')}</div>
+          <div className="personal-print-timing-row" style={{ ...card, marginTop: 10 }}>
+            <div style={{ fontSize: 10, textTransform: 'uppercase', color: MUTED }}>{t('timing.chapterThemes')}</div>
             <div style={{ marginTop: 4, fontSize: 12, color: '#333' }}>
-              {snapshot.timing.activatedLifeAreas.join(' · ')}
+              {snapshot.timing.activatedLifeAreas.map(activatedAreaLabel).join(' · ')}
             </div>
           </div>
         ) : null}
@@ -231,8 +224,8 @@ export function PersonalReportPrintView({
 
       <section style={{ marginBottom: 20 }}>
         <div className="personal-print-section-header">
-          <h2 style={sectionTitle}>{t('parashari.title')}</h2>
-          <p style={{ margin: '0 0 10px', fontSize: 11, color: MUTED }}>{t('parashari.subtitle')}</p>
+          <h2 style={sectionTitle}>{t('insight.title')}</h2>
+          <p style={{ margin: '0 0 10px', fontSize: 11, color: MUTED }}>{t('insight.subtitle')}</p>
         </div>
         {snapshot.parashari.sections.map((section) => {
           const locked = section.tier === 'premium' && !premiumUnlocked;

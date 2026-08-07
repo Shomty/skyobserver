@@ -1,6 +1,6 @@
 import { PERSONAL_READING_VERSION } from './personalFingerprint';
 
-export const PERSONAL_GUIDANCE_PROMPT_VERSION = 1;
+export const PERSONAL_GUIDANCE_PROMPT_VERSION = 3;
 
 export function personalGuidanceFingerprint(birthFingerprint: string): string {
   return [

@@ -52,6 +52,11 @@ export interface PersonalSnapshot {
     lagnaLordHouse: number;
     element: string;
     guna: string;
+    /** Plain-language display — no sign names in UI */
+    outerStyle: string;
+    emotionalStyle: string;
+    driveStyle: string;
+    identityFocus: string;
   };
   scores: {
     innerStrength: PersonalScore;
@@ -68,6 +73,8 @@ export interface PersonalSnapshot {
     activeSudarshanaHouse: number;
     activeLifeArea: string;
     currentPeriodLord: string;
+    currentChapterTheme: string;
+    activeYearFocus: string;
     activatedLifeAreas: string[];
   };
   parashari: ParashariAnalysis;

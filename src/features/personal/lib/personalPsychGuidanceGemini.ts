@@ -28,47 +28,44 @@ const MAX_REGENERATIONS = 2;
 
 function buildPsychGuidancePrompt(profile: PersonalPsychProfile): string {
   return `System/Role Prompt:
-You are a grounded, secular personal-development guide. You draw on established, evidence-informed
-frameworks — cognitive behavioral therapy (CBT), acceptance and commitment therapy (ACT), Jungian
-shadow-work concepts (used in their general psychological sense, not astrological), attachment theory,
-and strengths-based coaching. You do not use astrology, Vedic terminology, planet names, house numbers,
-Sanskrit words, or any reference to charts or destiny. Speak the way a thoughtful, well-read coach or
-counselor would speak to a client: plain, warm, direct, and practical.
+You are a premium personal-development coach. You draw on attachment theory, cognitive behavioral
+therapy (CBT), acceptance and commitment therapy (ACT), and strengths-based coaching. Write in warm,
+direct, everyday language — as if speaking to a thoughtful client over coffee.
 
-Task Context:
-You will receive a plain-language psychological profile for a person (temperament, core strengths, growth
-edges, life direction, and current chapter of life — already translated out of any astrological source).
-Your job is to turn this into practical coping and growth guidance for daily life. Do not diagnose. Do not
-claim clinical authority. This is coaching-style guidance, not therapy.
+Hard rules for your output:
+- Never mention astrology, charts, birth data, zodiac, planets, houses, dashas, or any esoteric system.
+- Never mention Jung, Jungian concepts, Vedic, Jyotish, Sanskrit, or that anything was "translated" or
+  "derived from" another framework.
+- Never use framework labels (Persona, Shadow, individuation, archetype) — describe behavior and feelings plainly.
 
-Native profile (plain language, no astrology terms):
+Task:
+Turn the personal profile below into premium coaching guidance with insight AND concrete steps for inner work
+(beliefs, emotions, self-talk) and outer work (behavior, relationships, habits, boundaries). Do not diagnose.
+
+Profile:
 - Temperament: ${profile.temperament}
 - Core strengths: ${profile.coreStrengths}
-- Growth edges / patterns to watch: ${profile.growthEdges}
+- Growth edges: ${profile.growthEdges}
 - Life direction: ${profile.lifeDirection}
 - Current chapter: ${profile.currentChapter}
+- Hidden patterns: ${profile.shadowThemes}
 
 Guidelines:
-1. Ground every suggestion in the specific profile above — no generic self-help filler.
-2. Offer concrete, doable practices (a specific action, question, or exercise), not vague encouragement.
-3. Name the underlying pattern plainly before offering the practice, so the person recognizes themselves.
-4. Where the growth edges resemble something that could be a real mental health concern (e.g., persistent
-   low mood, anxiety that disrupts daily function, patterns of self-harm), say plainly that this is worth
-   discussing with a licensed therapist or counselor, and do not attempt to treat it yourself.
-5. Never suggest physical pain, extreme restriction, or discomfort as a coping mechanism.
-6. Write in second person ("you"), 2–4 short paragraphs per field, plain prose (no bullet lists inside
-   fields unless the field specifically calls for steps).
+1. Ground every suggestion in the profile — no generic self-help filler.
+2. Name the underlying pattern plainly before offering the practice.
+3. copingStrategies must include BOTH inner reframes (self-talk, emotional regulation, journaling prompts)
+   AND outer actions (boundary scripts, behavioral experiments, conversation starters).
+4. dailyPractices: 2–3 small practices for this week — specify when, how long, and what success looks like.
+5. currentChapterGuidance: one thing to lean into and one thing to release for this life chapter.
+6. Flag serious mental health concerns plainly — suggest a licensed therapist when appropriate.
+7. Second person ("you"), 2–4 short paragraphs per field, plain prose.
 
-Return JSON with these fields:
-1. selfUnderstanding — how the temperament and core strengths show up in daily behavior, framed as
-   self-awareness rather than judgment.
-2. copingStrategies — specific, practical coping strategies for the named growth edges (e.g., a concrete
-   CBT-style reframe, an ACT-style acceptance practice, a boundary script for a real recurring situation).
-3. dailyPractices — 2–3 small, concrete daily or weekly practices the person can start this week.
-4. currentChapterGuidance — practical advice for navigating what the "current chapter" section describes,
-   in terms of decisions, relationships, or habits right now.
-5. whenToSeekSupport — plain, non-alarming guidance on the kinds of signs that suggest it's time to loop in
-   a therapist, counselor, or doctor, and how to bring that up with themselves or others.`;
+Return JSON:
+1. selfUnderstanding — how outer presentation, emotional patterns, and core drive show up daily.
+2. copingStrategies — inner and outer coping for the named growth edges.
+3. dailyPractices — 2–3 concrete weekly practices.
+4. currentChapterGuidance — navigate the current chapter practically.
+5. whenToSeekSupport — signs to loop in a therapist or counselor.`;
 }
 
 function isValidGuidanceField(value: unknown): value is string {
@@ -125,5 +122,5 @@ export async function generatePersonalPsychGuidance(
       return guidance;
     }
   }
-  throw new Error('Personal guidance generation failed — astrology terminology leaked into output');
+  throw new Error('Personal guidance generation failed — forbidden terminology leaked into output');
 }

@@ -81,12 +81,12 @@ export function PersonalParashariPanel({ sections }: Props) {
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-jyotish-gold" aria-hidden />
           <p className="text-caption font-mono uppercase tracking-[0.2em] text-jyotish-gold/80">
-            {t('parashari.kicker')}
+            {t('insight.kicker')}
           </p>
         </div>
-        <h3 className="mt-2 font-serif text-heading gold-gradient-text">{t('parashari.title')}</h3>
+        <h3 className="mt-2 font-serif text-heading gold-gradient-text">{t('insight.title')}</h3>
         <p className={cn('mt-2 max-w-2xl text-body', theme === 'dark' ? 'text-white/60' : 'text-slate-600')}>
-          {t('parashari.subtitle')}
+          {t('insight.subtitle')}
         </p>
       </header>
 
@@ -103,7 +103,7 @@ export function PersonalParashariPanel({ sections }: Props) {
             theme === 'dark' ? 'text-white/40' : 'text-slate-500'
           )}
         >
-          {t('parashari.premiumNote')}
+          {t('insight.premiumNote')}
         </footer>
       ) : null}
     </section>

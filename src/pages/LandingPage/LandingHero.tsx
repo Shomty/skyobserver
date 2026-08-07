@@ -52,11 +52,14 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onOpenAuth, children }
 
           <h1
             className={cn(
-              'landing-animate-fade-up landing-animate-delay-1 max-w-3xl font-serif text-[clamp(4rem,9vw,7.7rem)] font-medium italic leading-[0.82] tracking-[-0.045em] motion-reduce:animate-none',
+              'landing-animate-fade-up landing-animate-delay-1 max-w-3xl motion-reduce:animate-none',
               isDark ? 'text-[#ede8f5]' : 'text-ink-primary'
             )}
           >
-            See the pattern behind your time.
+            <span className="landing-kicker mb-3 block not-italic">Your Soul Blueprint</span>
+            <span className="block font-serif text-[clamp(4rem,9vw,7.7rem)] font-medium italic leading-[0.82] tracking-[-0.045em]">
+              See the pattern behind your time.
+            </span>
           </h1>
 
           <p

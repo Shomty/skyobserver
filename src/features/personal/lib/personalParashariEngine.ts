@@ -1,5 +1,17 @@
 import type { PersonalReading } from './personalReading';
-import { lifeAreaForHouse } from './personalConstants';
+import {
+  agreementNarrative,
+  alignmentNarrative,
+  blindSpotLabel,
+  chapterThemeLong,
+  ENERGY_BASELINE,
+  ELEMENT_STYLE,
+  lifeAreaShort,
+  psychFunction,
+  signStyle,
+  strengthLabel,
+  triangulationLayerLabel,
+} from './personalPsychLabels';
 
 export type PremiumTier = 'free' | 'premium';
 
@@ -19,64 +31,87 @@ export interface ParashariAnalysis {
 
 function personalitySection(reading: PersonalReading): ParashariSection {
   const { lagna, moon, sun, alignment, strengths, blindSpots } = reading.personality;
+  const outer = `${ELEMENT_STYLE[lagna.element] ?? 'distinctive presence'}, ${ENERGY_BASELINE[lagna.guna] ?? 'with a mixed energy baseline'}`;
+
   const paragraphs = [
-    `Your Ascendant in ${lagna.sign} (${lagna.element}, ${lagna.guna} guna) shapes how you meet the world physically. Lagna lord ${lagna.lord} in the ${lagna.lordHouse} house orients identity around ${lifeAreaForHouse(lagna.lordHouse).toLowerCase()}.`,
-    `Moon in ${moon.sign} (house ${moon.house}, ${moon.nakshatra ?? '—'} nakshatra) governs emotional needs and instinctual reactions. Sun in ${sun.sign} (house ${sun.house}) carries vitality, ego, and soul-purpose expression.`,
-    alignment === 'aligned'
-      ? 'Lagna, Moon, and Sun share compatible tones — outer presentation, emotional world, and core vitality pull together.'
-      : alignment === 'tension'
-        ? 'Lagna, Moon, and Sun sit in distinct signs — the Personality Wheel shows real inner/outer tension to integrate rather than force into one story.'
-        : 'Two of the three Personality Wheel layers agree; the third adds nuance rather than contradiction.',
+    `Your outer self reads as ${outer}. You meet the world through ${signStyle(lagna.sign)} energy — the first impression and social mask others receive before they know you deeply.`,
+    `Your emotional self processes through ${signStyle(moon.sign)} patterns — reactive before reflective when stressed, carrying attachment and memory beneath conscious choice.`,
+    `Your core drive expresses ${signStyle(sun.sign)} vitality — the conscious will and sense of purpose that fuels identity when you feel most alive.`,
+    alignmentNarrative(alignment),
+    `Identity development concentrates on ${lifeAreaShort(lagna.lordHouse)} — how you build selfhood runs through this life domain.`,
   ];
 
   const bullets: string[] = [];
   if (strengths.length > 0) {
     bullets.push(
-      ...strengths.slice(0, 4).map((s) => `${s.planet}: ${s.reason} (house ${s.house})`),
+      ...strengths.slice(0, 4).map((s) => `${strengthLabel(s.reason)} — especially in ${lifeAreaShort(s.house)}.`),
     );
   }
   if (blindSpots.length > 0) {
     bullets.push(
-      ...blindSpots.slice(0, 3).map((b) => `${b.planet}: ${b.reasons.join(', ')} (house ${b.house})`),
+      ...blindSpots.slice(0, 3).map((b) => {
+        const labels = b.reasons.map(blindSpotLabel).join(' and ');
+        return `Growth edge: ${labels} — watch for this in ${lifeAreaShort(b.house)}.`;
+      }),
     );
   }
 
   return {
     id: 'personality',
     tier: 'free',
-    title: 'Personality Wheel',
-    subtitle: 'D1 · Lagna, Moon, Sun triad',
-    teaser: `${lagna.sign} rising · Moon ${moon.sign} · Sun ${sun.sign}`,
+    title: 'Outer Self & Temperament',
+    subtitle: 'Outer self · emotional self · core drive',
+    teaser: `${signStyle(lagna.sign).split(',')[0]} · ${signStyle(moon.sign).split(',')[0]} · ${signStyle(sun.sign).split(',')[0]}`,
     paragraphs,
     bullets: bullets.length > 0 ? bullets : undefined,
   };
 }
 
-function d9Section(reading: PersonalReading): ParashariSection {
+function innerSelfSection(reading: PersonalReading): ParashariSection {
   const { vargottama, strengthChecks, relationship } = reading.d9;
   const paragraphs = [
     vargottama.length > 0
-      ? `Vargottama planets (${vargottama.join(', ')}) hold identical signs in D1 and D9 — extraordinary resilience and unshakeable dignity in those themes.`
-      : 'No Vargottama planets in this chart — inner strength must be built through conscious practice rather than default grace.',
-    `Upapada Lagna in ${relationship.upapada.sign} (house ${relationship.upapada.house}) carries ${relationship.upapada.netInfluence} influence for marriage and long-term union.`,
-    `D9 7th house in ${relationship.d9Seventh.sign} — lord ${relationship.d9Seventh.lord}${relationship.d9Seventh.lordHouse ? ` in house ${relationship.d9Seventh.lordHouse}` : ''} describes the spouse's enduring nature.`,
+      ? 'Certain core traits hold equally in public and private life — what you show and what you are underneath align in key areas, giving unshakeable dignity there.'
+      : 'Your inner and outer selves diverge in places — inner strength must be built through conscious practice rather than assumed by default.',
+    relationship.upapada.netInfluence === 'benefic'
+      ? 'Long-term partnership patterns carry supportive, harmonizing energy — union can stabilize you when chosen with patience.'
+      : relationship.upapada.netInfluence === 'malefic'
+        ? 'Long-term partnership may face structural tests or delays — patience, clear communication, and realistic expectations matter more than idealized timing.'
+        : 'Partnership themes carry mixed signals — both attraction and tests coexist; clarity about needs prevents repeating old patterns.',
+    'Intimate bonding style blends devotion with the life areas where you feel most privately yourself — how you attach behind closed doors may differ from how you show up in public.',
   ];
 
   const hidden = strengthChecks.find((s) => s.verdict === 'hidden-weakness');
   if (hidden) {
     paragraphs.push(
-      `${hidden.planet} as ${hidden.role} shows visible D1 promise with weaker D9 delivery — build inner capacity before expecting outer recognition in that area.`,
+      'Early promise or visible competence may outpace what holds up under sustained pressure — build inner capacity before expecting lasting outer results in that domain.',
     );
   }
+
+  const bullets = strengthChecks.map((s) => {
+    if (s.verdict === 'strengthened') {
+      return 'Inner resilience forged through early friction — what looked like weakness became a deep reserve.';
+    }
+    if (s.verdict === 'hidden-weakness') {
+      return 'Visible promise exceeds private endurance here — slow down and build foundation.';
+    }
+    if (s.verdict === 'confirmed') {
+      return 'Public and private selves confirm each other — reliable strength.';
+    }
+    return 'Inner pattern still forming — conscious practice will clarify it.';
+  });
 
   return {
     id: 'd9',
     tier: 'premium',
-    title: 'Inner Self & Marital Destiny',
-    subtitle: 'D9 Navamsha · Upapada Lagna',
-    teaser: `UL ${relationship.upapada.sign} · D9 7th ${relationship.d9Seventh.sign}`,
+    title: 'Inner Self & Intimate Bonds',
+    subtitle: 'Private identity · attachment · partnership',
+    teaser:
+      relationship.upapada.netInfluence === 'benefic'
+        ? 'Partnership axis supported · inner alignment work available'
+        : 'Partnership themes need patience · inner alignment work available',
     paragraphs,
-    bullets: strengthChecks.map((s) => `${s.planet} (${s.role}): ${s.verdict}`),
+    bullets,
   };
 }
 
@@ -84,96 +119,97 @@ function missionSection(reading: PersonalReading): ParashariSection {
   const { atmakaraka, ninthHouse, rahuKetu } = reading.lifeMission;
   const paragraphs = [
     atmakaraka
-      ? `Atmakaraka ${atmakaraka.planet} in ${atmakaraka.sign} (house ${atmakaraka.house}${atmakaraka.d9Sign ? `; D9 ${atmakaraka.d9Sign}${atmakaraka.d9Dignity ? `, ${atmakaraka.d9Dignity}` : ''}` : ''}) marks the soul's core lesson — the drive you are here to work through, by traditional Jaimini convention.`
-      : 'Atmakaraka could not be resolved — life-mission read relies more on the 9th house and nodes.',
-    `9th house (dharma) in ${ninthHouse.sign} — lord ${ninthHouse.lord} in house ${ninthHouse.lordHouse} points to how belief, teachers, and fortune enter your story.`,
-    `Rahu in the ${rahuKetu.rahu.house} house pulls growth toward ${lifeAreaForHouse(rahuKetu.rahu.house).toLowerCase()}; Ketu in the ${rahuKetu.ketu.house} house marks what is already familiar and may be over-relied upon.`,
+      ? `Your deepest life lesson centers on ${psychFunction(atmakaraka.planet)} — not a job title, but a quality of being you are here to develop through lived experience.`
+      : 'Core soul-lesson indicators were ambiguous — life purpose reads more through meaning, belief, and where growth pulls you next.',
+    'Meaning, mentors, and guiding philosophy enter your story through teachers, worldview, and the beliefs you eventually claim as your own.',
+    `You are pulled to grow into unfamiliar territory around ${lifeAreaShort(rahuKetu.rahu.house)}, while releasing over-reliance on what already feels familiar in ${lifeAreaShort(rahuKetu.ketu.house)}.`,
+    ninthHouse.occupants.length > 0
+      ? `Your belief-and-purpose axis carries active inner factors — fortune and worldview are not passive background but lived themes.`
+      : 'Purpose unfolds through experience and reflection rather than a single dramatic calling.',
   ];
 
   return {
     id: 'mission',
     tier: 'premium',
-    title: 'Life Mission',
-    subtitle: 'Atmakaraka · 9th house · Rahu–Ketu axis',
-    teaser: atmakaraka ? `AK ${atmakaraka.planet} · Rahu house ${rahuKetu.rahu.house}` : `Rahu house ${rahuKetu.rahu.house}`,
+    title: 'Life Purpose & Direction',
+    subtitle: 'Core lesson · meaning · growth edge',
+    teaser: atmakaraka
+      ? `Central lesson: ${psychFunction(atmakaraka.planet).split(',')[0]}`
+      : `Growth edge: ${lifeAreaShort(rahuKetu.rahu.house)}`,
     paragraphs,
   };
 }
 
 function shadowSection(reading: PersonalReading): ParashariSection {
   const { dusthanaAfflictions, dusthanaAspectAfflictions, saturn, karmic } = reading.shadow;
-  const paragraphs = [
+  const paragraphs: string[] = [
     dusthanaAfflictions.length > 0
-      ? `Key identity planets in dusthana houses: ${dusthanaAfflictions.map((d) => `${d.planet} (${d.role}, house ${d.house})`).join('; ')} — shadow material tied to those themes.`
-      : 'No Lagna lord, Moon, Sun, or AK sits in a dusthana — shadow work is present but not concentrated on the core triad.',
+      ? 'Core identity themes tie to conflict, hidden material, or loss patterns — inner work here is not optional; disowned parts of self return through repetition until integrated.'
+      : 'Hidden patterns are present but not concentrated on your core triad — still worth watching where you avoid discomfort.',
     dusthanaAspectAfflictions.length > 0
-      ? `Dusthana pressure reaches key planets via aspect: ${dusthanaAspectAfflictions.map((a) => `${a.planet} aspected from house ${a.fromDusthana} by ${a.aspectedBy}`).join('; ')}.`
+      ? 'Pressure from struggle-oriented life areas reaches into your sense of self — you may absorb stress before you name it, or notice it first in how you react to others.'
       : null,
     saturn.house
-      ? `Saturn in house ${saturn.house} marks where fear, restriction, and eventual mastery concentrate${saturn.aspectedHouses.length ? ` — aspects houses ${saturn.aspectedHouses.join(', ')}` : ''}.`
-      : 'Saturn placement unavailable.',
-  ];
+      ? `Fear, self-doubt, or avoidance cluster where long-term discipline is required in ${lifeAreaShort(saturn.house)} — the same place eventually becomes mastery if faced directly rather than defended against.`
+      : 'Restriction patterns could not be fully mapped — notice where procrastination masks fear.',
+  ].filter((p): p is string => Boolean(p));
 
   if (karmic.length > 0) {
     paragraphs.push(
-      ...karmic.map(
-        (k) =>
-          `${k.point} (${k.chart}) in house ${k.house} touches ${k.afflicts.join(', ')} — karmic knots where patience and inner work matter more than outward striving.`,
-      ),
+      'Recurring inner knots — places where patience, inner work, and accepting limits matter more than outward striving — often show up as the same argument, job friction, or relationship loop until the underlying fear is named.',
     );
   }
 
   return {
     id: 'shadow',
     tier: 'premium',
-    title: 'Shadow Work',
-    subtitle: 'Dusthanas · Saturn · Gulika/Maandi',
-    teaser: karmic.length > 0 ? `${karmic.length} upagraha knot(s) detected` : 'Core triad largely clear of dusthana placement',
-    paragraphs: paragraphs.filter((p): p is string => Boolean(p)),
+    title: 'Hidden Patterns & Growth Edges',
+    subtitle: 'Blind spots · fear · integration',
+    teaser:
+      karmic.length > 0
+        ? 'Recurring inner knots detected — conscious attention recommended'
+        : 'Hidden patterns present — watch avoidance habits',
+    paragraphs,
   };
 }
 
-function ringDetailSummary(detail: { lord: string; occupants: string[]; aspecting: string[]; influence: string }): string {
-  const parts: string[] = [`lord ${detail.lord}`];
-  if (detail.occupants.length) parts.push(`occupants ${detail.occupants.join(', ')}`);
-  if (detail.aspecting.length) parts.push(`aspected by ${detail.aspecting.join(', ')}`);
-  parts.push(detail.influence);
-  return parts.join('; ');
-}
-
-function sudarshanaSection(reading: PersonalReading): ParashariSection {
+function lifeDomainSection(reading: PersonalReading): ParashariSection {
   const { triangulation, activeYear } = reading.sudarshana;
   const paragraphs = [
-    'Sudarshana Chakra reads the same life areas from Lagna (body), Moon (mind), and Sun (soul). Agreement across all three rings marks genuine strength; affliction repeating marks load-bearing blind spots.',
+    'Your life domains are read from three lenses — how you act (body and behavior), how you feel (mind and emotion), and what drives purpose (will and direction). Agreement across all three marks genuine strength; repetition of friction marks load-bearing blind spots.',
     ...triangulation.map((t) => {
-      return `H${t.house} (${t.lifeArea.split(',')[0]}): Lagna ${ringDetailSummary(t.lagna)} | Chandra ${ringDetailSummary(t.chandra)} | Surya ${ringDetailSummary(t.surya)} → ${t.agreement}`;
+      const area = t.lifeArea.split(',')[0];
+      return `${area}: ${triangulationLayerLabel('lagna')} — ${t.lagna.influence}; ${triangulationLayerLabel('chandra')} — ${t.chandra.influence}; ${triangulationLayerLabel('surya')} — ${t.surya.influence}. Overall: ${agreementNarrative(t.agreement)}.`;
     }),
-    `Active Sudarshana year (age ${reading.sudarshana.age}): house ${activeYear.house} — ${activeYear.lifeArea.split(',')[0]}. Lagna: ${ringDetailSummary(activeYear.lagna)}; Chandra: ${ringDetailSummary(activeYear.chandra)}; Surya: ${ringDetailSummary(activeYear.surya)}.`,
+    `This year (age ${reading.sudarshana.age}) spotlights ${activeYear.lifeArea.split(',')[0].toLowerCase()} — decisions, habits, and relationships now are training grounds for that focus.`,
   ];
 
   return {
     id: 'sudarshana',
     tier: 'free',
-    title: 'Sudarshana Life Areas',
-    subtitle: 'Lagna · Chandra · Surya triangulation',
-    teaser: `Active year: house ${activeYear.house}`,
+    title: 'Life Domain Map',
+    subtitle: 'Behavior · emotion · purpose',
+    teaser: `Current focus: ${activeYear.lifeArea.split(',')[0].toLowerCase()}`,
     paragraphs,
   };
 }
 
-function dashaSection(reading: PersonalReading): ParashariSection {
+function chapterSection(reading: PersonalReading): ParashariSection {
   const { dasha } = reading;
+  const mdTheme = chapterThemeLong(dasha.mahadashaLord);
+  const adTheme = chapterThemeLong(dasha.antardashaLord);
+
   return {
     id: 'dasha',
     tier: 'free',
-    title: 'Timing · Vimshottari Dasha',
-    subtitle: 'Active Mahadasha and Antardasha life areas',
-    teaser: `${dasha.mahadashaLord} MD · ${dasha.antardashaLord} AD`,
+    title: 'Current Life Chapter',
+    subtitle: 'Major period · active window · activated domains',
+    teaser: `${mdTheme.split('—')[0].trim()} · ${adTheme.split('—')[0].trim()}`,
     paragraphs: [
-      `Mahadasha lord ${dasha.mahadashaLord} activates (D1): ${dasha.mahadashaLifeAreas.join('; ') || 'general themes'}.`,
-      `Antardasha lord ${dasha.antardashaLord} triggers (D1): ${dasha.antardashaLifeAreas.join('; ') || 'supporting themes'} within that major period.`,
-      `D9 lordship adds inner themes — MD: ${dasha.mahadashaLifeAreasD9.join('; ') || '—'}; AD: ${dasha.antardashaLifeAreasD9.join('; ') || '—'}.`,
-      'Cross-reference these areas with the Sudarshana active house for what is most alive this year versus the lifelong baseline.',
+      `Your major life chapter emphasizes ${mdTheme}. This is the broad backdrop — the themes that color multiple years of decisions, relationships, and identity development.`,
+      `Within that chapter, the active window spotlights ${adTheme} — what feels most alive right now sits inside this narrower focus.`,
+      `Activated life domains include: ${dasha.activatedLifeAreas.slice(0, 4).map((a) => a.split(',')[0].toLowerCase()).join('; ') || 'general integration themes'}.`,
+      'Cross-reference these domains with your current-year focus above — what is most urgent this year may be a subset of the longer chapter you are living through.',
     ],
   };
 }
@@ -182,11 +218,11 @@ export function buildParashariAnalysis(reading: PersonalReading): ParashariAnaly
   return {
     sections: [
       personalitySection(reading),
-      d9Section(reading),
+      innerSelfSection(reading),
       missionSection(reading),
       shadowSection(reading),
-      sudarshanaSection(reading),
-      dashaSection(reading),
+      lifeDomainSection(reading),
+      chapterSection(reading),
     ],
   };
 }

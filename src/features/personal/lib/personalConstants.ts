@@ -42,20 +42,20 @@ export function signGuna(signNumber: SignNumber): SignGuna {
   return SIGN_GUNA[signNumber];
 }
 
-/** House significations for personal life-area naming (Section 6 of reading rules). */
+/** House significations for personal life-area naming — plain language only. */
 export const HOUSE_LIFE_AREAS: Record<number, string> = {
   1: 'Self, body, temperament, overall vitality',
   2: 'Wealth, family, speech, accumulated resources',
   3: 'Courage, siblings, effort, short journeys, communication',
   4: 'Home, mother, emotional foundation, inner peace',
-  5: 'Creativity, intelligence, children, romance, past-life merit',
+  5: 'Creativity, intelligence, children, romance, innate gifts',
   6: 'Conflict, debt, illness, service, daily obstacles',
   7: 'Partnership, marriage, business, the other',
   8: 'Transformation, hidden matters, longevity, sudden change',
-  9: 'Dharma, higher belief, teachers, fortune, long journeys',
+  9: 'Meaning, higher belief, teachers, fortune, long journeys',
   10: 'Career and public action',
   11: 'Gains, income, networks, aspirations, elder siblings',
-  12: 'Loss, isolation, subconscious, spirituality, foreign lands, liberation',
+  12: 'Loss, isolation, subconscious, retreat, foreign lands, inner freedom',
 };
 
 export function lifeAreaForHouse(house: number): string {

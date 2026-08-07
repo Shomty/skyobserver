@@ -162,7 +162,7 @@ function PersonalCalculatorPageContent() {
               theme === 'dark' ? 'text-white/40 hover:text-white/70' : 'text-slate-500 hover:text-slate-700'
             )}
           >
-            ← Vedic Sky
+            ← Soul Blueprint
           </Link>
           <h1 className="font-serif text-display gold-gradient-text">{t('page.title')}</h1>
           <p className={cn('text-body max-w-xl', theme === 'dark' ? 'text-white/60' : 'text-slate-600')}>
@@ -265,7 +265,7 @@ function PersonalCalculatorPageContent() {
               </div>
             </div>
 
-            <PersonalReportBody snapshot={snapshot} positions={positions} guidance={guidanceState} />
+            <PersonalReportBody snapshot={snapshot} guidance={guidanceState} />
 
             {shareUrl ? (
               <div className="flex justify-center pt-2 print:hidden">
@@ -278,7 +278,6 @@ function PersonalCalculatorPageContent() {
               birthPlaceLabel={form.values.birthPlace}
               cachedAt={cachedAt}
               snapshot={snapshot}
-              positions={positions}
               guidance={guidanceState}
             />
           </div>

@@ -7,7 +7,7 @@ import { validateField, validatePlaceResolution } from '../../gift/config/schema
 import type { FieldId } from '../../gift/types';
 import type { PlanetPosition } from '../../../vedic-utils';
 import { withCareerKaalVelas } from '../../career/lib/careerKaalVelas';
-import { buildPersonalSnapshot } from '../lib/personalEngine';
+import { buildPersonalSnapshot, rehydratePersonalSnapshot } from '../lib/personalEngine';
 import { personalBirthFingerprint, normalizePersonalEmail } from '../lib/personalFingerprint';
 import { loadPersonalReport, savePersonalReport } from '../lib/personalReportApi';
 import type { PersonalReportLoadResult } from '../lib/personalReportApi';
@@ -131,7 +131,7 @@ export function usePersonalCalculator() {
       }
 
       if (cached?.hit && cached.snapshot && cached.positions && cached.reportId) {
-        setSnapshot(cached.snapshot);
+        setSnapshot(rehydratePersonalSnapshot(cached.snapshot));
         setPositions(cached.positions);
         setReportId(cached.reportId);
         setCachedAt(cached.cachedAt ?? null);
@@ -221,7 +221,7 @@ export function usePersonalCalculator() {
       birthPlaceLabel?: string;
       email?: string;
     }) => {
-      setSnapshot(record.snapshot);
+      setSnapshot(rehydratePersonalSnapshot(record.snapshot));
       setPositions(record.positions);
       setReportId(record.reportId);
       setCachedAt(record.cachedAt ?? null);

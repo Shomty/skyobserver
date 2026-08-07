@@ -6,7 +6,7 @@ export function normalizePersonalEmail(email: string): string {
 }
 
 /** Bump when the personal reading engine produces materially different output. */
-export const PERSONAL_READING_VERSION = 2;
+export const PERSONAL_READING_VERSION = 3;
 
 export function personalBirthFingerprint(
   birthInstant: BirthInstant,

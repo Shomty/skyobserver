@@ -1,41 +1,32 @@
 import type { PersonalReading } from './personalReading';
+import {
+  alignmentNarrative,
+  blindSpotLabel,
+  chapterThemeLong,
+  ELEMENT_STYLE,
+  ENERGY_BASELINE,
+  lifeAreaShort,
+  psychFunction,
+  signStyle,
+  strengthLabel,
+} from './personalPsychLabels';
 
-/** Plain-language psychological profile — input to Section 8 Gemini prompt. No Vedic terms. */
+/** Plain-language psychological profile — input to Gemini guidance prompt. No chart terms. */
 export interface PersonalPsychProfile {
   temperament: string;
   coreStrengths: string;
   growthEdges: string;
   lifeDirection: string;
   currentChapter: string;
+  shadowThemes: string;
 }
-
-const ELEMENT_TRAITS: Record<string, string> = {
-  Fire: 'energetic, direct, and action-oriented',
-  Earth: 'grounded, practical, and steady',
-  Air: 'curious, communicative, and mentally agile',
-  Water: 'sensitive, intuitive, and emotionally attuned',
-};
-
-const GUNA_TRAITS: Record<string, string> = {
-  Sattva: 'with a calm, clarity-seeking baseline',
-  Rajas: 'with a restless, achievement-driven baseline',
-  Tamas: 'with a slow-to-start but deeply persistent baseline',
-};
 
 function temperamentFromReading(reading: PersonalReading): string {
   const { lagna, moon, sun, alignment } = reading.personality;
-  const outer = `${ELEMENT_TRAITS[lagna.element] ?? 'distinctive'} ${GUNA_TRAITS[lagna.guna] ?? ''}`.trim();
-  const emotional = moon.nakshatra
-    ? `Emotionally you process through ${moon.nakshatra}-like instincts — reactive before reflective when stressed.`
-    : 'Your emotional world runs on instinct and memory before logic catches up.';
-  const vitality = `Your core drive shows up as needing to express authority and purpose through how you show up in daily life.`;
-
-  const triad =
-    alignment === 'aligned'
-      ? 'Your outer presentation, emotional needs, and inner drive generally pull in the same direction — what people see matches what you feel inside.'
-      : alignment === 'tension'
-        ? 'There is real tension between how you present, what you feel, and what drives you — integration work matters more than forcing one single story.'
-        : 'Two of your three inner layers agree; the third adds nuance rather than outright contradiction.';
+  const outer = `${ELEMENT_STYLE[lagna.element] ?? 'distinctive'}, ${ENERGY_BASELINE[lagna.guna] ?? 'with a mixed baseline'}`.trim();
+  const emotional = `Emotionally you process through ${signStyle(moon.sign)} patterns — instinct and memory often run ahead of logic when stressed.`;
+  const vitality = `Your core drive shows up as ${signStyle(sun.sign)} energy — needing to express purpose and vitality through how you show up in daily life.`;
+  const triad = alignmentNarrative(alignment);
 
   return `You come across as ${outer}. ${emotional} ${vitality} ${triad}`;
 }
@@ -44,15 +35,7 @@ function strengthsFromReading(reading: PersonalReading): string {
   const parts: string[] = [];
 
   for (const s of reading.personality.strengths.slice(0, 4)) {
-    const label =
-      s.reason === 'exalted'
-        ? 'exceptional natural ability'
-        : s.reason === 'own'
-          ? 'self-assured competence'
-          : s.reason === 'mooltrikona'
-            ? 'focused mastery'
-            : 'unshakeable inner dignity';
-    parts.push(`Natural steadiness in ${label} — you can rely on this under pressure.`);
+    parts.push(`Natural steadiness: ${strengthLabel(s.reason)} — especially in ${lifeAreaShort(s.house)}.`);
   }
 
   if (reading.d9.vargottama.length > 0) {
@@ -71,7 +54,7 @@ function strengthsFromReading(reading: PersonalReading): string {
   const strengthTriangulation = reading.sudarshana.triangulation.filter((t) => t.agreement === 'strength');
   if (strengthTriangulation.length > 0) {
     const areas = strengthTriangulation.map((t) => t.lifeArea.split(',')[0].toLowerCase()).join(', ');
-    parts.push(`Genuine, load-bearing strengths in ${areas} — body, mind, and deeper purpose agree here.`);
+    parts.push(`Genuine, load-bearing strengths in ${areas} — behavior, emotion, and purpose agree here.`);
   }
 
   return parts.length > 0
@@ -83,21 +66,13 @@ function growthEdgesFromReading(reading: PersonalReading): string {
   const parts: string[] = [];
 
   for (const b of reading.personality.blindSpots.slice(0, 3)) {
-    const labels = b.reasons.map((r) =>
-      r === 'debilitated'
-        ? 'self-doubt under pressure'
-        : r === 'combust'
-          ? 'ego overshadowing clear judgment'
-          : r === 'retrograde'
-            ? 'internalized processing that delays outward action'
-            : 'patterns tied to conflict or hidden stress',
-    );
-    parts.push(`Watch for ${labels.join(' and ')} showing up as recurring friction in daily life.`);
+    const labels = b.reasons.map(blindSpotLabel).join(' and ');
+    parts.push(`Watch for ${labels} showing up as recurring friction in ${lifeAreaShort(b.house)}.`);
   }
 
   for (const d of reading.shadow.dusthanaAfflictions) {
     parts.push(
-      'Core identity themes tie to conflict, hidden material, or loss patterns — shadow work is not optional here, it is woven into how you meet the world.',
+      'Core identity themes tie to conflict, hidden material, or loss patterns — patterns you have not fully faced tend to repeat until integrated.',
     );
     void d;
   }
@@ -111,14 +86,14 @@ function growthEdgesFromReading(reading: PersonalReading): string {
 
   if (reading.shadow.saturn.house) {
     parts.push(
-      'Fear, self-doubt, or avoidance cluster where long-term discipline is required — the same place eventually becomes mastery if faced directly.',
+      `Fear, self-doubt, or avoidance cluster in ${lifeAreaShort(reading.shadow.saturn.house)} — the same place eventually becomes mastery if faced directly.`,
     );
   }
 
   const afflictionRings = reading.sudarshana.triangulation.filter((t) => t.agreement === 'affliction');
   if (afflictionRings.length > 0) {
     parts.push(
-      'Load-bearing blind spots repeat across how you act, feel, and define purpose — these are not minor quirks but patterns worth conscious attention.',
+      'Load-bearing blind spots repeat across how you act, feel, and define purpose — these are patterns worth conscious attention, not minor quirks.',
     );
   }
 
@@ -142,23 +117,21 @@ function growthEdgesFromReading(reading: PersonalReading): string {
 
 function lifeDirectionFromReading(reading: PersonalReading): string {
   const parts: string[] = [];
-  const { atmakaraka, ninthHouse, rahuKetu } = reading.lifeMission;
+  const { atmakaraka, rahuKetu } = reading.lifeMission;
 
   if (atmakaraka) {
     parts.push(
-      'Your deepest life lesson centers on mastering the themes of your soul-significator — not a job title, but a quality of being you are here to develop.',
+      `Your deepest life lesson centers on ${psychFunction(atmakaraka.planet)} — a quality of being to develop, not a job title to collect.`,
     );
   }
 
   parts.push(
-    `Meaning, belief, and guidance enter your story through themes of ${ninthHouse.lord ? 'teachers, philosophy, and fortune' : 'higher purpose'}.`,
+    'Meaning, belief, and guidance enter your story through teachers, philosophy, and the worldview you eventually claim as your own.',
   );
 
   parts.push(
-    `You are pulled to grow into unfamiliar territory around ${reading.sudarshana.triangulation.find((t) => t.house === 1)?.lifeArea.split(',')[0].toLowerCase() ?? 'self-definition'}, while releasing over-reliance on what already feels familiar.`,
+    `You are pulled to grow into unfamiliar territory around ${lifeAreaShort(rahuKetu.rahu.house)}, while releasing over-reliance on what already feels familiar in ${lifeAreaShort(rahuKetu.ketu.house)}.`,
   );
-
-  void rahuKetu;
 
   return parts.join(' ');
 }
@@ -166,12 +139,26 @@ function lifeDirectionFromReading(reading: PersonalReading): string {
 function currentChapterFromReading(reading: PersonalReading): string {
   const { dasha, sudarshana } = reading;
   const activeArea = sudarshana.activeYear.lifeArea.split(',')[0].toLowerCase();
-  const dashaAreas = [...new Set([...dasha.mahadashaLifeAreas, ...dasha.antardashaLifeAreas])]
-    .slice(0, 3)
-    .map((a) => a.split(',')[0].toLowerCase())
-    .join(', ');
+  const mdTheme = chapterThemeLong(dasha.mahadashaLord);
+  const adTheme = chapterThemeLong(dasha.antardashaLord);
 
-  return `At age ${sudarshana.age}, this stretch of life spotlights ${activeArea}. The broader period emphasizes ${dashaAreas || 'general life themes'}. Decisions, habits, and relationships now are training grounds for that focus — not a detour from your path.`;
+  return `At age ${sudarshana.age}, this stretch of life spotlights ${activeArea}. The broader chapter emphasizes ${mdTheme}; the active window adds ${adTheme}. Decisions, habits, and relationships now are training grounds for that focus — not a detour from your path.`;
+}
+
+function shadowThemesFromReading(reading: PersonalReading): string {
+  const parts: string[] = [];
+  if (reading.shadow.dusthanaAfflictions.length > 0) {
+    parts.push('Disowned parts of self likely return through conflict, secrecy, or loss themes until integrated.');
+  }
+  if (reading.shadow.karmic.length > 0) {
+    parts.push('Recurring inner knots suggest the same lesson reappears until patience and inner work replace outward striving.');
+  }
+  if (reading.personality.blindSpots.some((b) => b.reasons.includes('retrograde'))) {
+    parts.push('Some processing happens entirely inside before action — honor the delay without using it to avoid necessary steps.');
+  }
+  return parts.length > 0
+    ? parts.join(' ')
+    : 'Hidden patterns are subtle — notice irritation with others, recurring triggers, and where you feel disproportionately reactive.';
 }
 
 export function buildPersonalPsychProfile(reading: PersonalReading): PersonalPsychProfile {
@@ -181,5 +168,6 @@ export function buildPersonalPsychProfile(reading: PersonalReading): PersonalPsy
     growthEdges: growthEdgesFromReading(reading),
     lifeDirection: lifeDirectionFromReading(reading),
     currentChapter: currentChapterFromReading(reading),
+    shadowThemes: shadowThemesFromReading(reading),
   };
 }

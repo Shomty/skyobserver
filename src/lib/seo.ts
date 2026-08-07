@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { absoluteUrl, defaultOgImageUrl, SITE } from './siteConfig';
+import { LANDING_FAQ_ITEMS } from '../pages/LandingPage/lib/faqConfig';
 
 export interface PageMeta {
   title: string;
@@ -153,5 +154,14 @@ export function landingJsonLd(): Array<Record<string, unknown>> {
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
       isPartOf: { '@type': 'WebSite', name: SITE.name, url: SITE.url },
     })),
+    {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: LANDING_FAQ_ITEMS.map(({ question, answer }) => ({
+        '@type': 'Question',
+        name: question,
+        acceptedAnswer: { '@type': 'Answer', text: answer },
+      })),
+    },
   ];
 }
