@@ -26,6 +26,7 @@ export const en = {
 
   'actions.share': 'Share',
   'actions.print': 'Print / PDF',
+  'actions.copyLink': 'Copy link',
   'actions.copied': 'Link copied!',
 
   'share.title': 'My Vedic Career Report',

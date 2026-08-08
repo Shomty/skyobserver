@@ -191,6 +191,14 @@
     @apply bg-gradient-to-r from-jyotish-gold to-celestial-gold bg-clip-text text-transparent font-serif italic;
   }
 
+  .report-hero-name {
+    @apply font-serif text-heading leading-tight text-balance;
+    background: linear-gradient(120deg, #d4af37 0%, #f9e29b 42%, #c9a227 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }

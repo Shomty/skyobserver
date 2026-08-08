@@ -1,5 +1,6 @@
 import { useTheme } from '../../../context/ThemeContext';
 import { cn } from '../../../lib/utils';
+import { reportGlassSegmentTrackClass } from '../../../lib/reportGlassStyles';
 import { t } from '../copy/t';
 import type { CareerViewMode } from '../lib/careerViewMode';
 
@@ -14,11 +15,7 @@ export function CareerViewModeToggle({ mode, onChange, className }: Props) {
 
   return (
     <div
-      className={cn(
-        'inline-flex rounded-xl border p-1',
-        theme === 'dark' ? 'border-white/10 bg-white/[0.04]' : 'border-slate-200 bg-slate-50',
-        className,
-      )}
+      className={cn(reportGlassSegmentTrackClass(theme), className)}
       role="group"
       aria-label={t('viewMode.label')}
     >
@@ -31,11 +28,11 @@ export function CareerViewModeToggle({ mode, onChange, className }: Props) {
             aria-pressed={active}
             onClick={() => onChange(value)}
             className={cn(
-              'min-h-[40px] rounded-lg px-4 text-label font-medium transition',
+              'min-h-[36px] rounded-full px-3.5 text-label font-medium transition',
               active
-                ? 'bg-jyotish-gold text-black shadow-sm'
+                ? 'bg-jyotish-gold/90 text-black shadow-sm'
                 : theme === 'dark'
-                  ? 'text-white/60 hover:text-white/85'
+                  ? 'text-white/55 hover:text-white/85'
                   : 'text-slate-600 hover:text-slate-900',
             )}
           >

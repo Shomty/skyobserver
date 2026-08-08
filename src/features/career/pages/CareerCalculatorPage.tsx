@@ -27,6 +27,8 @@ import { useCareerCalculator } from '../hooks/useCareerCalculator';
 import { CareerViewModeToggle } from '../components/CareerViewModeToggle';
 import { useCareerReportGuidance } from '../hooks/useCareerReportGuidance';
 import { secondaryButtonClass } from '../../gift/components/buttonStyles';
+import { ReportMetaBadge, ReportResultHeader } from '../../../components/report/ReportResultHeader';
+import { reportGlassButtonClass } from '../../../lib/reportGlassStyles';
 
 type SharedLoadState = 'idle' | 'loading' | 'ready' | 'not-found' | 'error';
 
@@ -181,10 +183,14 @@ function CareerCalculatorPageContent() {
           >
             ← Vedic Sky
           </Link>
-          <h1 className="font-serif text-display gold-gradient-text">{t('page.title')}</h1>
-          <p className={cn('text-body max-w-xl', theme === 'dark' ? 'text-white/60' : 'text-slate-600')}>
-            {t('page.subtitle')}
-          </p>
+          {!showReport ? (
+            <>
+              <h1 className="font-serif text-display gold-gradient-text">{t('page.title')}</h1>
+              <p className={cn('text-body max-w-xl', theme === 'dark' ? 'text-white/60' : 'text-slate-600')}>
+                {t('page.subtitle')}
+              </p>
+            </>
+          ) : null}
         </header>
 
         {urlReportId && sharedState === 'loading' ? (
@@ -258,40 +264,30 @@ function CareerCalculatorPageContent() {
                 {t('result.noShareLink')}
               </div>
             ) : null}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between print:hidden">
-              <div className="space-y-2">
-                <h2 className="font-serif text-heading">
-                  {t('result.title')}
-                  {form.values.fullName ? (
-                    <span
-                      className={cn(
-                        'block text-body font-sans mt-1',
-                        theme === 'dark' ? 'text-white/50' : 'text-slate-500'
-                      )}
-                    >
-                      {t('result.for', { name: form.values.fullName })}
-                    </span>
+            <ReportResultHeader
+              kicker={t('page.title')}
+              personName={form.values.fullName}
+              subtitle={t('result.title')}
+              meta={
+                <>
+                  {cachedAt ? (
+                    <ReportMetaBadge>{t('result.savedAt', { date: format(new Date(cachedAt), 'PPp') })}</ReportMetaBadge>
                   ) : null}
-                </h2>
-                {cachedAt ? (
-                  <p className={cn('text-caption', theme === 'dark' ? 'text-white/40' : 'text-slate-400')}>
-                    {t('result.savedAt', { date: format(new Date(cachedAt), 'PPp') })}
-                  </p>
-                ) : null}
-                {premiumUnlocked ? (
-                  <span className="inline-flex rounded-full bg-jyotish-gold/15 px-2.5 py-0.5 text-caption font-medium text-jyotish-gold">
-                    {t('result.premiumUnlocked')}
-                  </span>
-                ) : null}
-              </div>
-              <div className="flex flex-col gap-2 sm:items-end">
-                <CareerViewModeToggle mode={viewMode} onChange={setViewMode} />
-                {shareUrl ? <CareerReportActions shareUrl={shareUrl} onPrint={handlePrint} /> : null}
-                <button type="button" onClick={handleRecalculate} className={secondaryButtonClass(theme)}>
-                  {t('page.newReport')}
-                </button>
-              </div>
-            </div>
+                  {premiumUnlocked ? (
+                    <ReportMetaBadge accent="gold">{t('result.premiumUnlocked')}</ReportMetaBadge>
+                  ) : null}
+                </>
+              }
+              actions={shareUrl ? <CareerReportActions shareUrl={shareUrl} onPrint={handlePrint} /> : null}
+              toolbar={
+                <>
+                  <CareerViewModeToggle mode={viewMode} onChange={setViewMode} />
+                  <button type="button" onClick={handleRecalculate} className={reportGlassButtonClass(theme, true)}>
+                    {t('page.newReport')}
+                  </button>
+                </>
+              }
+            />
 
             <CareerReportBody
               snapshot={snapshot}
@@ -300,12 +296,6 @@ function CareerCalculatorPageContent() {
               vedicGuidance={reportGuidance.vedic}
               plainGuidance={reportGuidance.plain}
             />
-
-            {shareUrl ? (
-              <div className="flex justify-center pt-2 print:hidden">
-                <CareerReportActions shareUrl={shareUrl} onPrint={handlePrint} />
-              </div>
-            ) : null}
 
             <CareerReportPrintView
               fullName={form.values.fullName}

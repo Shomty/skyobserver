@@ -30,6 +30,7 @@ export const en = {
     'Your report was calculated but the share link could not be saved. Refresh and try again.',
 
   'actions.share': 'Share',
+  'actions.copyLink': 'Copy link',
   'actions.copied': 'Link copied!',
 
   'share.title': 'My Daily Vedic Energy Report',

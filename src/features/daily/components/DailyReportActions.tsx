@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
-import { Check, Link2 } from 'lucide-react';
+import { Check, Link2, Share2 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
-import { cn } from '../../../lib/utils';
+import { reportGlassButtonClass } from '../../../lib/reportGlassStyles';
 import { t } from '../copy/t';
 
 interface Props {
@@ -27,17 +27,24 @@ export function DailyReportActions({ shareUrl }: Props) {
     window.setTimeout(() => setCopied(false), 2000);
   }, [shareUrl]);
 
-  const btnClass = cn(
-    'inline-flex min-h-[44px] items-center gap-2 rounded-xl border px-4 text-label font-medium transition active:scale-[0.98]',
-    theme === 'dark'
-      ? 'border-white/10 bg-white/[0.04] text-white/80 hover:border-jyotish-gold/40'
-      : 'border-slate-200 bg-white text-slate-700 hover:border-jyotish-gold/50',
-  );
+  const handleCopyLink = useCallback(async () => {
+    await navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  }, [shareUrl]);
+
+  const btnClass = reportGlassButtonClass(theme);
 
   return (
-    <button type="button" onClick={() => void handleShare()} className={btnClass}>
-      {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Link2 className="h-4 w-4" />}
-      {copied ? t('actions.copied') : t('actions.share')}
-    </button>
+    <>
+      <button type="button" onClick={() => void handleShare()} className={btnClass}>
+        <Share2 className="h-4 w-4" />
+        {t('actions.share')}
+      </button>
+      <button type="button" onClick={() => void handleCopyLink()} className={btnClass} title={shareUrl}>
+        {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Link2 className="h-4 w-4" />}
+        {copied ? t('actions.copied') : t('actions.copyLink')}
+      </button>
+    </>
   );
 }
