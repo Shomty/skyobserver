@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'crypto';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
+import { type EmailIndexPolicy, writeEmailIndexFile } from './emailIndex.ts';
 
 const CACHE_DIR = path.resolve(process.cwd(), 'data/year-reports');
 const MAX_SNAPSHOT_BYTES = 768_000;
@@ -84,14 +85,19 @@ async function readEmailIndex(email: string): Promise<EmailIndex | null> {
   }
 }
 
-async function writeEmailIndex(email: string, reportId: string, fingerprint: string): Promise<void> {
+async function writeEmailIndex(
+  email: string,
+  reportId: string,
+  fingerprint: string,
+  policy: EmailIndexPolicy,
+): Promise<boolean> {
   const index: EmailIndex = {
     email: normalizeEmail(email),
     reportId,
     fingerprint,
     updatedAt: new Date().toISOString(),
   };
-  await writeFile(emailIndexPath(email), JSON.stringify(index), 'utf8');
+  return writeEmailIndexFile(emailIndexPath(email), index, policy);
 }
 
 export type EmailLookupResult =
@@ -111,6 +117,7 @@ export async function lookupYearReportByEmail(email: string, fingerprint: string
 
 export async function writeYearReport(
   entry: Omit<StoredYearReport, 'reportId' | 'cachedAt' | 'updatedAt'> & { reportId?: string },
+  indexPolicy: EmailIndexPolicy,
 ): Promise<StoredYearReport> {
   await mkdir(CACHE_DIR, { recursive: true });
   const email = normalizeEmail(entry.email);
@@ -138,7 +145,7 @@ export async function writeYearReport(
   const serialized = JSON.stringify(stored);
   if (serialized.length > MAX_SNAPSHOT_BYTES) throw new Error('Report payload too large');
   await writeFile(reportPath(reportId), serialized, 'utf8');
-  await writeEmailIndex(email, reportId, entry.fingerprint);
+  await writeEmailIndex(email, reportId, entry.fingerprint, indexPolicy);
   return stored;
 }
 

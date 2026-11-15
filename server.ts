@@ -47,10 +47,14 @@ import {
 import { installServerRuntime } from './server/runtime.ts';
 import { createMcpRouter } from './server/mcp/router.ts';
 import {
+  type AuthUser,
   createFirebaseTokenVerifier,
+  createOptionalFirebaseUser,
   createRequireFirebaseUser,
+  isVerifiedEmailOwner,
   resolveFirebaseProjectId,
 } from './server/firebaseAuth.ts';
+import type { EmailIndexPolicy } from './server/emailIndex.ts';
 import { createGeminiProxyRouter, geminiLimitsFromEnv } from './server/geminiProxy.ts';
 import { createAiWriteGuard } from './server/aiWriteGuard.ts';
 
@@ -148,7 +152,13 @@ async function startServer() {
 
   // Browser Gemini proxy — signed-in users only, allowlisted request shape,
   // per-user and global quotas. Parses its own (smaller) body after auth.
-  const requireUser = createRequireFirebaseUser(createFirebaseTokenVerifier(resolveFirebaseProjectId()));
+  const verifyFirebaseToken = createFirebaseTokenVerifier(resolveFirebaseProjectId());
+  const requireUser = createRequireFirebaseUser(verifyFirebaseToken);
+  const optionalUser = createOptionalFirebaseUser(verifyFirebaseToken);
+  // Only the verified owner of an email may repoint its cached report; anyone
+  // else can claim an email that has no report yet, never replace one.
+  const indexPolicyFor = (res: express.Response, email: string): EmailIndexPolicy =>
+    isVerifiedEmailOwner(res.locals.user as AuthUser | undefined, email) ? 'overwrite' : 'claim-if-absent';
   app.use('/api/gemini', createGeminiProxyRouter({ ai, ipLimit: rateLimit, requireUser, limits: geminiLimitsFromEnv() }));
   const guardAiWrites = createAiWriteGuard(requireUser);
 
@@ -547,7 +557,7 @@ ${urls}
     }
   });
 
-  app.post('/api/career/report', rateLimit, guardAiWrites, async (req, res) => {
+  app.post('/api/career/report', rateLimit, optionalUser, guardAiWrites, async (req, res) => {
     const body = req.body as {
       email?: string;
       fingerprint?: string;
@@ -585,7 +595,7 @@ ${urls}
           birthInstant: body.birthInstant,
           snapshot: body.snapshot,
           positions: body.positions,
-        });
+        }, indexPolicyFor(res, email));
 
         if (DEBUG_SERVER_LOGS) {
           serverLog('log', 'career-report', 'Report saved', { reportId: stored.reportId, email: stored.email });
@@ -705,7 +715,7 @@ ${urls}
     }
   });
 
-  app.post('/api/personal/report', rateLimit, guardAiWrites, async (req, res) => {
+  app.post('/api/personal/report', rateLimit, optionalUser, guardAiWrites, async (req, res) => {
     const body = req.body as {
       email?: string;
       fingerprint?: string;
@@ -741,7 +751,7 @@ ${urls}
           birthInstant: body.birthInstant,
           snapshot: body.snapshot,
           positions: body.positions,
-        });
+        }, indexPolicyFor(res, email));
 
         if (DEBUG_SERVER_LOGS) {
           serverLog('log', 'personal-report', 'Report saved', { reportId: stored.reportId, email: stored.email });
@@ -836,7 +846,7 @@ ${urls}
     }
   });
 
-  app.post('/api/daily/report', rateLimit, guardAiWrites, async (req, res) => {
+  app.post('/api/daily/report', rateLimit, optionalUser, guardAiWrites, async (req, res) => {
     const body = req.body as {
       email?: string;
       fingerprint?: string;
@@ -880,7 +890,7 @@ ${urls}
           birthInstant: body.birthInstant,
           snapshot: body.snapshot,
           positions: body.positions,
-        });
+        }, indexPolicyFor(res, email));
 
         if (DEBUG_SERVER_LOGS) {
           serverLog('log', 'daily-report', 'Report saved', { reportId: stored.reportId, email: stored.email });
@@ -994,7 +1004,7 @@ ${urls}
     }
   });
 
-  app.post('/api/year/report', rateLimit, guardAiWrites, async (req, res) => {
+  app.post('/api/year/report', rateLimit, optionalUser, guardAiWrites, async (req, res) => {
     const body = req.body as {
       email?: string;
       fingerprint?: string;
@@ -1036,7 +1046,7 @@ ${urls}
           birthInstant: body.birthInstant,
           snapshot: body.snapshot,
           positions: body.positions,
-        });
+        }, indexPolicyFor(res, email));
         return res.json({ saved: true, hit: false, reportId: stored.reportId, cachedAt: stored.updatedAt });
       }
 

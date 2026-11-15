@@ -57,6 +57,32 @@ function readBearer(req: Request): string | null {
   return match ? match[1] : null;
 }
 
+/** True when `user` is signed in with a verified email equal to `email` (case-insensitive). */
+export function isVerifiedEmailOwner(user: AuthUser | undefined, email: string): boolean {
+  const claimed = email.trim().toLowerCase();
+  return Boolean(user?.emailVerified && user.email && claimed && user.email.toLowerCase() === claimed);
+}
+
+/**
+ * Express middleware for endpoints open to everyone that behave differently for
+ * a signed-in caller: sets `res.locals.user` when a valid, non-anonymous token is
+ * presented and otherwise continues without one. It never rejects the request.
+ */
+export function createOptionalFirebaseUser(verify: TokenVerifier) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const token = readBearer(req);
+    if (token) {
+      try {
+        const user = await verify(token);
+        if (user.signInProvider !== 'anonymous') res.locals.user = user;
+      } catch {
+        // An expired or invalid token is treated as signed out.
+      }
+    }
+    next();
+  };
+}
+
 /** Express middleware: 401 `auth_required` unless a valid Firebase ID token is presented. */
 export function createRequireFirebaseUser(verify: TokenVerifier) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {

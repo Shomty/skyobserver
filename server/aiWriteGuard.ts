@@ -1,5 +1,5 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import type { AuthUser } from './firebaseAuth.ts';
+import { type AuthUser, isVerifiedEmailOwner } from './firebaseAuth.ts';
 
 const AI_FIELDS = ['aiSynthesis', 'aiPlainSynthesis', 'aiGuidance', 'aiTransitGuidance'] as const;
 
@@ -26,8 +26,8 @@ export function createAiWriteGuard(requireUser: RequestHandler): RequestHandler 
         return;
       }
       const user = res.locals.user as AuthUser;
-      const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-      if (!user.emailVerified || !user.email || user.email.toLowerCase() !== email) {
+      const email = typeof req.body.email === 'string' ? req.body.email : '';
+      if (!isVerifiedEmailOwner(user, email)) {
         res.status(403).json({ error: 'Only the report owner can save its AI interpretation', code: 'not_owner' });
         return;
       }

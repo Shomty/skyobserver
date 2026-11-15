@@ -80,7 +80,8 @@ export async function savePersonalReport(
 ): Promise<{ saved: boolean; reportId: string; cachedAt?: string }> {
   const res = await fetch('/api/personal/report', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    // Signed-in owners send their token so the server lets them repoint their email to this report.
+    headers: await withAuthHeader({ 'Content-Type': 'application/json', Accept: 'application/json' }),
     body: JSON.stringify(payload),
   });
   if (!res.ok) {

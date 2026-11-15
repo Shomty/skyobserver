@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'crypto';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
+import { type EmailIndexPolicy, writeEmailIndexFile } from './emailIndex.ts';
 
 const CACHE_DIR = path.resolve(process.cwd(), 'data/career-reports');
 const MAX_SNAPSHOT_BYTES = 512_000;
@@ -90,7 +91,12 @@ async function readEmailIndex(email: string): Promise<EmailIndex | null> {
   }
 }
 
-async function writeEmailIndex(email: string, reportId: string, fingerprint: string): Promise<void> {
+async function writeEmailIndex(
+  email: string,
+  reportId: string,
+  fingerprint: string,
+  policy: EmailIndexPolicy,
+): Promise<boolean> {
   const now = new Date().toISOString();
   const index: EmailIndex = {
     email: normalizeEmail(email),
@@ -98,7 +104,7 @@ async function writeEmailIndex(email: string, reportId: string, fingerprint: str
     fingerprint,
     updatedAt: now,
   };
-  await writeFile(emailIndexPath(email), JSON.stringify(index), 'utf8');
+  return writeEmailIndexFile(emailIndexPath(email), index, policy);
 }
 
 export type EmailLookupResult =
@@ -134,6 +140,7 @@ export async function writeCareerReport(
     reportId?: string;
     cachedAt?: string;
   },
+  indexPolicy: EmailIndexPolicy,
 ): Promise<StoredCareerReport> {
   await mkdir(CACHE_DIR, { recursive: true });
 
@@ -168,7 +175,7 @@ export async function writeCareerReport(
   }
 
   await writeFile(reportPath(reportId), serialized, 'utf8');
-  await writeEmailIndex(email, reportId, entry.fingerprint);
+  await writeEmailIndex(email, reportId, entry.fingerprint, indexPolicy);
   return stored;
 }
 
