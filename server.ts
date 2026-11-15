@@ -5,9 +5,6 @@ import express from 'express';
 import compression from 'compression';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
-import { createRequire } from 'module';
 import {
   generateReportId,
   isValidEmail,
@@ -31,15 +28,31 @@ import {
   updateDailyReportTransitGuidance,
   writeDailyReport,
 } from './server/dailyReportCache.ts';
+import {
+  isValidEmail as isValidYearEmail,
+  isValidReportId as isValidYearReportId,
+  lookupYearReportByEmail,
+  readYearReportById,
+  updateYearReportSynthesis,
+  writeYearReport,
+} from './server/yearReportCache.ts';
 import { GoogleGenAI } from '@google/genai';
-// openastrology-library's .mjs build uses `import * as swisseph` which doesn't
-// work for a native CJS addon. Load the CJS build explicitly via createRequire.
-import type { VedicChartCalculations, Planet } from 'openastrology-library';
-const _require = createRequire(import.meta.url);
-const { VedicAstrologyCalculator, VedicTransitCalculator } = _require('openastrology-library') as typeof import('openastrology-library');
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import {
+  computeDashas,
+  computePositions,
+  computeTransitIngresses,
+  disposeEphemeris,
+  fetchTimezoneForCoords,
+} from './server/ephemeris.ts';
+import { installServerRuntime } from './server/runtime.ts';
+import { createMcpRouter } from './server/mcp/router.ts';
+import {
+  createFirebaseTokenVerifier,
+  createRequireFirebaseUser,
+  resolveFirebaseProjectId,
+} from './server/firebaseAuth.ts';
+import { createGeminiProxyRouter, geminiLimitsFromEnv } from './server/geminiProxy.ts';
+import { createAiWriteGuard } from './server/aiWriteGuard.ts';
 
 type ServerLogLevel = 'log' | 'warn' | 'error';
 const DEBUG_SERVER_LOGS = process.env.DEBUG_SERVER_LOGS === '1';
@@ -52,221 +65,6 @@ function serverLog(level: ServerLogLevel, scope: string, message: string, detail
   }
 
   console[level](prefix, details);
-}
-
-// ---------------------------------------------------------------------------
-// Swiss Ephemeris planet position calculator (singleton)
-// ---------------------------------------------------------------------------
-
-const localEphePath = path.resolve(__dirname, 'ephe');
-const bundledEphePath = path.resolve(__dirname, 'node_modules/swisseph/ephe');
-const EPHE_PATH = process.env.EPHE_PATH
-  || (existsSync(localEphePath) ? localEphePath : bundledEphePath);
-
-const vedicCalc = new VedicAstrologyCalculator({
-  ayanamsa: 'lahiri',
-  houseSystem: 'wholehouse',
-  ephePath: EPHE_PATH,
-});
-
-const transitCalc = new VedicTransitCalculator({
-  ayanamsa: 'lahiri',
-  ephePath: EPHE_PATH,
-});
-
-const ALL_VEDIC_PLANETS: Planet[] = ['sun', 'moon', 'mars', 'mercury', 'jupiter', 'venus', 'saturn', 'rahu', 'ketu'];
-
-// Planet metadata for mapping library output → app PlanetPosition
-const PLANET_META: Record<string, { symbol: string; color: string }> = {
-  Sun:       { symbol: '☉', color: '#FFD700' },
-  Moon:      { symbol: '☽', color: '#F0F8FF' },
-  Mars:      { symbol: '♂', color: '#FF4500' },
-  Mercury:   { symbol: '☿', color: '#00CED1' },
-  Jupiter:   { symbol: '♃', color: '#DAA520' },
-  Venus:     { symbol: '♀', color: '#FF69B4' },
-  Saturn:    { symbol: '♄', color: '#708090' },
-  Rahu:      { symbol: '☊', color: '#8A2BE2' },
-  Ketu:      { symbol: '☋', color: '#A9A9A9' },
-  Ascendant: { symbol: 'ASC', color: '#10B981' },
-};
-
-const PLANET_ORDER = ['Ascendant', 'Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu'];
-
-// Convert library nakshatra key (underscore/lowercase) to app title-case name
-function normalizeNakshatra(n: string): string {
-  const MAP: Record<string, string> = { moola: 'Mula' };
-  if (MAP[n]) return MAP[n];
-  return n.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
-
-// Capitalize first letter of zodiac sign
-function capitalizeSign(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-// Map a VedicChartCalculations → app PlanetPosition[] format
-function mapChartToPositions(chart: VedicChartCalculations, includeAscendant: boolean) {
-  const { ayanamsa } = chart;
-  const result: Array<Record<string, unknown>> = [];
-
-  // Add planets in consistent order
-  const PLANET_KEYS = ['sun', 'moon', 'mars', 'mercury', 'jupiter', 'venus', 'saturn', 'rahu', 'ketu'] as const;
-
-  for (const key of PLANET_KEYS) {
-    const p = chart.planets[key];
-    if (!p) continue;
-    const name = key.charAt(0).toUpperCase() + key.slice(1);
-    const meta = PLANET_META[name];
-    const siderealLon = ((p.longitude % 360) + 360) % 360;
-
-    result.push({
-      name,
-      symbol: meta?.symbol ?? name,
-      longitude: (siderealLon + ayanamsa + 360) % 360, // tropical
-      siderealLongitude: siderealLon,
-      rashi: capitalizeSign(p.sign),
-      nakshatra: normalizeNakshatra(p.nakshatra as string),
-      pada: p.pada,
-      degree: p.degreeDMS.degrees,
-      minute: p.degreeDMS.minutes,
-      isRetrograde: p.isRetrograde,
-      isCombust: p.isCombust,
-      color: meta?.color ?? '#FFFFFF',
-      dignity: p.dignity ?? undefined,
-      house: p.house ?? undefined,
-    });
-  }
-
-  // Ascendant (only when location was supplied)
-  if (includeAscendant) {
-    const asc = chart.ascendant;
-    const siderealLon = ((asc.longitude % 360) + 360) % 360;
-    const nakshatraIdx = Math.floor(siderealLon / (360 / 27));
-    const NAKSHATRAS = [
-      'Ashwini', 'Bharani', 'Krittika', 'Rohini', 'Mrigashira', 'Ardra', 'Punarvasu', 'Pushya', 'Ashlesha',
-      'Magha', 'Purva Phalguni', 'Uttara Phalguni', 'Hasta', 'Chitra', 'Swati', 'Vishakha', 'Anuradha', 'Jyeshtha',
-      'Mula', 'Purva Ashadha', 'Uttara Ashadha', 'Shravana', 'Dhanishta', 'Shatabhisha',
-      'Purva Bhadrapada', 'Uttara Bhadrapada', 'Revati',
-    ];
-    const degInNak = siderealLon % (360 / 27);
-    const pada = Math.floor(degInNak / (360 / (27 * 4))) + 1;
-    const ascEntry = {
-      name: 'Ascendant',
-      symbol: 'ASC',
-      longitude: (siderealLon + ayanamsa + 360) % 360,
-      siderealLongitude: siderealLon,
-      rashi: capitalizeSign(asc.sign),
-      nakshatra: NAKSHATRAS[nakshatraIdx] ?? normalizeNakshatra(asc.nakshatra as string),
-      pada,
-      degree: asc.degree,
-      minute: 0, // ascendant degree from library is fractional — extract minutes below
-      isRetrograde: false,
-      isCombust: false,
-      color: '#10B981',
-    };
-    // Extract minutes from the fractional degree
-    const fracDeg = siderealLon % 30;
-    ascEntry.degree = Math.floor(fracDeg);
-    ascEntry.minute = Math.floor((fracDeg % 1) * 60);
-    result.unshift(ascEntry);
-  }
-
-  return result;
-}
-
-function capitalizePlanet(p: string): string {
-  return p.charAt(0).toUpperCase() + p.slice(1);
-}
-
-function buildBirthInfoFromIso(isoDate: string, lat: number, lon: number, timezone?: string) {
-  const d = new Date(isoDate);
-  if (timezone) {
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-    const parts = formatter.formatToParts(d);
-    const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
-    return {
-      name: 'native',
-      dateOfBirth: `${get('year')}-${get('month')}-${get('day')}`,
-      timeOfBirth: `${get('hour')}:${get('minute')}`,
-      latitude: lat,
-      longitude: lon,
-      timezone,
-    };
-  }
-
-  return {
-    name: 'native',
-    dateOfBirth: d.toISOString().slice(0, 10),
-    timeOfBirth: d.toISOString().slice(11, 16),
-    latitude: lat,
-    longitude: lon,
-    timezone: 'UTC',
-  };
-}
-
-/** IANA timezone from lat/lon via Open-Meteo (same provider as /api/geocode). */
-async function fetchTimezoneForCoords(lat: number, lon: number): Promise<string | null> {
-  try {
-    const response = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&timezone=auto`,
-    );
-    if (!response.ok) return null;
-    const data = await response.json() as { timezone?: string };
-    return typeof data.timezone === 'string' && data.timezone ? data.timezone : null;
-  } catch {
-    return null;
-  }
-}
-
-function mapVimshottariDashas(chart: VedicChartCalculations, targetDate?: Date) {
-  const vimshottari = chart.dashas?.vimshottari;
-  if (!vimshottari?.dashaPeriods) {
-    throw new Error('Vimshottari dasha data unavailable');
-  }
-
-  const dashaPeriods = vimshottari.dashaPeriods.map((md) => ({
-    planet: capitalizePlanet(md.planet),
-    startDate: md.startDate,
-    endDate: md.endDate,
-    subPeriods: (md.subPeriods ?? []).map((ad) => ({
-      planet: capitalizePlanet(ad.planet),
-      startDate: ad.startDate,
-      endDate: ad.endDate,
-    })),
-  }));
-
-  const at = targetDate ?? new Date();
-  const current = vedicCalc.getCurrentDasha(vimshottari, at);
-
-  return {
-    dashaPeriods,
-    current: {
-      mahadasha: current.mahaDasha
-        ? {
-            planet: capitalizePlanet(current.mahaDasha.planet),
-            startDate: current.mahaDasha.startDate,
-            endDate: current.mahaDasha.endDate,
-          }
-        : null,
-      antardasha: current.antarDasha
-        ? {
-            planet: capitalizePlanet(current.antarDasha.planet),
-            startDate: current.antarDasha.startDate,
-            endDate: current.antarDasha.endDate,
-          }
-        : null,
-    },
-    birthNakshatra: normalizeNakshatra(chart.planets.moon.nakshatra as string),
-    birthDashaLord: dashaPeriods[0]?.planet ?? '',
-  };
 }
 
 // Validate required env vars at startup
@@ -299,16 +97,19 @@ function rateLimit(req: express.Request, res: express.Response, next: express.Ne
   next();
 }
 
+/**
+ * Number of reverse-proxy hops in front of the app (Railway ingress, nginx…).
+ * Express then reads the client IP from the entry that hop appended to
+ * X-Forwarded-For, so a client cannot spoof `req.ip` by sending its own header.
+ * Set TRUST_PROXY_HOPS=0 when the app is reached directly.
+ */
+function trustProxyHops(raw: string | undefined): number {
+  const parsed = Number(raw ?? '1');
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 1;
+}
+
 function getClientIp(req: express.Request): string {
-  const realIp = req.headers['x-real-ip'];
-  if (typeof realIp === 'string' && realIp.length > 0) {
-    return realIp.trim();
-  }
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.length > 0) {
-    return forwarded.split(',')[0].trim();
-  }
-  return req.socket.remoteAddress ?? '';
+  return req.ip ?? req.socket.remoteAddress ?? '';
 }
 
 function isPrivateOrLocalIp(ip: string): boolean {
@@ -331,12 +132,25 @@ async function startServer() {
   const PORT = parseInt(process.env.PORT || '3000', 10);
 
   // Honor X-Forwarded-For when the app sits behind nginx or another reverse proxy.
-  app.set('trust proxy', true);
+  app.set('trust proxy', trustProxyHops(process.env.TRUST_PROXY_HOPS));
 
   // Gzip/deflate every text-based response (JS/CSS/HTML/JSON) — the built
   // assets were being served completely uncompressed, which dominated load
   // time on mobile networks far more than any client-side rendering cost.
   app.use(compression());
+
+  // MCP connector for API clients — Bearer API key auth, its own body parser
+  // and per-client limits live inside the router, so it is mounted before the
+  // global JSON parser and outside the per-IP browser rate limit.
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+  installServerRuntime(ai);
+  app.use('/mcp', createMcpRouter());
+
+  // Browser Gemini proxy — signed-in users only, allowlisted request shape,
+  // per-user and global quotas. Parses its own (smaller) body after auth.
+  const requireUser = createRequireFirebaseUser(createFirebaseTokenVerifier(resolveFirebaseProjectId()));
+  app.use('/api/gemini', createGeminiProxyRouter({ ai, ipLimit: rateLimit, requireUser, limits: geminiLimitsFromEnv() }));
+  const guardAiWrites = createAiWriteGuard(requireUser);
 
   app.use(express.json({ limit: '2mb' }));
   app.use((req, res, next) => {
@@ -373,6 +187,7 @@ async function startServer() {
     { path: '/career', changefreq: 'weekly', priority: '0.9' },
     { path: '/personal', changefreq: 'weekly', priority: '0.9' },
     { path: '/daily', changefreq: 'daily', priority: '0.9' },
+    { path: '/year', changefreq: 'weekly', priority: '0.9' },
     { path: '/gift', changefreq: 'monthly', priority: '0.7' },
     { path: '/privacy', changefreq: 'yearly', priority: '0.3' },
     { path: '/terms', changefreq: 'yearly', priority: '0.3' },
@@ -652,17 +467,7 @@ ${urls}
       }
 
       const hasLocation = typeof lat === 'number' && typeof lon === 'number';
-      const birthInfo = {
-        name: 'transit',
-        dateOfBirth: d.toISOString().slice(0, 10),  // YYYY-MM-DD (UTC)
-        timeOfBirth: d.toISOString().slice(11, 16),  // HH:MM (UTC)
-        latitude: hasLocation ? lat : 0,
-        longitude: hasLocation ? lon : 0,
-        timezone: 'UTC',
-      };
-
-      const chart = await vedicCalc.calculateChart(birthInfo);
-      const positions = mapChartToPositions(chart, hasLocation);
+      const positions = await computePositions(d, lat, lon);
 
       if (DEBUG_SERVER_LOGS) {
         serverLog('log', 'planet-positions', 'Positions calculated', { isoDate, hasLocation });
@@ -692,10 +497,8 @@ ${urls}
     }
 
     try {
-      const birthInfo = buildBirthInfoFromIso(isoDate, lat, lon, timezone);
-      const chart = await vedicCalc.calculateChart(birthInfo);
       const at = targetDate ? new Date(targetDate) : new Date();
-      const payload = mapVimshottariDashas(chart, isNaN(at.getTime()) ? new Date() : at);
+      const payload = await computeDashas(isoDate, lat, lon, timezone, at);
 
       if (DEBUG_SERVER_LOGS) {
         serverLog('log', 'vimshottari-dashas', 'Dasha timeline calculated', {
@@ -726,7 +529,6 @@ ${urls}
 
       return res.json({
         reportId: cached.reportId,
-        email: cached.email,
         fingerprint: cached.fingerprint,
         snapshot: cached.snapshot,
         positions: cached.positions,
@@ -745,7 +547,7 @@ ${urls}
     }
   });
 
-  app.post('/api/career/report', rateLimit, async (req, res) => {
+  app.post('/api/career/report', rateLimit, guardAiWrites, async (req, res) => {
     const body = req.body as {
       email?: string;
       fingerprint?: string;
@@ -846,8 +648,6 @@ ${urls}
         return res.json({
           hit: false,
           stale: lookup.stale ?? false,
-          reportId: lookup.reportId,
-          cachedFingerprint: lookup.cachedFingerprint,
         });
       }
 
@@ -888,7 +688,6 @@ ${urls}
 
       return res.json({
         reportId: cached.reportId,
-        email: cached.email,
         fingerprint: cached.fingerprint,
         snapshot: cached.snapshot,
         positions: cached.positions,
@@ -906,7 +705,7 @@ ${urls}
     }
   });
 
-  app.post('/api/personal/report', rateLimit, async (req, res) => {
+  app.post('/api/personal/report', rateLimit, guardAiWrites, async (req, res) => {
     const body = req.body as {
       email?: string;
       fingerprint?: string;
@@ -979,8 +778,6 @@ ${urls}
         return res.json({
           hit: false,
           stale: lookup.stale ?? false,
-          reportId: lookup.reportId,
-          cachedFingerprint: lookup.cachedFingerprint,
         });
       }
 
@@ -1020,7 +817,6 @@ ${urls}
 
       return res.json({
         reportId: cached.reportId,
-        email: cached.email,
         fingerprint: cached.fingerprint,
         snapshot: cached.snapshot,
         positions: cached.positions,
@@ -1040,7 +836,7 @@ ${urls}
     }
   });
 
-  app.post('/api/daily/report', rateLimit, async (req, res) => {
+  app.post('/api/daily/report', rateLimit, guardAiWrites, async (req, res) => {
     const body = req.body as {
       email?: string;
       fingerprint?: string;
@@ -1144,8 +940,6 @@ ${urls}
         return res.json({
           hit: false,
           stale: lookup.stale ?? false,
-          reportId: lookup.reportId,
-          cachedFingerprint: lookup.cachedFingerprint,
         });
       }
 
@@ -1153,7 +947,6 @@ ${urls}
       return res.json({
         hit: true,
         reportId: cached.reportId,
-        email: cached.email,
         fingerprint: cached.fingerprint,
         snapshot: cached.snapshot,
         positions: cached.positions,
@@ -1173,6 +966,130 @@ ${urls}
     }
   });
 
+  // Year horoscope cache — public share links at /year/r/:reportId
+  app.get('/api/year/report/:reportId', rateLimit, async (req, res) => {
+    const reportId = req.params.reportId ?? '';
+    if (!isValidYearReportId(reportId)) {
+      return res.status(400).json({ error: 'Invalid report id' });
+    }
+    try {
+      const cached = await readYearReportById(reportId);
+      if (!cached) return res.status(404).json({ error: 'Report not found' });
+      return res.json({
+        reportId: cached.reportId,
+        fingerprint: cached.fingerprint,
+        snapshot: cached.snapshot,
+        positions: cached.positions,
+        aiSynthesis: cached.aiSynthesis,
+        cachedAt: cached.updatedAt,
+        fullName: cached.fullName,
+        birthDate: cached.birthDate,
+        birthTime: cached.birthTime,
+        birthPlaceLabel: cached.birthPlaceLabel,
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Year report cache error';
+      serverLog('error', 'year-report', 'Load failed', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
+  app.post('/api/year/report', rateLimit, guardAiWrites, async (req, res) => {
+    const body = req.body as {
+      email?: string;
+      fingerprint?: string;
+      reportId?: string;
+      fullName?: string;
+      birthDate?: string;
+      birthTime?: string;
+      birthPlaceLabel?: string;
+      birthInstant?: { iso: string; offsetMinutes: number };
+      snapshot?: unknown;
+      positions?: unknown[];
+      aiSynthesis?: { text?: string; fingerprint?: string; generatedAt?: string };
+    };
+
+    const email = typeof body.email === 'string' ? body.email : '';
+    if (!isValidYearEmail(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+
+    const isSynthesisOnly =
+      body.aiSynthesis &&
+      typeof body.reportId === 'string' &&
+      typeof body.aiSynthesis.fingerprint === 'string' &&
+      typeof body.aiSynthesis.text === 'string';
+
+    if (!isSynthesisOnly && (typeof body.fingerprint !== 'string' || body.fingerprint.length < 8)) {
+      return res.status(400).json({ error: 'fingerprint is required' });
+    }
+
+    try {
+      if (body.snapshot && Array.isArray(body.positions) && typeof body.fingerprint === 'string') {
+        const stored = await writeYearReport({
+          email,
+          fingerprint: body.fingerprint,
+          fullName: typeof body.fullName === 'string' ? body.fullName.slice(0, 100) : undefined,
+          birthDate: typeof body.birthDate === 'string' ? body.birthDate : undefined,
+          birthTime: typeof body.birthTime === 'string' ? body.birthTime : undefined,
+          birthPlaceLabel: typeof body.birthPlaceLabel === 'string' ? body.birthPlaceLabel.slice(0, 120) : undefined,
+          birthInstant: body.birthInstant,
+          snapshot: body.snapshot,
+          positions: body.positions,
+        });
+        return res.json({ saved: true, hit: false, reportId: stored.reportId, cachedAt: stored.updatedAt });
+      }
+
+      if (isSynthesisOnly && body.aiSynthesis && typeof body.reportId === 'string') {
+        const stored = await updateYearReportSynthesis(body.reportId, email, {
+          text: body.aiSynthesis.text ?? '',
+          fingerprint: body.aiSynthesis.fingerprint ?? '',
+          generatedAt:
+            typeof body.aiSynthesis.generatedAt === 'string'
+              ? body.aiSynthesis.generatedAt
+              : new Date().toISOString(),
+        });
+        return res.json({
+          saved: true,
+          reportId: stored.reportId,
+          aiSynthesis: stored.aiSynthesis,
+          cachedAt: stored.updatedAt,
+        });
+      }
+
+      if (typeof body.fingerprint !== 'string') {
+        return res.status(400).json({ error: 'fingerprint is required' });
+      }
+
+      const lookup = await lookupYearReportByEmail(email, body.fingerprint);
+      if (lookup.hit === false) {
+        return res.json({
+          hit: false,
+          stale: lookup.stale ?? false,
+        });
+      }
+
+      const cached = lookup.report;
+      return res.json({
+        hit: true,
+        reportId: cached.reportId,
+        fingerprint: cached.fingerprint,
+        snapshot: cached.snapshot,
+        positions: cached.positions,
+        aiSynthesis: cached.aiSynthesis,
+        cachedAt: cached.updatedAt,
+        fullName: cached.fullName,
+        birthDate: cached.birthDate,
+        birthTime: cached.birthTime,
+        birthPlaceLabel: cached.birthPlaceLabel,
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Year report cache error';
+      serverLog('error', 'year-report', 'Cache operation failed', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
   // Swiss Ephemeris transit-ingress engine — exact sign-change timestamps
   app.post('/api/transit-ingresses', rateLimit, async (req, res) => {
     const { startDate, endDate, planets } = req.body as { startDate?: string; endDate?: string; planets?: string[] };
@@ -1187,11 +1104,7 @@ ${urls}
         return res.status(400).json({ error: 'Invalid startDate or endDate' });
       }
 
-      const requestedPlanets = Array.isArray(planets) && planets.length > 0
-        ? planets.filter((p): p is Planet => ALL_VEDIC_PLANETS.includes(p as Planet))
-        : ALL_VEDIC_PLANETS;
-
-      const ingresses = transitCalc.calculateTransitIngresses(requestedPlanets, start, end);
+      const ingresses = computeTransitIngresses(start, end, planets);
 
       if (DEBUG_SERVER_LOGS) {
         serverLog('log', 'transit-ingresses', 'Ingresses calculated', { startDate, endDate, count: ingresses.length });
@@ -1200,23 +1113,6 @@ ${urls}
     } catch (e: any) {
       serverLog('error', 'transit-ingresses', 'Transit ingress calculation error', e.message);
       res.status(500).json({ error: e.message || 'Transit ingress calculation failed' });
-    }
-  });
-
-  // Gemini AI proxy — keeps API key server-side only
-  app.post('/api/gemini', rateLimit, async (req, res) => {
-    try {
-      serverLog('log', 'gemini', 'Forwarding Gemini request', { model: req.body?.model });
-      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-      const response = await ai.models.generateContent(req.body);
-      serverLog('log', 'gemini', 'Gemini request succeeded', {
-        model: req.body?.model,
-        textLength: response.text?.length ?? 0,
-      });
-      res.json({ text: response.text });
-    } catch (e: any) {
-      serverLog('error', 'gemini', 'Gemini proxy error', e.message);
-      res.status(e.status || 500).json({ error: e.message || 'Gemini API error' });
     }
   });
 
@@ -1257,7 +1153,7 @@ ${urls}
   // Graceful shutdown
   const shutdown = () => {
     serverLog('log', 'shutdown', 'Shutting down server...');
-    vedicCalc.dispose();
+    disposeEphemeris();
     server.close(() => process.exit(0));
   };
   process.on('SIGTERM', shutdown);

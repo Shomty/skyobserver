@@ -26,6 +26,7 @@ import TypingIndicator from './chat/TypingIndicator';
 import EmptyState from './chat/EmptyState';
 import ChatInput from './chat/ChatInput';
 import type { User } from 'firebase/auth';
+import { recentChatHistory } from '../lib/chatHistory';
 
 export interface AIAssistantProps {
   user: User | null;
@@ -193,7 +194,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
         });
       }
 
-      const historySnapshot = messages.filter(m => m.content);
+      const historySnapshot = recentChatHistory(messages);
       const now = new Date().toISOString();
 
       await appendChatMessage(db, user.uid, sessionId, {

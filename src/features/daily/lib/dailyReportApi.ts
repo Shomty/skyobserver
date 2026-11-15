@@ -1,6 +1,7 @@
 import type { PlanetPosition } from '../../../vedic-utils';
 import type { BirthInstant } from '../../gift/lib/birthInstant';
 import type { DailyAiPlainGuidance, DailyAiTransitGuidance, DailySnapshot } from '../types';
+import { withAuthHeader } from '../../../lib/authToken';
 
 export interface DailyReportSavePayload {
   email: string;
@@ -115,11 +116,11 @@ export async function saveDailyGuidance(payload: {
   const existing = guidanceInflight.get(key);
   if (existing) return existing;
 
-  const promise = fetch('/api/daily/report', {
+  const promise = withAuthHeader({ 'Content-Type': 'application/json', Accept: 'application/json' }).then((headers) => fetch('/api/daily/report', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers,
     body: JSON.stringify(payload),
-  })
+  }))
     .then(async (res) => {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -148,11 +149,11 @@ export async function saveDailyTransitGuidance(payload: {
   const existing = transitGuidanceInflight.get(key);
   if (existing) return existing;
 
-  const promise = fetch('/api/daily/report', {
+  const promise = withAuthHeader({ 'Content-Type': 'application/json', Accept: 'application/json' }).then((headers) => fetch('/api/daily/report', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers,
     body: JSON.stringify(payload),
-  })
+  }))
     .then(async (res) => {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

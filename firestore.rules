@@ -53,8 +53,11 @@ service cloud.firestore {
     match /users/{userId} {
       allow list: if isAdminOrAdminRole();
       allow read: if isOwner(userId) || isAdminOrAdminRole();
-      // Owners may not change their own role or approvalStatus fields
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      // Owners may not set or change their own role or approvalStatus fields:
+      // a self-created profile carries no role and always starts pending approval.
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) &&
+                       !('role' in request.resource.data) &&
+                       request.resource.data.get('approvalStatus', null) == 'pending';
       allow update: if (isOwner(userId) && isValidUser(request.resource.data) &&
                        request.resource.data.uid == resource.data.uid &&
                        request.resource.data.get('role', null) == resource.data.get('role', null) &&

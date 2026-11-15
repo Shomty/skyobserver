@@ -7,7 +7,7 @@ export const SITE = {
   legalName: 'Vedic Sky Observer',
   tagline: 'Birth-chart insights in plain language',
   description:
-    'Free career path, personality blueprint, and daily energy reports — plus a private workspace for life chapters and emotional weather. Plain-language insights grounded in precision astronomy. No account required to start.',
+    'Free career path, personality blueprint, daily energy, and year horoscope reports — plus a private workspace for life chapters and emotional weather. Plain-language insights grounded in precision astronomy. No account required to start.',
   url: rawUrl || 'https://thesoulblueprint.online',
   locale: 'en_US',
   email: 'hello@vedicsky.app',
@@ -22,6 +22,7 @@ export const PUBLIC_ROUTES: Array<{ path: string; changefreq: string; priority: 
   { path: '/career', changefreq: 'weekly', priority: '0.9' },
   { path: '/personal', changefreq: 'weekly', priority: '0.9' },
   { path: '/daily', changefreq: 'daily', priority: '0.9' },
+  { path: '/year', changefreq: 'weekly', priority: '0.9' },
   { path: '/gift', changefreq: 'monthly', priority: '0.7' },
   { path: '/privacy', changefreq: 'yearly', priority: '0.3' },
   { path: '/terms', changefreq: 'yearly', priority: '0.3' },

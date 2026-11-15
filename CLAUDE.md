@@ -28,7 +28,7 @@ npx vitest run src/features/gift/lib/eligibility.test.ts
 npx vitest run -t "rejects an expired token"
 ```
 
-**Test setup:** Vitest config lives inside `vite.config.ts` (`test.include: ['src/**/*.test.ts']`, `environment: 'node'`) — there is no separate `vitest.config.ts`. Coverage today is limited to `src/features/gift/` (schemas, birth instant, eligibility). Everything outside the gift funnel is verified manually: start the dev server and exercise the changed feature in the browser.
+**Test setup:** Vitest config lives inside `vite.config.ts` (`test.include: ['src/**/*.test.ts', 'server/**/*.test.ts']`, `environment: 'node'`) — there is no separate `vitest.config.ts`. Coverage today is limited to `src/features/gift/` (schemas, birth instant, eligibility). Everything outside the gift funnel is verified manually: start the dev server and exercise the changed feature in the browser.
 
 **Required env** (`.env.local`, template in `.env.example`): `GEMINI_API_KEY`. Firebase values are read from `firebase-applet-config.json` locally (template: `firebase-applet-config.example.json`) or generated at build time from `FIREBASE_*` env vars by `scripts/generate-firebase-config.js`. `EPHE_PATH` is optional — it falls back to `node_modules/swisseph/ephe` when the local `ephe/` directory is absent.
 
@@ -49,7 +49,16 @@ This is the least obvious thing about the codebase.
 
 The server engine is reached through `/api/planet-positions`, `/api/vimshottari-dashas`, `/api/transit-ingresses` and consumed by `src/services/positionsService.ts` and `dashasService.ts`. Those services **deduplicate in-flight requests** (keyed by minute-rounded timestamp + lat/lon) because StrictMode double-fires effects, and they degrade gracefully — on network failure the caller keeps its last known positions so the UI never blanks.
 
-`openastrology-library` must never be imported under `src/` — it wraps a native addon and will crash the browser bundle. `server.ts` loads it via `createRequire`.
+`openastrology-library` must never be imported under `src/` — it wraps a native addon and will crash the browser bundle. `server/ephemeris.ts` loads it via `createRequire`; `server.ts` and the MCP server both call its `computePositions` / `computeDashas` / `computeTransitIngresses`.
+
+### MCP connector (`/mcp`)
+
+`server/mcp/` is a stateless Streamable HTTP MCP server for API clients (Bearer key, hashed in `MCP_API_KEYS`; issue with `node scripts/create-mcp-key.js <clientId>`). Client-facing guide: `docs/mcp-connector.md`. It reuses `src/` code in Node unchanged, which relies on two seams installed at startup by `server/runtime.ts`:
+
+- `configureGeminiTransport` (`src/lib/api-utils.ts`) — `callGeminiProxy` calls the Gemini SDK directly instead of the relative `/api/gemini` URL.
+- `configurePositionsBackend` (`src/services/positionsService.ts`) — position/ingress fetches run in-process.
+
+Code under `src/` that the MCP path imports must stay Node-safe: no top-level `window`/`localStorage`, and `import.meta.env` only with optional chaining. The `astronomy-engine` entry in `tsconfig.json` `paths` is for tsx (it breaks the package's ESM named exports); Vite ignores it. Tests live in `server/mcp/__tests__/` and include golden Swiss Ephemeris values.
 
 ### Routing
 
@@ -112,6 +121,8 @@ Admin access resolves two ways: a custom `admin: true` auth-token claim **or** a
 ### Gemini goes through the backend proxy — always
 
 Never instantiate `GoogleGenAI` under `src/`; the key must stay server-side.
+
+`/api/gemini` (`server/geminiProxy.ts`) only serves **signed-in** users: the browser attaches a Firebase ID token (`installGeminiAuth` in `main.tsx` → `configureGeminiAuth`), the server verifies it (`server/firebaseAuth.ts`, firebase-admin with project id only), validates the request against an allowlist (one model; `contents` as text turns; `config` limited to `systemInstruction`, `temperature`, `maxOutputTokens` ≤ 8192, `responseMimeType`, `responseSchema`) and applies per-user and global daily quotas. A new call site that needs another model or config key must be added to the allowlist. Signed out, `callGeminiProxy` throws `AuthRequiredError` without a request — the funnels (/career, /personal, /daily, /year) turn that into `AiUnlockGate`, keep the computed reading free, and save generated interpretations to `users/{uid}/ai_reports` via `saveAiToAccount`. Saving AI text into a shared funnel report requires the owner's verified email (`server/aiWriteGuard.ts`).
 
 ```ts
 import { callGeminiProxy } from '../lib/api-utils';   // ✅ hits server.ts /api/gemini

@@ -9,6 +9,7 @@ import { PersonalGuidancePanel } from './PersonalGuidancePanel';
 import { PersonalParashariPanel } from './PersonalParashariPanel';
 import { PersonalScoresPanel, PersonalTimingPanel } from './PersonalTimingPanel';
 import { PersonalUpsell } from './PersonalUpsell';
+import { AiUnlockGate } from '../../auth/AiUnlockGate';
 
 interface Props {
   snapshot: PersonalSnapshot;
@@ -17,6 +18,8 @@ interface Props {
     loading: boolean;
     error: string | null;
     fromCache: boolean;
+    /** No cached guidance and nobody signed in to generate it. */
+    needsAuth?: boolean;
   };
 }
 
@@ -60,12 +63,16 @@ export function PersonalReportBody({ snapshot, guidance }: Props) {
 
       <PersonalTimingPanel timing={snapshot.timing} />
 
-      <PersonalGuidancePanel
-        guidance={guidance.guidance}
-        loading={guidance.loading}
-        error={guidance.error}
-        fromCache={guidance.fromCache}
-      />
+      {guidance.needsAuth && !guidance.guidance ? (
+        <AiUnlockGate />
+      ) : (
+        <PersonalGuidancePanel
+          guidance={guidance.guidance}
+          loading={guidance.loading}
+          error={guidance.error}
+          fromCache={guidance.fromCache}
+        />
+      )}
 
       <PersonalParashariPanel sections={snapshot.parashari.sections} />
       <PersonalUpsell />

@@ -99,6 +99,12 @@ const FREE_REPORT_PAGES = [
     description:
       'Check today\'s emotional weather, 7-day energy forecast, and practical timing windows personalized to your chart and location.',
   },
+  {
+    path: '/year',
+    name: 'Free Year Horoscope',
+    description:
+      'A sidereal year horoscope covering identity, partnership, public life, and the current Vimshottari chapter — free, from your birth details.',
+  },
 ] as const;
 
 export function landingJsonLd(): Array<Record<string, unknown>> {
@@ -134,7 +140,7 @@ export function landingJsonLd(): Array<Record<string, unknown>> {
       '@context': 'https://schema.org',
       '@type': 'ItemList',
       name: 'Free birth-chart reports',
-      description: 'Career, personal, and daily reports in plain language — free, instant, shareable.',
+      description: 'Career, personal, daily, and year horoscope reports in plain language — free, instant, shareable.',
       itemListElement: FREE_REPORT_PAGES.map((page, index) => ({
         '@type': 'ListItem',
         position: index + 1,

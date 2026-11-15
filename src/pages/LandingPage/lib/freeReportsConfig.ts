@@ -1,8 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
-import { Briefcase, CalendarDays, UserRound } from 'lucide-react';
+import { Briefcase, CalendarDays, CalendarRange, UserRound } from 'lucide-react';
 
 export interface FreeReportLink {
-  id: 'career' | 'personal' | 'daily';
+  id: 'career' | 'personal' | 'daily' | 'year';
   icon: LucideIcon;
   href: string;
   eyebrow: string;
@@ -13,7 +13,7 @@ export interface FreeReportLink {
   highlights: Array<{ label: string; detail: string }>;
 }
 
-/** Plain-language copy for the three public calculators — shared by landing sections and SEO. */
+/** Plain-language copy for the public calculators — shared by landing sections and SEO. */
 export const FREE_REPORTS: FreeReportLink[] = [
   {
     id: 'career',
@@ -61,6 +61,22 @@ export const FREE_REPORTS: FreeReportLink[] = [
       { label: 'Personality wheel', detail: 'How you think, feel, and relate' },
       { label: 'Inner vs outer self', detail: 'Public face and private needs' },
       { label: 'Life mission', detail: 'Themes that keep showing up' },
+    ],
+  },
+  {
+    id: 'year',
+    icon: CalendarRange,
+    href: '/year',
+    eyebrow: 'Year',
+    title: 'Your year horoscope and current chapter',
+    description:
+      'See how identity, partnership, and public life ripen this year, timed by the chapter you are already living. A map of potential, not a fixed script.',
+    cta: 'Get your free year horoscope',
+    seoLabel: 'Free year horoscope',
+    highlights: [
+      { label: 'Four layers', detail: 'Identity, union, work, and timing' },
+      { label: 'This year', detail: 'What the current chapter asks of you' },
+      { label: 'Support', detail: 'Mantras and mindset practices when the stretch is heavy' },
     ],
   },
 ];

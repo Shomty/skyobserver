@@ -49,7 +49,7 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onOpenAuth }) => {
           </span>
         </a>
 
-        <div className="hidden items-center gap-5 lg:flex">
+        <div className="hidden flex-wrap items-center justify-end gap-x-4 gap-y-2 lg:flex">
           {FREE_REPORTS.map(({ href, eyebrow }) => (
             <Link
               key={href}

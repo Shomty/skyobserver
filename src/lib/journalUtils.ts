@@ -20,6 +20,12 @@ const TYPE_LABELS: Record<string, string> = {
   cosmic_analysis: 'Cosmic Analysis',
   general: 'AI Chat',
   transit: 'Transit Reading',
+  career_synthesis: 'Career Reading',
+  career_plain_synthesis: 'Career Coaching',
+  personal_guidance: 'Personal Guidance',
+  daily_guidance: 'Daily Guidance',
+  daily_transit_guidance: 'Daily Transits',
+  year_horoscope: 'Year Ahead',
 };
 
 const SOUL_PROFILE_FIELDS: Record<string, string> = {
@@ -119,6 +125,39 @@ function formatRecordSections(
     .join('\n\n');
 }
 
+/** `todayRead` → `Today Read`. */
+function humanizeKey(key: string): string {
+  return key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** One line per list item: a leading label/date in bold, then the item's text fields. */
+function formatGuidanceItem(item: unknown): string {
+  if (typeof item === 'string') return `- ${item.trim()}`;
+  if (!item || typeof item !== 'object') return `- ${String(item)}`;
+  const o = item as Record<string, unknown>;
+  const label = typeof o.label === 'string' ? o.label : typeof o.date === 'string' ? o.date : null;
+  const text = Object.entries(o)
+    .filter(([k, v]) => typeof v === 'string' && v.trim() && !['id', 'label', 'date'].includes(k))
+    .map(([, v]) => String(v).trim())
+    .join(' — ');
+  return label ? `- **${label}** — ${text}` : `- ${text}`;
+}
+
+/** Structured AI guidance (personal, daily): string fields as sections, lists as bullets. */
+function formatGuidancePayload(guidance: Record<string, unknown>): string {
+  const sections = Object.entries(guidance).flatMap(([key, value]) => {
+    if (typeof value === 'string' && value.trim()) return [`### ${humanizeKey(key)}\n\n${value.trim()}`];
+    if (Array.isArray(value) && value.length > 0) {
+      return [`### ${humanizeKey(key)}\n\n${value.map(formatGuidanceItem).join('\n')}`];
+    }
+    return [];
+  });
+  return sections.length > 0 ? sections.join('\n\n') : '_No content recorded._';
+}
+
 export function formatReportDataAsMarkdown(type: string, data: unknown): string {
   if (typeof data === 'string') {
     const trimmed = data.trim();
@@ -153,6 +192,14 @@ export function formatReportDataAsMarkdown(type: string, data: unknown): string 
   }
 
   const record = data as Record<string, unknown>;
+
+  // Funnel interpretations: `{ text }` or `{ guidance }` alongside fingerprint/generatedAt metadata.
+  if (typeof record.text === 'string') {
+    return record.text.trim() || '_No content recorded._';
+  }
+  if (record.guidance && typeof record.guidance === 'object' && !Array.isArray(record.guidance)) {
+    return formatGuidancePayload(record.guidance as Record<string, unknown>);
+  }
 
   if (typeof record.summary === 'string') {
     const sections: string[] = [`## Overview\n\n${record.summary.trim()}`];

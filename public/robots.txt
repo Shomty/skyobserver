@@ -3,6 +3,7 @@ Allow: /
 Allow: /career
 Allow: /personal
 Allow: /daily
+Allow: /year
 Allow: /gift
 Allow: /privacy
 Allow: /terms
@@ -12,6 +13,7 @@ Allow: /llms/
 Disallow: /career/r/
 Disallow: /personal/r/
 Disallow: /daily/r/
+Disallow: /year/r/
 Disallow: /shared/
 Disallow: /gift/*/sent
 

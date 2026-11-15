@@ -10,6 +10,7 @@ import { DailyChart } from './DailyChart';
 import { DailyForecastPanel } from './DailyForecastPanel';
 import { DailyParashariPanel } from './DailyParashariPanel';
 import { DailyPlainGuidancePanel } from './DailyPlainGuidancePanel';
+import { AiUnlockGate } from '../../auth/AiUnlockGate';
 
 interface Props {
   snapshot: DailySnapshot;
@@ -20,12 +21,14 @@ interface Props {
     loading: boolean;
     error: string | null;
     fromCache: boolean;
+    needsAuth?: boolean;
   };
   transitGuidance: {
     guidance: DailyAiTransitGuidance | null;
     loading: boolean;
     error: string | null;
     fromCache: boolean;
+    needsAuth?: boolean;
   };
 }
 
@@ -54,6 +57,10 @@ export function DailyReportBody({ snapshot, positions, viewMode, plainGuidance, 
         onSelectDay={setSelectedDayIndex}
       />
 
+      {isVedic && transitGuidance.needsAuth && !transitPayload ? (
+        <AiUnlockGate description="Sign in to read what today's transits mean for your chart. Your interpretation is saved to your dashboard." />
+      ) : null}
+
       {isVedic && transitGuidance.error ? (
         <p className={cn('text-caption text-center text-amber-400/90', theme === 'dark' ? '' : '')} role="alert">
           {transitGuidance.error}
@@ -66,7 +73,9 @@ export function DailyReportBody({ snapshot, positions, viewMode, plainGuidance, 
           : t('plain.energyNote')}
       </p>
 
-      {!isVedic ? (
+      {!isVedic && plainGuidance.needsAuth && !plainPayload ? <AiUnlockGate /> : null}
+
+      {!isVedic && !(plainGuidance.needsAuth && !plainPayload) ? (
         <DailyPlainGuidancePanel
           guidance={plainPayload}
           loading={plainGuidance.loading}

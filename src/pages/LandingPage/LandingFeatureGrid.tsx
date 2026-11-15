@@ -23,16 +23,16 @@ export const LandingFeatureGrid: React.FC = () => {
           <div>
             <p className="landing-kicker mb-4">Start here · free</p>
             <h2 className={cn('max-w-xl font-serif text-5xl font-medium italic leading-[0.95] md:text-6xl', isDark ? 'text-[#ede8f5]' : 'text-ink-primary')}>
-              One life. Three lenses to read it.
+              One life. Four lenses to read it.
             </h2>
           </div>
           <p className={cn('max-w-xl text-base leading-7 md:justify-self-end', isDark ? 'text-white/60' : 'text-ink-secondary')}>
-            Career, daily energy, and personal blueprint — each a free instant report with a
-            shareable link. No account required to start.
+            Career, daily energy, personal blueprint, and a year horoscope — each a free instant
+            report with a shareable link. No account required to start.
           </p>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {FREE_REPORTS.map(({ id, icon: Icon, href, eyebrow, title, description, cta, highlights }, i) => (
             <article
               key={id}

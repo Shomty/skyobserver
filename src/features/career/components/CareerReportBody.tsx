@@ -8,6 +8,7 @@ import { getTenthHouseParagraph } from '../copy/tenthHouseBySign';
 import { t } from '../copy/t';
 import { CareerChart } from './CareerChart';
 import { CareerFieldChips } from './CareerFieldChips';
+import { AiUnlockGate } from '../../auth/AiUnlockGate';
 import { CareerPlainSynthesisPanel } from './CareerPlainSynthesisPanel';
 import { CareerSynthesisPanel } from './CareerSynthesisPanel';
 import { CareerTimeline } from './CareerTimeline';
@@ -21,6 +22,8 @@ interface GuidanceState {
   loading: boolean;
   error: string | null;
   fromCache: boolean;
+  /** No cached interpretation and nobody signed in to generate one. */
+  needsAuth?: boolean;
 }
 
 interface Props {
@@ -47,7 +50,9 @@ export function CareerReportBody({
 
   return (
     <>
-      {!isVedic ? (
+      {!isVedic && plainGuidance.needsAuth && !plainGuidance.synthesis ? <AiUnlockGate /> : null}
+
+      {!isVedic && !(plainGuidance.needsAuth && !plainGuidance.synthesis) ? (
         <CareerPlainSynthesisPanel
           synthesis={plainGuidance.synthesis}
           loading={plainGuidance.loading}
@@ -98,12 +103,16 @@ export function CareerReportBody({
 
           <CareerTimeline timing={snapshot.timing} />
 
-          <CareerSynthesisPanel
-            synthesis={vedicGuidance.synthesis}
-            loading={vedicGuidance.loading}
-            error={vedicGuidance.error}
-            fromCache={vedicGuidance.fromCache}
-          />
+          {vedicGuidance.needsAuth && !vedicGuidance.synthesis ? (
+            <AiUnlockGate />
+          ) : (
+            <CareerSynthesisPanel
+              synthesis={vedicGuidance.synthesis}
+              loading={vedicGuidance.loading}
+              error={vedicGuidance.error}
+              fromCache={vedicGuidance.fromCache}
+            />
+          )}
 
           <ParashariVargaPanel sections={snapshot.parashari.sections} />
 

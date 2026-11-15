@@ -23,6 +23,10 @@ import {
 } from '../context/PersonalPremiumContext';
 import { usePersonalCalculator } from '../hooks/usePersonalCalculator';
 import { usePersonalGuidance } from '../hooks/usePersonalGuidance';
+import { useAuthUser } from '../../auth/useAuthUser';
+import type { PersonalAiGuidance } from '../types';
+import { useAccountAiCopy } from '../../auth/useAccountAiCopy';
+import { funnelAiDocId } from '../../auth/saveAiToAccount';
 import { secondaryButtonClass } from '../../gift/components/buttonStyles';
 import { ReportMetaBadge, ReportResultHeader } from '../../../components/report/ReportResultHeader';
 import { reportGlassButtonClass } from '../../../lib/reportGlassStyles';
@@ -73,12 +77,18 @@ function PersonalCalculatorPageContent() {
 
   const activeReportId = urlReportId ?? reportId;
 
+  const { user: authUser, ready: authReady } = useAuthUser();
+  const uid = authUser?.uid ?? null;
+  const accountGuidance = useAccountAiCopy<PersonalAiGuidance>(uid, activeReportId ? funnelAiDocId('personal-guidance', activeReportId) : null);
   const guidanceState = usePersonalGuidance({
-    email: reportEmail,
+    uid,
+    ready: authReady && accountGuidance.ready,
+    // Share records no longer expose the owner's email; a signed-in viewer's own email stands in.
+    email: reportEmail ?? authUser?.email ?? null,
     birthFingerprint,
     reportId: activeReportId,
     snapshot,
-    cachedGuidance: aiSynthesis,
+    cachedGuidance: aiSynthesis ?? accountGuidance.data,
     premiumUnlocked,
   });
 

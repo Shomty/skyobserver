@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn, getOrdinal } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
 import { Label, StatTile } from './ui';
-import { DASHBOARD_TABS } from '../lib/dashboardTabs';
+import { DASHBOARD_TABS, type DashboardTabId } from '../lib/dashboardTabs';
 import AIAssistant from './AIAssistant';
 import { DateRangePicker } from './DateRangePicker';
 import { DateTimePicker } from './DateTimePicker';
@@ -29,6 +29,7 @@ import { callGeminiProxy, getErrorMessage, withRetry } from '../lib/api-utils';
 import { APIErrorMessage } from './APIErrorMessage';
 import DivisionalCharts from './DivisionalCharts';
 import { SavSummaryTile } from './overview/SavSummaryTile';
+import { YearDashboardEmpty, YearDashboardPanel } from '../features/year/components/YearDashboardPanel';
 import {
   KARAKA_DEFINITIONS,
   LAGNA_DEFINITIONS,
@@ -69,8 +70,8 @@ const isValidPlanetInsights = (value: unknown): value is Record<string, string> 
   );
 
 interface DataDashboardProps {
-  activeTab: 'overview' | 'yogas' | 'transits' | 'natal' | 'upcoming' | 'panchang' | 'ashtakavarga' | 'muhurta' | 'dashas' | 'impacts' | 'blueprint' | 'rectify' | 'vargas';
-  setActiveTab: (tab: 'overview' | 'yogas' | 'transits' | 'natal' | 'upcoming' | 'panchang' | 'ashtakavarga' | 'muhurta' | 'dashas' | 'impacts' | 'blueprint' | 'rectify' | 'vargas') => void;
+  activeTab: DashboardTabId;
+  setActiveTab: (tab: DashboardTabId) => void;
   isLive: boolean;
   setIsLive: (live: boolean) => void;
   currentTime: Date;
@@ -520,7 +521,7 @@ const DataDashboardInner: React.FC<DataDashboardProps> = (props) => {
         generate: async () => await callGeminiProxy({
           model: "gemini-3-flash-preview",
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
+          config: {
             temperature: 0.7,
           }
         }) || "The cosmic resonance is currently shifting beyond precise description.",
@@ -584,7 +585,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
           const raw = await callGeminiProxy({
             model: "gemini-3-flash-preview",
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.75 }
+            config: { temperature: 0.75 }
           });
           const jsonStr = (raw || '').trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '');
           return JSON.parse(jsonStr);
@@ -643,7 +644,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
         generate: async () => await callGeminiProxy({
           model: "gemini-3-flash-preview",
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
+          config: {
             temperature: 0.7,
           }
         }) || "Cosmic alignment unclear at this moment.",
@@ -687,7 +688,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
         generate: async () => await callGeminiProxy({
           model: "gemini-3-flash-preview",
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
+          config: {
             temperature: 0.7,
             topP: 0.95,
             topK: 40
@@ -2908,6 +2909,36 @@ Respond ONLY with valid JSON (no markdown, no backticks):
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === 'year' && (
+          birthTime && birthPositions && birthPositions.length > 0 && user?.uid ? (
+            <YearDashboardPanel
+              birthPositions={birthPositions}
+              birthTime={birthTime}
+              placeLat={
+                activeChildProfileId
+                  ? (childProfiles?.find((profile) => profile.id === activeChildProfileId)?.lat ?? birthCoords?.lat ?? null)
+                  : (birthCoords?.lat ?? null)
+              }
+              placeLon={
+                activeChildProfileId
+                  ? (childProfiles?.find((profile) => profile.id === activeChildProfileId)?.lon ?? birthCoords?.lon ?? null)
+                  : (birthCoords?.lon ?? null)
+              }
+              placeTimezone={activeChildProfileId ? null : (birthCoords?.timezone ?? null)}
+              userId={user.uid}
+              fullName={
+                activeChildProfileId
+                  ? childProfiles?.find((profile) => profile.id === activeChildProfileId)?.name
+                  : userProfile?.displayName || userProfile?.firstName || user?.displayName
+              }
+              profileKey={activeChildProfileId || 'self'}
+              birthFingerprint={birthFingerprint}
+            />
+          ) : (
+            <YearDashboardEmpty />
+          )
         )}
 
         {activeTab === 'rectify' && (

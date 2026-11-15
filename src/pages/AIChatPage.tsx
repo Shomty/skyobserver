@@ -32,6 +32,7 @@ import { buildSystemInstruction, ChatContextProps } from '../lib/chatUtils';
 import { migrateLegacyFlatChats } from '../services/chatMigrationService';
 import { debugError, debugLog, debugWarn } from '../lib/debug';
 import type { ChildProfile } from './ProfilesPage';
+import { recentChatHistory } from '../lib/chatHistory';
 
 /** Both flat→session and embedded→subcollection migrations complete. */
 const CHAT_MIGRATION_VERSION = 3;
@@ -437,7 +438,7 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
         });
       }
 
-      const historySnapshot = messages.filter(m => m.content);
+      const historySnapshot = recentChatHistory(messages);
       const now = new Date().toISOString();
 
       await appendChatMessage(db, user.uid, sessionId, {

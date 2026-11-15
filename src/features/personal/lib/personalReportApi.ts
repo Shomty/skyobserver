@@ -1,6 +1,7 @@
 import type { PlanetPosition } from '../../../vedic-utils';
 import type { BirthInstant } from '../../gift/lib/birthInstant';
 import type { PersonalAiGuidance, PersonalSnapshot } from '../types';
+import { withAuthHeader } from '../../../lib/authToken';
 
 export interface PersonalReportSavePayload {
   email: string;
@@ -98,11 +99,11 @@ export async function savePersonalSynthesis(payload: {
   const existing = synthesisInflight.get(key);
   if (existing) return existing;
 
-  const promise = fetch('/api/personal/report', {
+  const promise = withAuthHeader({ 'Content-Type': 'application/json', Accept: 'application/json' }).then((headers) => fetch('/api/personal/report', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers,
     body: JSON.stringify(payload),
-  })
+  }))
     .then(async (res) => {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

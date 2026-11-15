@@ -6,7 +6,7 @@ import type { PlaceResolution } from '../types';
  * with each result, so resolving a birth instant needs no extra dependency.
  */
 
-interface OpenMeteoResult {
+export interface OpenMeteoResult {
   name?: string;
   latitude?: number;
   longitude?: number;
@@ -28,7 +28,7 @@ function toLabel(result: OpenMeteoResult): string {
   return [result.name, result.admin1, result.country].filter(Boolean).join(', ');
 }
 
-function toResolution(result: OpenMeteoResult): PlaceResolution | null {
+export function toResolution(result: OpenMeteoResult): PlaceResolution | null {
   if (
     typeof result.latitude !== 'number' ||
     typeof result.longitude !== 'number' ||

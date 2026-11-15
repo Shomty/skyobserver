@@ -1,5 +1,22 @@
 import { debugError, debugLog, debugWarn } from './debug';
 
+/** Transient failures worth retrying: network blips, rate limits, 5xx. */
+export function isTransientError(err: any): boolean {
+  if (err?.noRetry) return false;
+  const msg = String(err?.message || err).toLowerCase();
+  return (
+    err?.code === 'unavailable' ||
+    err?.code === 'resource-exhausted' ||
+    msg.includes('unavailable') ||
+    msg.includes('timeout') ||
+    msg.includes('network') ||
+    msg.includes('quota') ||
+    msg.includes('rate limit') ||
+    err?.status === 429 ||
+    err?.status >= 500
+  );
+}
+
 /**
  * Generic retry wrapper for any asynchronous function.
  * `delay` can be a fixed number (ms) or a function (attempt, err) → ms
@@ -18,21 +35,7 @@ export async function withRetry<T>(
     retries = 3, 
     delay = 1000, 
     onRetry, 
-    shouldRetry = (err) => {
-      // Common transient error patterns
-      const msg = String(err?.message || err).toLowerCase();
-      return (
-        err.code === 'unavailable' || 
-        err.code === 'resource-exhausted' ||
-        msg.includes('unavailable') || 
-        msg.includes('timeout') || 
-        msg.includes('network') ||
-        msg.includes('quota') ||
-        msg.includes('rate limit') ||
-        err.status === 429 ||
-        err.status >= 500
-      );
-    }
+    shouldRetry = isTransientError,
   } = options;
 
   let lastError: any;
@@ -108,6 +111,80 @@ export function getErrorMessage(error: any): string {
 const GEMINI_TIMEOUT_MS = 90_000;
 
 /**
+ * Sends one Gemini request and resolves to the response text. Errors should
+ * carry a numeric `status` so 429s get the long backoff.
+ */
+export type GeminiTransport = (
+  params: Record<string, unknown>,
+  signal: AbortSignal,
+) => Promise<string>;
+
+/** Thrown when an AI feature needs a signed-in user. Never retried. */
+export class AuthRequiredError extends Error {
+  readonly noRetry = true;
+  readonly status = 401;
+
+  constructor(message = 'Sign in to unlock your AI interpretation.') {
+    super(message);
+    this.name = 'AuthRequiredError';
+  }
+}
+
+export function isAuthRequiredError(error: unknown): boolean {
+  return error instanceof AuthRequiredError || (error as { name?: string } | null)?.name === 'AuthRequiredError';
+}
+
+type IdTokenProvider = () => Promise<string | null>;
+let getIdToken: IdTokenProvider | null = null;
+
+/**
+ * Browser only: supply the signed-in user's Firebase ID token. /api/gemini
+ * rejects anonymous calls, so without a token the request is not even sent.
+ * Kept as an injection point so this module stays free of Firebase imports
+ * (the Node server imports it too).
+ */
+export function configureGeminiAuth(provider: IdTokenProvider): void {
+  getIdToken = provider;
+}
+
+/** Browser default: POST to the server's /api/gemini proxy. */
+const proxyTransport: GeminiTransport = async (params, signal) => {
+  const token = getIdToken ? await getIdToken() : null;
+  if (!token) throw new AuthRequiredError();
+
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(params),
+    signal,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+    if (res.status === 401) throw new AuthRequiredError(err.error);
+    const error: any = new Error(err.error || 'Gemini API error');
+    error.status = res.status;
+    // A daily quota or a rejected request will not succeed on retry.
+    error.noRetry = err.code === 'quota' || res.status === 400;
+    debugError('gemini', 'Proxy request failed', { status: res.status, error: err.error });
+    throw error;
+  }
+  const data = await res.json();
+  return data.text as string;
+};
+
+let activeTransport: GeminiTransport = proxyTransport;
+
+/**
+ * Server-side only: route callGeminiProxy straight to the Gemini SDK instead
+ * of the relative /api/gemini URL, which does not exist outside a browser.
+ * Lets the feature generators run unchanged inside the Node process.
+ */
+export function configureGeminiTransport(transport: GeminiTransport): void {
+  activeTransport = transport;
+}
+
+/**
  * Calls the backend Gemini proxy endpoint.
  * Keeps the API key server-side only.
  */
@@ -126,19 +203,14 @@ export async function callGeminiProxy(
 
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
-      let res: Response;
+      let text: string;
       try {
-        res = await fetch('/api/gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(params),
-          signal: controller.signal,
-        });
+        text = await activeTransport(params, controller.signal);
       } catch (err: any) {
         // Deliberately not phrased with the word "timeout": shouldRetry treats
         // that as transient, and re-issuing a request that is too large to
         // complete would only stall again.
-        if (err?.name === 'AbortError') {
+        if (err?.name === 'AbortError' || controller.signal.aborted) {
           const aborted: any = new Error(
             `The celestial intelligence took longer than ${Math.round(timeoutMs / 1000)}s to respond. Please try again.`,
           );
@@ -151,18 +223,10 @@ export async function callGeminiProxy(
         clearTimeout(timer);
       }
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Unknown error' }));
-        const error: any = new Error(err.error || 'Gemini API error');
-        error.status = res.status;
-        debugError('gemini', 'Proxy request failed', { status: res.status, error: err.error });
-        throw error;
-      }
-      const data = await res.json();
       debugLog('gemini', 'Proxy response received', {
-        textLength: typeof data.text === 'string' ? data.text.length : 0,
+        textLength: typeof text === 'string' ? text.length : 0,
       });
-      return data.text as string;
+      return text;
     },
     {
       retries: 4,

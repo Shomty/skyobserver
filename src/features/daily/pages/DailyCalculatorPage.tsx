@@ -21,6 +21,10 @@ import { fetchDailyReportById } from '../lib/dailyReportApi';
 import { dailyShareUrl } from '../lib/dailyShareUrl';
 import { useDailyCalculator } from '../hooks/useDailyCalculator';
 import { useDailyReportGuidance } from '../hooks/useDailyReportGuidance';
+import { useAuthUser } from '../../auth/useAuthUser';
+import type { DailyAiPlainGuidance, DailyAiTransitGuidance } from '../types';
+import { useAccountAiCopy } from '../../auth/useAccountAiCopy';
+import { funnelAiDocId } from '../../auth/saveAiToAccount';
 
 type SharedLoadState = 'idle' | 'loading' | 'ready' | 'not-found' | 'error';
 
@@ -62,13 +66,20 @@ export default function DailyCalculatorPage() {
 
   const activeReportId = urlReportId ?? reportId;
 
+  const { user: authUser, ready: authReady } = useAuthUser();
+  const uid = authUser?.uid ?? null;
+  const accountPlain = useAccountAiCopy<DailyAiPlainGuidance>(uid, activeReportId ? funnelAiDocId('daily-guidance', activeReportId) : null);
+  const accountTransit = useAccountAiCopy<DailyAiTransitGuidance>(uid, activeReportId ? funnelAiDocId('daily-transits', activeReportId) : null);
   const reportGuidance = useDailyReportGuidance({
-    email: reportEmail,
+    uid,
+    ready: authReady && accountPlain.ready && accountTransit.ready,
+    // Share records no longer expose the owner's email; a signed-in viewer's own email stands in.
+    email: reportEmail ?? authUser?.email ?? null,
     reportFingerprint: birthFingerprint,
     reportId: activeReportId,
     snapshot,
-    cachedPlain: aiGuidance,
-    cachedTransit: aiTransitGuidance,
+    cachedPlain: aiGuidance ?? accountPlain.data,
+    cachedTransit: aiTransitGuidance ?? accountTransit.data,
     onPlainSaved: applyCachedPlainGuidance,
     onTransitSaved: applyCachedTransitGuidance,
   });

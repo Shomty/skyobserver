@@ -7,6 +7,7 @@ import {
   Sparkles,
   User as UserIcon,
   CalendarDays,
+  CalendarRange,
   Clock,
   Grid,
   Layers,
@@ -24,6 +25,7 @@ export type DashboardTabId =
   | 'ashtakavarga'
   | 'muhurta'
   | 'dashas'
+  | 'year'
   | 'impacts'
   | 'blueprint'
   | 'rectify'
@@ -58,6 +60,7 @@ export const DASHBOARD_TABS: DashboardTabDef[] = [
   { id: 'vargas', label: 'Vargas', icon: Layers, group: 'Birth Chart', requiredMode: 'natal' },
   { id: 'ashtakavarga', label: 'Ashtaka', icon: Grid, group: 'Birth Chart', requiredMode: 'natal' },
   { id: 'dashas', label: 'Dashas', icon: Zap, group: 'Timing', requiredMode: 'natal' },
+  { id: 'year', label: 'Year', icon: CalendarRange, group: 'Timing', requiredMode: 'natal' },
   { id: 'yogas', label: 'Yogas', icon: Sparkles, group: 'Analysis', requiredMode: 'natal' },
   { id: 'impacts', label: 'Impacts', icon: Activity, group: 'Analysis', requiredMode: 'natal' },
   { id: 'rectify', label: 'Rectify', icon: Edit, group: 'Analysis', requiredMode: 'natal' },

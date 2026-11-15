@@ -18,7 +18,7 @@ export const LANDING_FAQ_ITEMS: FaqItem[] = [
   {
     question: 'Do I need an account to see my soul blueprint?',
     answer:
-      'No. The career, personal, and daily energy reports are free, instant, and require only your birth date, time, and place — no account, no email, no payment. Creating a free account unlocks a private workspace to save charts, track daily energy over time, and go deeper with AI-guided interpretation.',
+      'No. The career, personal, daily energy, and year horoscope reports are free and instant from your birth date, time, and place. An email is used only to save a share link. Creating a free account unlocks a private workspace to save charts, track daily energy over time, and go deeper with AI-guided interpretation.',
   },
   {
     question: 'How accurate are the planetary positions?',

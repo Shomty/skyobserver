@@ -1,6 +1,6 @@
-# Free Reports — Career, Personal, Daily
+# Free Reports — Career, Personal, Daily, Year
 
-All three reports are **free**, **public**, and **do not require an account**. Each needs:
+All four reports are **free**, **public**, and **do not require an account**. Each needs:
 
 - Birth **date**
 - Birth **time** (as precise as possible; unknown time reduces accuracy)
@@ -65,6 +65,25 @@ Reports are generated on the server using chart calculation + Gemini interpretat
 
 ---
 
+## Year horoscope
+
+**URL:** https://thesoulblueprint.online/year
+
+**Purpose:** A consultation for the current calendar year. The birth chart is read as a map of potential (Purushartha), not a fixed fate.
+
+**Typical sections:**
+
+- Core identity from the rising sign, its degree, and Nakshatra, with Vargottama planets given maximum strength
+- Inner path and partnership from the Navamsha and Upapada, including Gulika or Mandi on the relationship axis when present
+- Path of action from the Dashamsha 10th house and the Amatyakaraka
+- Current Vimshottari Mahadasha and Antardasha across D1, D9, and D10, with a mantra and mindset practice when the period is heavy
+
+**Best for:** Orienting the year ahead: self, partnership, work, and timing.
+
+**Note:** The reading refreshes when the calendar year or the active dasha lords change. Shared links live at `/year/r/{reportId}`.
+
+---
+
 ## Shared report links
 
 When a user shares a report, the URL looks like:
@@ -72,6 +91,7 @@ When a user shares a report, the URL looks like:
 - `https://thesoulblueprint.online/career/r/{reportId}`
 - `https://thesoulblueprint.online/personal/r/{reportId}`
 - `https://thesoulblueprint.online/daily/r/{reportId}`
+- `https://thesoulblueprint.online/year/r/{reportId}`
 
 These are **user-generated content**, not static documentation. Treat birth details embedded in shared reports as sensitive personal data.
 

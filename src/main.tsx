@@ -8,6 +8,9 @@ import {AnalyticsPageView} from './components/AnalyticsPageView.tsx';
 import {HomeRoute} from './routes/HomeRoute.tsx';
 import {lazyWithReload} from './lib/lazyWithReload.ts';
 import {debugLog, installDebugConsole, isDebugEnabled} from './lib/debug.ts';
+import {installGeminiAuth} from './lib/geminiAuth.ts';
+
+installGeminiAuth();
 
 const App = lazyWithReload(() => import('./App.tsx'));
 
@@ -54,6 +57,9 @@ const PersonalCalculatorPage = lazyWithReload(
 );
 const DailyCalculatorPage = lazyWithReload(
   () => import('./features/daily/pages/DailyCalculatorPage.tsx')
+);
+const YearCalculatorPage = lazyWithReload(
+  () => import('./features/year/pages/YearCalculatorPage.tsx')
 );
 const PrivacyPolicyPage = lazyWithReload(() => import('./pages/legal/PrivacyPolicyPage.tsx'));
 const TermsPage = lazyWithReload(() => import('./pages/legal/TermsPage.tsx'));
@@ -192,6 +198,22 @@ function RoutedApp() {
           element={
             <Suspense fallback={null}>
               <DailyCalculatorPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/year/r/:reportId"
+          element={
+            <Suspense fallback={null}>
+              <YearCalculatorPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/year"
+          element={
+            <Suspense fallback={null}>
+              <YearCalculatorPage />
             </Suspense>
           }
         />

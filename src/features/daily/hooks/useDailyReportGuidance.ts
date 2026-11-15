@@ -1,10 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
+import { isAuthRequiredError } from '../../../lib/api-utils';
+import { funnelAiDocId, saveAiToAccount } from '../../auth/saveAiToAccount';
 import { trackDailyEvent } from '../lib/analytics';
 import { ensureDailyGuidance } from '../lib/dailyGuidanceService';
 import { ensureDailyTransitGuidance } from '../lib/dailyTransitGuidanceService';
 import type { DailyAiPlainGuidance, DailyAiTransitGuidance, DailySnapshot } from '../types';
 
 interface Options {
+  /** Signed-in user; AI generation needs one, cached guidance does not. */
+  uid: string | null;
+  /**
+   * Hold generation until the session is restored and the account copy has
+   * been checked — otherwise a reload could regenerate a saved interpretation.
+   */
+  ready?: boolean;
   email: string | null;
   reportFingerprint: string | null;
   reportId: string | null;
@@ -16,6 +25,8 @@ interface Options {
 }
 
 export function useDailyReportGuidance({
+  uid,
+  ready = true,
   email,
   reportFingerprint,
   reportId,
@@ -33,6 +44,8 @@ export function useDailyReportGuidance({
   const [transitError, setTransitError] = useState<string | null>(null);
   const [plainFromCache, setPlainFromCache] = useState(Boolean(cachedPlain));
   const [transitFromCache, setTransitFromCache] = useState(Boolean(cachedTransit));
+  const [plainNeedsAuth, setPlainNeedsAuth] = useState(false);
+  const [transitNeedsAuth, setTransitNeedsAuth] = useState(false);
 
   const cachedPlainRef = useRef(cachedPlain);
   const cachedTransitRef = useRef(cachedTransit);
@@ -55,7 +68,7 @@ export function useDailyReportGuidance({
   }, [cachedTransit]);
 
   useEffect(() => {
-    if (!email || !reportFingerprint || !reportId || !snapshot) {
+    if (!ready || !email || !reportFingerprint || !reportId || !snapshot) {
       return;
     }
 
@@ -69,6 +82,8 @@ export function useDailyReportGuidance({
       if (!transitCached) setTransitLoading(true);
       setPlainError(null);
       setTransitError(null);
+      setPlainNeedsAuth(false);
+      setTransitNeedsAuth(false);
 
       const [plainResult, transitResult] = await Promise.allSettled([
         ensureDailyGuidance({
@@ -95,11 +110,19 @@ export function useDailyReportGuidance({
         if (plainResult.value.saved) {
           onPlainSavedRef.current?.(plainResult.value.guidance);
         }
+        saveAiToAccount(uid, {
+          docId: funnelAiDocId('daily-guidance', reportId),
+          type: 'daily_guidance',
+          fingerprint: plainResult.value.guidance.fingerprint,
+          data: plainResult.value.guidance,
+        });
         trackDailyEvent('daily_plain_guidance_ready', {
           reportId,
           fromCache: plainResult.value.fromCache,
           saved: plainResult.value.saved,
         });
+      } else if (isAuthRequiredError(plainResult.reason)) {
+        setPlainNeedsAuth(true);
       } else {
         setPlainError(
           plainResult.reason instanceof Error
@@ -118,11 +141,19 @@ export function useDailyReportGuidance({
         if (transitResult.value.saved) {
           onTransitSavedRef.current?.(transitResult.value.guidance);
         }
+        saveAiToAccount(uid, {
+          docId: funnelAiDocId('daily-transits', reportId),
+          type: 'daily_transit_guidance',
+          fingerprint: transitResult.value.guidance.fingerprint,
+          data: transitResult.value.guidance,
+        });
         trackDailyEvent('daily_transit_guidance_ready', {
           reportId,
           fromCache: transitResult.value.fromCache,
           saved: transitResult.value.saved,
         });
+      } else if (isAuthRequiredError(transitResult.reason)) {
+        setTransitNeedsAuth(true);
       } else {
         setTransitError(
           transitResult.reason instanceof Error
@@ -142,7 +173,7 @@ export function useDailyReportGuidance({
     return () => {
       cancelled = true;
     };
-  }, [email, reportFingerprint, reportId, snapshot]);
+  }, [ready, uid, email, reportFingerprint, reportId, snapshot]);
 
   return {
     plain: {
@@ -150,12 +181,14 @@ export function useDailyReportGuidance({
       loading: plainLoading,
       error: plainError,
       fromCache: plainFromCache,
+      needsAuth: plainNeedsAuth,
     },
     transit: {
       guidance: transit,
       loading: transitLoading,
       error: transitError,
       fromCache: transitFromCache,
+      needsAuth: transitNeedsAuth,
     },
   };
 }

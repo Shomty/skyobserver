@@ -1,6 +1,7 @@
 import type { PlanetPosition } from '../../../vedic-utils';
 import type { BirthInstant } from '../../gift/lib/birthInstant';
 import type { CareerAiPlainSynthesis, CareerAiSynthesis, CareerSnapshot } from '../types';
+import { withAuthHeader } from '../../../lib/authToken';
 
 export interface CareerReportSavePayload {
   email: string;
@@ -107,11 +108,11 @@ export async function saveCareerSynthesis(payload: {
   const existing = synthesisInflight.get(key);
   if (existing) return existing;
 
-  const promise = fetch('/api/career/report', {
+  const promise = withAuthHeader({ 'Content-Type': 'application/json', Accept: 'application/json' }).then((headers) => fetch('/api/career/report', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers,
     body: JSON.stringify(payload),
-  })
+  }))
     .then(async (res) => {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -141,11 +142,11 @@ export async function saveCareerPlainSynthesis(payload: {
   const existing = plainSynthesisInflight.get(key);
   if (existing) return existing;
 
-  const promise = fetch('/api/career/report', {
+  const promise = withAuthHeader({ 'Content-Type': 'application/json', Accept: 'application/json' }).then((headers) => fetch('/api/career/report', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers,
     body: JSON.stringify(payload),
-  })
+  }))
     .then(async (res) => {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

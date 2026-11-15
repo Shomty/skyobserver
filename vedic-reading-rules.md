@@ -247,3 +247,32 @@ The user's six target outcomes, and which sections feed each one:
 - This is an interpretive framework, not an astronomical or astrological ground truth. Treat it as a lens for organizing chart data into a narrative, not as a verified predictive method.
 - Any specific claim in a generated reading (e.g., "AK in the 9th means X") is a traditional interpretive convention, not an empirically verified fact. Present it as astrological convention, not established fact.
 - Sections 3 and 4 (Life Mission, Shadow Work) were not present in the original source material and were added to close the gap for those two requested outcomes; flag this if precision about provenance matters downstream.
+
+## 9. Year Horoscope
+
+A calendar-year consultation. The chart is a map of potential. Purushartha, conscious effort, is the stance of every section. The native is the co-creator of the year. Implemented in `src/features/year/`.
+
+### The Core Identity (D1)
+
+- Read the ascending sign, its degree, and its Nakshatra for physical felicity, intellect, and innate nature.
+- A planet in the same sign in D1 and D9 is Vargottama. Give that condition the maximum strength weight. It marks extraordinary strength and internal alignment, above own sign or exaltation.
+
+### The Inner Path and Union (D9)
+
+- Navamsha shows the spouse and the fruit of promises made in D1.
+- Upapada Lagna is the marriage marker calculated from the house after the natal lagna. Cross it with planets occupying that sign in D9.
+- Gulika or Mandi on the D9 relationship axis (lagna, 7th, or 7th lord) is a karmic lesson in partnership. The tone stays warm and professional. It is not a verdict against marriage.
+
+### The Path of Action (D10)
+
+- Dashamsha reads power, position, and public life.
+- Amatyakaraka is the planet next after the Atmakaraka by degree within the sign. It carries professional soul-purpose. Read it against the 10th house of D10 and that house's lord.
+- Gulika, from Saturn's portion, in a key D10 career house (1, 6, 10, or 11) is a spiritual growth assignment: cleaner motives and steadier craft. It is not professional ruin.
+
+### Current Timing (Vimshottari)
+
+- Vimshottari is the timing system for this reading, the dasha used across a 120-year span.
+- Correlate the active Mahadasha and Antardasha lords with their signs, houses, and dignities in D1, D9, and D10.
+- If a dasha lord is awake (Jagrata) in its own sign or exaltation, say that its promises can open when the person participates.
+- When the period is challenging, or Gulika or Mandi loads the relationship or career axis, attach the mantra and mindset line for the relevant planets from `src/features/year/lib/yearMantras.ts`. Do not invent quotations from books that are not in the repository. Remind the native they co-create the outcome.
+

@@ -16,6 +16,51 @@ import type { PlanetPosition, TransitIngress } from '../vedic-utils';
 // simultaneous transit and birth position fetches don't conflict.
 const inflight = new Map<string, Promise<PlanetPosition[]>>();
 
+/** Raw ingress as returned by the Swiss Ephemeris engine (lowercase keys). */
+export interface RawTransitIngress {
+  planet: string;
+  sign: string;
+  fromSign: string;
+  date: string | Date;
+  isRetrograde: boolean;
+  longitude: number;
+}
+
+/**
+ * Where positions and ingresses come from. The browser default POSTs to the
+ * server's /api routes; the Node server swaps in the Swiss Ephemeris engine
+ * directly so feature engines (e.g. the daily forecast) run in-process.
+ */
+export interface PositionsBackend {
+  planetPositions(body: { isoDate: string; lat?: number; lon?: number }): Promise<PlanetPosition[]>;
+  transitIngresses(body: { startDate: string; endDate: string; planets?: string[] }): Promise<RawTransitIngress[]>;
+}
+
+async function postJson<T>(url: string, body: unknown, label: string): Promise<T> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `${label} request failed (${response.status})`);
+  }
+  return response.json() as Promise<T>;
+}
+
+const httpBackend: PositionsBackend = {
+  planetPositions: (body) => postJson<PlanetPosition[]>('/api/planet-positions', body, 'Planet positions'),
+  transitIngresses: (body) => postJson<RawTransitIngress[]>('/api/transit-ingresses', body, 'Transit ingresses'),
+};
+
+let backend: PositionsBackend = httpBackend;
+
+/** Server-side only: compute in-process instead of calling relative /api URLs. */
+export function configurePositionsBackend(next: PositionsBackend): void {
+  backend = next;
+}
+
 export async function fetchPlanetPositions(
   date: Date,
   lat?: number,
@@ -29,39 +74,17 @@ export async function fetchPlanetPositions(
   const existing = inflight.get(dedupKey);
   if (existing) return existing;
 
-  const body: Record<string, unknown> = { isoDate: date.toISOString() };
-  if (lat !== undefined && lon !== undefined) {
-    body.lat = lat;
-    body.lon = lon;
-  }
+  const body = lat !== undefined && lon !== undefined
+    ? { isoDate: date.toISOString(), lat, lon }
+    : { isoDate: date.toISOString() };
 
-  const promise = fetch('/api/planet-positions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || `Planet positions request failed (${response.status})`);
-      }
-      return response.json() as Promise<PlanetPosition[]>;
-    })
+  const promise = backend.planetPositions(body)
     .finally(() => {
       inflight.delete(dedupKey);
     });
 
   inflight.set(dedupKey, promise);
   return promise;
-}
-
-interface RawTransitIngress {
-  planet: string;
-  sign: string;
-  fromSign: string;
-  date: string;
-  isRetrograde: boolean;
-  longitude: number;
 }
 
 function capitalize(s: string): string {
@@ -80,25 +103,14 @@ export async function fetchTransitIngresses(
   const existing = ingressInflight.get(dedupKey);
   if (existing) return existing;
 
-  const body: Record<string, unknown> = {
+  const body = {
     startDate: startDate.toISOString(),
     endDate: endDate.toISOString(),
+    ...(planets && planets.length > 0 ? { planets } : {}),
   };
-  if (planets && planets.length > 0) {
-    body.planets = planets;
-  }
 
-  const promise = fetch('/api/transit-ingresses', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || `Transit ingresses request failed (${response.status})`);
-      }
-      const raw = await response.json() as RawTransitIngress[];
+  const promise = backend.transitIngresses(body)
+    .then((raw) => {
       return raw.map((ingress): TransitIngress => ({
         planet: capitalize(ingress.planet),
         sign: capitalize(ingress.sign),

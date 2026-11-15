@@ -15,7 +15,7 @@ import { SectionNav } from './components/SectionNav';
 import { MobileNavigation } from './components/MobileNavigation';
 import { MoreSheet } from './components/MoreSheet';
 import { type NavId, pathToNavId, navIdToPath, isProtectedAppPath, DEFAULT_NAV_ID, MORE_SHEET_IDS, CONTROLS_HUD_IDS, isDashboardView } from './lib/navigation';
-import { DASHBOARD_TABS } from './lib/dashboardTabs';
+import { DASHBOARD_TABS, type DashboardTabId } from './lib/dashboardTabs';
 import { TabGroup, type TabGroupItem } from './components/ui';
 import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
 import SunCalc from 'suncalc';
@@ -548,7 +548,7 @@ export default function App() {
   const [isYogasExpanded, setIsYogasExpanded] = useState(false);
   const [isTransitsExpanded, setIsTransitsExpanded] = useState(false);
   const [isUpcomingTransitsExpanded, setIsUpcomingTransitsExpanded] = useState(false);
-  const [dashboardTab, setDashboardTab] = useState<'overview' | 'yogas' | 'transits' | 'natal' | 'upcoming' | 'panchang' | 'ashtakavarga' | 'muhurta' | 'dashas' | 'impacts' | 'blueprint' | 'rectify' | 'vargas'>('overview');
+  const [dashboardTab, setDashboardTab] = useState<DashboardTabId>('overview');
   const [apiError, setApiError] = useState<{ error: any; title: string; retry?: () => void } | null>(null);
   const { theme, toggleTheme } = useTheme();
   const routerLocation = useLocation();

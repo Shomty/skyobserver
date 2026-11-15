@@ -31,7 +31,7 @@ export const LandingAbout: React.FC = () => {
               jargon. No birth chart literacy required.
             </p>
             <p>
-              Three free instant reports — career, personality, and daily energy — read your chart
+              Four free instant reports — career, personality, daily energy, and a year horoscope — read your chart
               from different angles with a shareable link and no account required. A free account
               unlocks a private workspace to save charts, track your energy over time, and go deeper
               with AI-guided reflection.

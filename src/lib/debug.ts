@@ -29,7 +29,8 @@ function readStoredDebugFlag(): boolean | null {
 export function isDebugEnabled(): boolean {
   const stored = readStoredDebugFlag();
   if (stored !== null) return stored;
-  return import.meta.env.DEV;
+  // import.meta.env only exists under Vite; the Node server imports this too.
+  return import.meta.env?.DEV ?? false;
 }
 
 function emit(method: DebugMethod, scope: string, message: string, details?: unknown) {

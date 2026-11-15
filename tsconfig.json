@@ -18,6 +18,12 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      // Server only: tsx recompiles astronomy-engine's ESM build and loses its
+      // named exports, so Node-side imports (vedic-utils via /mcp) use the CJS
+      // build. Vite ignores tsconfig paths, so the browser bundle is unaffected.
+      "astronomy-engine": [
+        "./node_modules/astronomy-engine/astronomy.js"
       ]
     },
     "allowImportingTsExtensions": true,

@@ -40,7 +40,8 @@ graphify-out/
 # Coverage
 coverage/
 backups/
-data/career-reports/
+# Server-side funnel report caches — contain user PII (email, name, birth data)
+data/
 .env.admin
 
 # Second-app prototype + scratch artifacts

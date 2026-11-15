@@ -26,6 +26,10 @@ import {
 import { useCareerCalculator } from '../hooks/useCareerCalculator';
 import { CareerViewModeToggle } from '../components/CareerViewModeToggle';
 import { useCareerReportGuidance } from '../hooks/useCareerReportGuidance';
+import { useAuthUser } from '../../auth/useAuthUser';
+import type { CareerAiPlainSynthesis, CareerAiSynthesis } from '../types';
+import { useAccountAiCopy } from '../../auth/useAccountAiCopy';
+import { funnelAiDocId } from '../../auth/saveAiToAccount';
 import { secondaryButtonClass } from '../../gift/components/buttonStyles';
 import { ReportMetaBadge, ReportResultHeader } from '../../../components/report/ReportResultHeader';
 import { reportGlassButtonClass } from '../../../lib/reportGlassStyles';
@@ -81,15 +85,22 @@ function CareerCalculatorPageContent() {
 
   const activeReportId = urlReportId ?? reportId;
 
+  const { user: authUser, ready: authReady } = useAuthUser();
+  const uid = authUser?.uid ?? null;
+  const accountVedic = useAccountAiCopy<CareerAiSynthesis>(uid, activeReportId ? funnelAiDocId('career-synthesis', activeReportId) : null);
+  const accountPlain = useAccountAiCopy<CareerAiPlainSynthesis>(uid, activeReportId ? funnelAiDocId('career-plain', activeReportId) : null);
   const reportGuidance = useCareerReportGuidance({
-    email: reportEmail,
+    uid,
+    ready: authReady && accountVedic.ready && accountPlain.ready,
+    // Share records no longer expose the owner's email; a signed-in viewer's own email stands in.
+    email: reportEmail ?? authUser?.email ?? null,
     birthFingerprint,
     reportId: activeReportId,
     snapshot,
     positions,
     fullName: form.values.fullName,
-    cachedVedic: aiSynthesis,
-    cachedPlain: aiPlainSynthesis,
+    cachedVedic: aiSynthesis ?? accountVedic.data,
+    cachedPlain: aiPlainSynthesis ?? accountPlain.data,
     onVedicSaved: applyCachedSynthesis,
     onPlainSaved: applyCachedPlainSynthesis,
   });

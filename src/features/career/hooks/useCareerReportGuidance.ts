@@ -1,11 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PlanetPosition } from '../../../vedic-utils';
+import { isAuthRequiredError } from '../../../lib/api-utils';
+import { funnelAiDocId, saveAiToAccount } from '../../auth/saveAiToAccount';
 import { trackCareerEvent } from '../lib/analytics';
 import { ensureCareerPlainSynthesis } from '../lib/careerPlainSynthesisService';
 import { ensureCareerSynthesis } from '../lib/careerSynthesisService';
 import type { CareerAiPlainSynthesis, CareerAiSynthesis, CareerSnapshot } from '../types';
 
 interface Options {
+  /** Signed-in user; AI generation needs one, cached interpretations do not. */
+  uid: string | null;
+  /**
+   * Hold generation until the session is restored and the account copy has
+   * been checked — otherwise a reload could regenerate a saved interpretation.
+   */
+  ready?: boolean;
   email: string | null;
   birthFingerprint: string | null;
   reportId: string | null;
@@ -19,6 +28,8 @@ interface Options {
 }
 
 export function useCareerReportGuidance({
+  uid,
+  ready = true,
   email,
   birthFingerprint,
   reportId,
@@ -38,6 +49,8 @@ export function useCareerReportGuidance({
   const [plainError, setPlainError] = useState<string | null>(null);
   const [vedicFromCache, setVedicFromCache] = useState(Boolean(cachedVedic));
   const [plainFromCache, setPlainFromCache] = useState(Boolean(cachedPlain));
+  const [vedicNeedsAuth, setVedicNeedsAuth] = useState(false);
+  const [plainNeedsAuth, setPlainNeedsAuth] = useState(false);
 
   const cachedVedicRef = useRef(cachedVedic);
   const cachedPlainRef = useRef(cachedPlain);
@@ -61,7 +74,7 @@ export function useCareerReportGuidance({
 
   useEffect(() => {
     const reading = snapshot?.reading;
-    if (!email || !birthFingerprint || !reportId || !reading || !positions) {
+    if (!ready || !email || !birthFingerprint || !reportId || !reading || !positions) {
       return;
     }
 
@@ -75,6 +88,8 @@ export function useCareerReportGuidance({
       if (!plainCached) setPlainLoading(true);
       setVedicError(null);
       setPlainError(null);
+      setVedicNeedsAuth(false);
+      setPlainNeedsAuth(false);
 
       const [vedicResult, plainResult] = await Promise.allSettled([
         ensureCareerSynthesis({
@@ -106,11 +121,19 @@ export function useCareerReportGuidance({
         if (vedicResult.value.saved) {
           onVedicSavedRef.current?.(vedicResult.value.synthesis);
         }
+        saveAiToAccount(uid, {
+          docId: funnelAiDocId('career-synthesis', reportId),
+          type: 'career_synthesis',
+          fingerprint: vedicResult.value.synthesis.fingerprint,
+          data: vedicResult.value.synthesis,
+        });
         trackCareerEvent('career_synthesis_ready', {
           reportId,
           fromCache: vedicResult.value.fromCache,
           saved: vedicResult.value.saved,
         });
+      } else if (isAuthRequiredError(vedicResult.reason)) {
+        setVedicNeedsAuth(true);
       } else {
         setVedicError(
           vedicResult.reason instanceof Error
@@ -129,11 +152,19 @@ export function useCareerReportGuidance({
         if (plainResult.value.saved) {
           onPlainSavedRef.current?.(plainResult.value.synthesis);
         }
+        saveAiToAccount(uid, {
+          docId: funnelAiDocId('career-plain', reportId),
+          type: 'career_plain_synthesis',
+          fingerprint: plainResult.value.synthesis.fingerprint,
+          data: plainResult.value.synthesis,
+        });
         trackCareerEvent('career_plain_synthesis_ready', {
           reportId,
           fromCache: plainResult.value.fromCache,
           saved: plainResult.value.saved,
         });
+      } else if (isAuthRequiredError(plainResult.reason)) {
+        setPlainNeedsAuth(true);
       } else {
         setPlainError(
           plainResult.reason instanceof Error
@@ -153,7 +184,7 @@ export function useCareerReportGuidance({
     return () => {
       cancelled = true;
     };
-  }, [email, birthFingerprint, reportId, snapshot, positions, fullName]);
+  }, [ready, uid, email, birthFingerprint, reportId, snapshot, positions, fullName]);
 
   return {
     vedic: {
@@ -161,12 +192,14 @@ export function useCareerReportGuidance({
       loading: vedicLoading,
       error: vedicError,
       fromCache: vedicFromCache,
+      needsAuth: vedicNeedsAuth,
     },
     plain: {
       synthesis: plain,
       loading: plainLoading,
       error: plainError,
       fromCache: plainFromCache,
+      needsAuth: plainNeedsAuth,
     },
   };
 }
