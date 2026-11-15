@@ -45,6 +45,7 @@ import {
   fetchTimezoneForCoords,
 } from './server/ephemeris.ts';
 import { installServerRuntime } from './server/runtime.ts';
+import { InvalidIngressRangeError } from './server/ingressRange.ts';
 import { createMcpRouter } from './server/mcp/router.ts';
 import {
   type AuthUser,
@@ -1102,9 +1103,12 @@ ${urls}
 
   // Swiss Ephemeris transit-ingress engine — exact sign-change timestamps
   app.post('/api/transit-ingresses', rateLimit, async (req, res) => {
-    const { startDate, endDate, planets } = req.body as { startDate?: string; endDate?: string; planets?: string[] };
+    const { startDate, endDate, planets } = req.body as { startDate?: string; endDate?: string; planets?: unknown };
     if (!startDate || typeof startDate !== 'string' || !endDate || typeof endDate !== 'string') {
       return res.status(400).json({ error: 'startDate and endDate are required' });
+    }
+    if (planets !== undefined && (!Array.isArray(planets) || planets.length > 20 || !planets.every((p) => typeof p === 'string'))) {
+      return res.status(400).json({ error: 'planets must be an array of planet names' });
     }
 
     try {
@@ -1114,15 +1118,18 @@ ${urls}
         return res.status(400).json({ error: 'Invalid startDate or endDate' });
       }
 
-      const ingresses = computeTransitIngresses(start, end, planets);
+      const ingresses = computeTransitIngresses(start, end, planets as string[] | undefined);
 
       if (DEBUG_SERVER_LOGS) {
         serverLog('log', 'transit-ingresses', 'Ingresses calculated', { startDate, endDate, count: ingresses.length });
       }
       res.json(ingresses);
-    } catch (e: any) {
-      serverLog('error', 'transit-ingresses', 'Transit ingress calculation error', e.message);
-      res.status(500).json({ error: e.message || 'Transit ingress calculation failed' });
+    } catch (e: unknown) {
+      if (e instanceof InvalidIngressRangeError) {
+        return res.status(400).json({ error: e.message });
+      }
+      serverLog('error', 'transit-ingresses', 'Transit ingress calculation error', e instanceof Error ? e.message : e);
+      res.status(500).json({ error: 'Transit ingress calculation failed' });
     }
   });
 

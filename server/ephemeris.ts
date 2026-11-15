@@ -7,6 +7,7 @@ import { createRequire } from 'module';
 import type { VedicChartCalculations, Planet, VedicTransitIngress } from 'openastrology-library';
 import type { PlanetPosition } from '../src/vedic-utils.ts';
 import type { VimshottariDashasResponse } from '../src/services/dashasService.ts';
+import { assertIngressRange } from './ingressRange.ts';
 
 const _require = createRequire(import.meta.url);
 const { VedicAstrologyCalculator, VedicTransitCalculator } = _require('openastrology-library') as typeof import('openastrology-library');
@@ -248,8 +249,12 @@ export async function computeDashas(
   return mapVimshottariDashas(chart, isNaN(targetDate.getTime()) ? new Date() : targetDate);
 }
 
-/** Exact sign-change instants. Unknown planet keys are ignored. */
+/**
+ * Exact sign-change instants. Unknown planet keys are ignored. Throws
+ * InvalidIngressRangeError for an invalid or over-long range, before any work.
+ */
 export function computeTransitIngresses(start: Date, end: Date, planets?: string[]): VedicTransitIngress[] {
+  assertIngressRange(start, end);
   const requested = Array.isArray(planets) && planets.length > 0
     ? planets.filter((p): p is Planet => ALL_VEDIC_PLANETS.includes(p as Planet))
     : ALL_VEDIC_PLANETS;
