@@ -3,7 +3,7 @@
  * Runs automatically via the "prebuild" npm hook before `npm run build`.
  *
  * Local dev: skipped when the file already exists (use firebase-applet-config.example.json as a template).
- * Railway / CI: generates the file from FIREBASE_* environment variables.
+ * CI: generates the file from FIREBASE_* environment variables.
  */
 import { writeFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const outPath = resolve(__dirname, '..', 'firebase-applet-config.json');
-const isCi = !!process.env.CI || !!process.env.RAILWAY_ENVIRONMENT;
+const isCi = !!process.env.CI;
 
 // Local dev: skip if file already exists
 if (existsSync(outPath) && !isCi) {
@@ -33,7 +33,7 @@ const config = {
   measurementId:       process.env.FIREBASE_MEASUREMENT_ID        || '',
 };
 
-// Validate required vars in CI/Railway
+// Validate required vars in CI
 if (isCi) {
   const required = {
     projectId:         'FIREBASE_PROJECT_ID',

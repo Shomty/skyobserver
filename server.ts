@@ -102,7 +102,7 @@ function rateLimit(req: express.Request, res: express.Response, next: express.Ne
 }
 
 /**
- * Number of reverse-proxy hops in front of the app (Railway ingress, nginx…).
+ * Number of reverse-proxy hops in front of the app (nginx in front of pm2).
  * Express then reads the client IP from the entry that hop appended to
  * X-Forwarded-For, so a client cannot spoof `req.ip` by sending its own header.
  * Set TRUST_PROXY_HOPS=0 when the app is reached directly.
