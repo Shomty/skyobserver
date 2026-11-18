@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Bot, Bookmark, CheckCircle2, Loader2 } from 'lucide-react';
+import { Bot, Bookmark, Check, CheckCircle2, Copy, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useCopyToClipboard } from '../../lib/useCopyToClipboard';
 
 export interface ChatMessageData {
   id: string;
@@ -21,6 +22,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, i
   const isDark = theme === 'dark';
   const isUser = message.role === 'user';
   const canSave = !!onSave && !isUser && message.id !== 'initial';
+  const proseRef = useRef<HTMLDivElement>(null);
+  const { copied, copy } = useCopyToClipboard();
+  const handleCopy = () => void copy(message.content, proseRef.current?.innerHTML);
+  const footerBtn = isDark
+    ? 'text-white/40 hover:text-white/60 hover:bg-white/5'
+    : 'text-ink-muted hover:text-ink-primary hover:bg-surface-muted';
 
   return (
     <div className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}>
@@ -40,7 +47,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, i
         {isUser ? (
           <p className={isDark ? 'text-white/95' : 'text-ink-primary'}>{message.content}</p>
         ) : (
-          <div className={cn(
+          <div ref={proseRef} className={cn(
             'prose prose-sm max-w-none',
             isDark
               ? 'prose-invert prose-headings:text-jyotish-gold prose-strong:text-jyotish-gold/90 prose-p:text-white/80 prose-li:text-white/80'
@@ -51,39 +58,49 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, i
         )}
 
         {canSave && (
-          <>
-            <button
-              onClick={() => onSave(message.content, message.id)}
-              disabled={message.isSaved || isSaving}
-              className={cn(
-                'absolute -right-8 top-0 p-1.5 rounded-full border opacity-0 group-hover:opacity-100 transition-all',
-                isDark
-                  ? 'bg-white/5 border-white/10 hover:bg-white/10'
-                  : 'bg-surface-card border-border-gold hover:bg-surface-muted shadow-sm',
-                message.isSaved && 'opacity-100 text-green-600'
-              )}
-              title={message.isSaved ? 'Saved to Journal' : 'Save to Journal'}
-            >
-              {message.isSaved ? (
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              ) : isSaving ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Bookmark className="w-3.5 h-3.5" />
-              )}
-            </button>
+          <button
+            onClick={() => onSave(message.content, message.id)}
+            disabled={message.isSaved || isSaving}
+            className={cn(
+              'absolute -right-8 top-0 p-1.5 rounded-full border opacity-0 group-hover:opacity-100 transition-all',
+              isDark
+                ? 'bg-white/5 border-white/10 hover:bg-white/10'
+                : 'bg-surface-card border-border-gold hover:bg-surface-muted shadow-sm',
+              message.isSaved && 'opacity-100 text-green-600'
+            )}
+            title={message.isSaved ? 'Saved to Journal' : 'Save to Journal'}
+          >
+            {message.isSaved ? (
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            ) : isSaving ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Bookmark className="w-3.5 h-3.5" />
+            )}
+          </button>
+        )}
 
-            <div className={cn('mt-3 pt-3 border-t flex justify-end', isDark ? 'border-white/5' : 'border-border-gold')}>
+        {!isUser && (
+          <div className={cn('mt-3 pt-3 border-t flex justify-end gap-1', isDark ? 'border-white/5' : 'border-border-gold')}>
+            <button
+              type="button"
+              onClick={handleCopy}
+              aria-label="Copy response"
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] uppercase tracking-wider font-mono transition-all',
+                copied ? 'text-green-600 bg-green-500/10' : footerBtn
+              )}
+            >
+              {copied ? <><Check className="w-3 h-3" />Copied</> : <><Copy className="w-3 h-3" />Copy</>}
+            </button>
+            {canSave && (
               <button
+                type="button"
                 onClick={() => onSave(message.content, message.id)}
                 disabled={message.isSaved || isSaving}
                 className={cn(
                   'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] uppercase tracking-wider font-mono transition-all',
-                  message.isSaved
-                    ? 'text-green-600 bg-green-500/10'
-                    : isDark
-                      ? 'text-white/40 hover:text-white/60 hover:bg-white/5'
-                      : 'text-ink-muted hover:text-ink-primary hover:bg-surface-muted'
+                  message.isSaved ? 'text-green-600 bg-green-500/10' : footerBtn
                 )}
               >
                 {message.isSaved ? (
@@ -94,8 +111,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, i
                   <><Bookmark className="w-3 h-3" />Save to Journal</>
                 )}
               </button>
-            </div>
-          </>
+            )}
+          </div>
         )}
       </div>
     </div>
