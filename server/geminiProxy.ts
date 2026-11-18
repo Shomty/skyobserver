@@ -6,7 +6,17 @@ import { DAY_MS, FixedWindowCounter, MINUTE_MS, positiveInt } from './mcp/limits
 import { QuotaExceededError } from './mcp/toolResult.ts';
 
 export const ALLOWED_MODELS = ['gemini-3-flash-preview'] as const;
-export const MAX_OUTPUT_TOKENS = 8192;
+/** Output budget when a request does not ask for one — what every caller got before In-depth chat. */
+export const DEFAULT_OUTPUT_TOKENS = 8192;
+/** Hard ceiling. Requests above DEFAULT_OUTPUT_TOKENS cost LONG_REQUEST_UNITS of daily quota. */
+export const MAX_OUTPUT_TOKENS = 16384;
+export const LONG_REQUEST_UNITS = 2;
+
+/** Daily quota units a sanitized request costs: long-output requests cost more. */
+export function quotaUnitsFor(params: GenerateContentParameters): number {
+  const max = params.config?.maxOutputTokens ?? DEFAULT_OUTPUT_TOKENS;
+  return max > DEFAULT_OUTPUT_TOKENS ? LONG_REQUEST_UNITS : 1;
+}
 
 const MAX_TEXT = 100_000;
 
@@ -49,7 +59,7 @@ export function sanitizeGeminiRequest(body: unknown): SanitizeResult {
     return { ok: false, error: `Request not allowed${where}: ${issue?.message ?? 'invalid'}` };
   }
   const { config, ...rest } = parsed.data;
-  const maxOutputTokens = Math.min(config?.maxOutputTokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS);
+  const maxOutputTokens = Math.min(config?.maxOutputTokens ?? DEFAULT_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS);
   return { ok: true, params: { ...rest, config: { ...config, maxOutputTokens } } as GenerateContentParameters };
 }
 
@@ -77,15 +87,17 @@ export type QuotaRefund = () => void;
 /**
  * Per-user minute and day windows plus a global daily circuit breaker on total
  * spend. Charging is all-or-nothing; the returned function refunds the charge.
+ * `units` weighs the day windows (long replies cost more); the minute window
+ * always counts one request.
  */
 export function createGeminiQuota(limits: GeminiLimits, now: () => number = Date.now) {
   const counter = new FixedWindowCounter(now);
-  return (user: Pick<AuthUser, 'uid' | 'emailVerified'>): QuotaRefund => {
+  return (user: Pick<AuthUser, 'uid' | 'emailVerified'>, units = 1): QuotaRefund => {
     const perDay = user.emailVerified ? limits.perUserPerDay : limits.unverifiedPerDay;
-    const charged: Array<[string, number]> = [];
-    const refund = () => charged.forEach(([key, window]) => counter.refund(key, window));
-    const charge = (key: string, span: number, limit: number, message: (resetIn: number) => string) => {
-      charged.push([key, counter.consume(key, span, limit, message)]);
+    const charged: Array<[string, number, number]> = [];
+    const refund = () => charged.forEach(([key, window, n]) => counter.refund(key, window, n));
+    const charge = (key: string, span: number, limit: number, message: (resetIn: number) => string, n = 1) => {
+      charged.push([key, counter.consume(key, span, limit, message, n), n]);
     };
     try {
       charge(`u|${user.uid}|m`, MINUTE_MS, limits.perUserPerMinute,
@@ -93,9 +105,11 @@ export function createGeminiQuota(limits: GeminiLimits, now: () => number = Date
       charge(`u|${user.uid}|d`, DAY_MS, perDay,
         () => user.emailVerified
           ? 'Daily AI limit reached for your account. It resets at 00:00 UTC.'
-          : 'Daily AI limit reached. Verify your email address for a higher limit.');
+          : 'Daily AI limit reached. Verify your email address for a higher limit.',
+        units);
       charge('global|d', DAY_MS, limits.globalPerDay,
-        () => 'The AI service has reached its daily capacity. Please try again tomorrow.');
+        () => 'The AI service has reached its daily capacity. Please try again tomorrow.',
+        units);
     } catch (error: unknown) {
       // Only the windows that were actually charged are given back.
       refund();
@@ -136,9 +150,10 @@ export function createGeminiProxyRouter({ ai, ipLimit, requireUser, limits, now 
       return;
     }
 
+    const units = quotaUnitsFor(sanitized.params);
     let refund: QuotaRefund;
     try {
-      refund = chargeQuota(user);
+      refund = chargeQuota(user, units);
     } catch (error: unknown) {
       if (error instanceof QuotaExceededError) {
         res.status(429).json({ error: error.message, code: 'quota' });
@@ -149,7 +164,16 @@ export function createGeminiProxyRouter({ ai, ipLimit, requireUser, limits, now 
 
     try {
       const response = await ai.models.generateContent(sanitized.params);
-      res.json({ text: response.text });
+      const meta = response.usageMetadata;
+      res.json({
+        text: response.text,
+        usage: {
+          promptTokens: meta?.promptTokenCount ?? 0,
+          cachedTokens: meta?.cachedContentTokenCount ?? 0,
+          outputTokens: meta?.candidatesTokenCount ?? 0,
+          units,
+        },
+      });
     } catch (error: unknown) {
       // The client retries 429/5xx; a failed call must not eat into the quota.
       refund();

@@ -1,12 +1,14 @@
 import React from 'react';
 import { Bot, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import type { ChatLength } from '../../lib/chatLength';
 
 interface TypingIndicatorProps {
   theme: 'dark' | 'light';
+  length?: ChatLength;
 }
 
-const TypingIndicator: React.FC<TypingIndicatorProps> = ({ theme }) => {
+const TypingIndicator: React.FC<TypingIndicatorProps> = ({ theme, length = 'standard' }) => {
   const isDark = theme === 'dark';
   return (
     <div className="flex gap-3 justify-start">
@@ -18,7 +20,9 @@ const TypingIndicator: React.FC<TypingIndicatorProps> = ({ theme }) => {
         isDark ? 'bg-white/5 border-white/10' : 'bg-surface-card border-border-gold'
       )}>
         <Loader2 className="w-4 h-4 animate-spin text-jyotish-gold" />
-        <span className={cn('text-xs', isDark ? 'text-white/40' : 'text-ink-muted')}>Consulting the stars…</span>
+        <span className={cn('text-xs', isDark ? 'text-white/40' : 'text-ink-muted')}>
+          {length === 'in_depth' ? 'Writing an in-depth report… this can take a minute' : 'Consulting the stars…'}
+        </span>
       </div>
     </div>
   );

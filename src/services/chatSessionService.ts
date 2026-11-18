@@ -23,6 +23,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import type { ChatMessageData } from '../components/chat/MessageBubble';
+import { isChatLength, type ChatLength } from '../lib/chatLength';
 
 export type ChatRole = 'user' | 'assistant';
 
@@ -32,6 +33,8 @@ export interface StoredChatMessage {
   createdAt: string;
   isSaved?: boolean;
   seq?: number;
+  /** Only stored for non-standard replies. */
+  length?: ChatLength;
 }
 
 export interface SessionMetadata {
@@ -81,6 +84,7 @@ export function mapMessageDoc(id: string, data: DocumentData): ChatMessageData |
     role: data.role,
     content: data.content,
     isSaved: Boolean(data.isSaved),
+    ...(isChatLength(data.length) ? { length: data.length } : {}),
   };
 }
 
@@ -152,6 +156,7 @@ export async function appendChatMessage(
       seq: nextSeq,
       serverCreatedAt: serverTimestamp(),
       ...(message.isSaved ? { isSaved: true } : {}),
+      ...(message.length && message.length !== 'standard' ? { length: message.length } : {}),
     });
 
     tx.update(sessionRef, {

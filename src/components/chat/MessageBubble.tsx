@@ -1,14 +1,16 @@
 import React, { useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { Bot, Bookmark, Check, CheckCircle2, Copy, Loader2 } from 'lucide-react';
+import { Bot, Bookmark, Check, CheckCircle2, Copy, Loader2, ScrollText, Sparkles } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useCopyToClipboard } from '../../lib/useCopyToClipboard';
+import type { ChatLength } from '../../lib/chatLength';
+import ChatMarkdown from './ChatMarkdown';
 
 export interface ChatMessageData {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   isSaved?: boolean;
+  length?: ChatLength;
 }
 
 interface MessageBubbleProps {
@@ -16,12 +18,19 @@ interface MessageBubbleProps {
   theme: 'dark' | 'light';
   onSave?: (content: string, id: string) => void;
   isSaving?: boolean;
+  /** Re-asks the question this reply answered as an In-depth report. */
+  onGoDeeper?: (id: string) => void;
+  /** True while any reply is being generated. */
+  isBusy?: boolean;
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, isSaving }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, isSaving, onGoDeeper, isBusy }) => {
   const isDark = theme === 'dark';
   const isUser = message.role === 'user';
   const canSave = !!onSave && !isUser && message.id !== 'initial';
+  const isWelcome = message.id === 'initial';
+  const isInDepth = message.length === 'in_depth';
+  const canGoDeeper = !!onGoDeeper && !isUser && !isInDepth && message.id !== 'initial';
   const proseRef = useRef<HTMLDivElement>(null);
   const { copied, copy } = useCopyToClipboard();
   const handleCopy = () => void copy(message.content, proseRef.current?.innerHTML);
@@ -37,7 +46,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, i
         </div>
       )}
       <div className={cn(
-        'relative group max-w-[85%] lg:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm',
+        'relative group rounded-2xl shadow-sm',
+        isUser
+          ? 'max-w-[85%] lg:max-w-[75%] px-4 py-3 text-sm leading-relaxed'
+          : 'max-w-[92%] lg:max-w-[80%] px-5 py-4 sm:px-6 sm:py-5',
         isUser
           ? 'bg-jyotish-gold/12 border border-jyotish-gold/25'
           : isDark
@@ -45,16 +57,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, i
             : 'bg-surface-card border border-border-gold'
       )}>
         {isUser ? (
-          <p className={isDark ? 'text-white/95' : 'text-ink-primary'}>{message.content}</p>
+          <p className={cn('whitespace-pre-wrap', isDark ? 'text-white/95' : 'text-ink-primary')}>{message.content}</p>
         ) : (
-          <div ref={proseRef} className={cn(
-            'prose prose-sm max-w-none',
-            isDark
-              ? 'prose-invert prose-headings:text-jyotish-gold prose-strong:text-jyotish-gold/90 prose-p:text-white/80 prose-li:text-white/80'
-              : 'prose-headings:text-jyotish-gold prose-strong:text-jyotish-gold prose-p:text-ink-secondary prose-li:text-ink-secondary prose-a:text-cosmic-deep'
-          )}>
-            <ReactMarkdown>{message.content}</ReactMarkdown>
-          </div>
+          <ChatMarkdown ref={proseRef} content={message.content} theme={theme} />
         )}
 
         {canSave && (
@@ -80,8 +85,27 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, theme, onSave, i
           </button>
         )}
 
-        {!isUser && (
-          <div className={cn('mt-3 pt-3 border-t flex justify-end gap-1', isDark ? 'border-white/5' : 'border-border-gold')}>
+        {!isUser && !isWelcome && (
+          <div className={cn('mt-4 pt-3 border-t flex flex-wrap items-center justify-end gap-1', isDark ? 'border-white/5' : 'border-border-gold')}>
+            {isInDepth && (
+              <span className="mr-auto flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider font-mono text-jyotish-gold bg-jyotish-gold/10">
+                <ScrollText className="w-3 h-3" />In-depth
+              </span>
+            )}
+            {canGoDeeper && (
+              <button
+                type="button"
+                onClick={() => onGoDeeper(message.id)}
+                disabled={isBusy}
+                title="Rewrite this answer as an in-depth report (uses 2 daily AI messages)"
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] uppercase tracking-wider font-mono transition-all disabled:opacity-40',
+                  footerBtn
+                )}
+              >
+                <Sparkles className="w-3 h-3" />Go deeper
+              </button>
+            )}
             <button
               type="button"
               onClick={handleCopy}

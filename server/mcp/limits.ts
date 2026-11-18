@@ -39,28 +39,34 @@ export class FixedWindowCounter {
   constructor(private readonly now: () => number = Date.now) {}
 
   /**
-   * Count one unit against `key`, or throw `QuotaExceededError` with
-   * `message(resetInSeconds)` when the window is full. Returns the window start
-   * (for `refund`).
+   * Count `units` against `key`, or throw `QuotaExceededError` with
+   * `message(resetInSeconds)` when they do not all fit in the window. Returns
+   * the window start (for `refund`).
    */
-  consume(key: string, spanMs: number, limit: number, message: (resetInSeconds: number) => string): number {
+  consume(
+    key: string,
+    spanMs: number,
+    limit: number,
+    message: (resetInSeconds: number) => string,
+    units = 1,
+  ): number {
     const t = this.now();
     const start = t - (t % spanMs);
     const current = this.windows.get(key);
     const window = current && current.start === start ? current : { start, count: 0 };
-    if (window.count >= limit) {
+    if (window.count + units > limit) {
       throw new QuotaExceededError(message(Math.ceil((start + spanMs - t) / 1000)));
     }
-    this.windows.set(key, { start, count: window.count + 1 });
+    this.windows.set(key, { start, count: window.count + units });
     this.prune(t);
     return start;
   }
 
-  /** Give back a unit, but only while the window it was charged to is still current. */
-  refund(key: string, chargedWindow: number): void {
+  /** Give back `units`, but only while the window they were charged to is still current. */
+  refund(key: string, chargedWindow: number, units = 1): void {
     const current = this.windows.get(key);
     if (current && current.start === chargedWindow && current.count > 0) {
-      this.windows.set(key, { ...current, count: current.count - 1 });
+      this.windows.set(key, { ...current, count: Math.max(0, current.count - units) });
     }
   }
 

@@ -6,9 +6,12 @@ import { createRequireFirebaseUser, type AuthUser } from '../firebaseAuth.ts';
 import {
   createGeminiProxyRouter,
   createGeminiQuota,
+  DEFAULT_OUTPUT_TOKENS,
   MAX_OUTPUT_TOKENS,
+  quotaUnitsFor,
   sanitizeGeminiRequest,
 } from '../geminiProxy.ts';
+import type { GenerateContentParameters } from '@google/genai';
 import { QuotaExceededError } from '../mcp/toolResult.ts';
 
 const MODEL = 'gemini-3-flash-preview';
@@ -26,7 +29,7 @@ const verify = vi.fn(async (token: string) => {
 describe('sanitizeGeminiRequest', () => {
   it('accepts the shapes the app sends and clamps the output budget', () => {
     const single = sanitizeGeminiRequest({ model: MODEL, contents: 'Hello', config: { temperature: 0.6 } });
-    expect(single).toMatchObject({ ok: true, params: { config: { temperature: 0.6, maxOutputTokens: MAX_OUTPUT_TOKENS } } });
+    expect(single).toMatchObject({ ok: true, params: { config: { temperature: 0.6, maxOutputTokens: DEFAULT_OUTPUT_TOKENS } } });
 
     const chat = sanitizeGeminiRequest({
       model: MODEL,
@@ -91,6 +94,36 @@ describe('createGeminiQuota', () => {
   });
 });
 
+describe('long-output requests', () => {
+  const params = (maxOutputTokens?: number) => {
+    const result = sanitizeGeminiRequest({ model: MODEL, contents: 'x', config: maxOutputTokens ? { maxOutputTokens } : {} });
+    if ('error' in result) throw new Error(result.error);
+    return result.params as GenerateContentParameters;
+  };
+
+  it('costs 1 unit up to the default budget and 2 above it', () => {
+    expect(quotaUnitsFor(params())).toBe(1);
+    expect(quotaUnitsFor(params(DEFAULT_OUTPUT_TOKENS))).toBe(1);
+    expect(quotaUnitsFor(params(DEFAULT_OUTPUT_TOKENS + 1))).toBe(2);
+    expect(quotaUnitsFor(params(MAX_OUTPUT_TOKENS))).toBe(2);
+  });
+
+  it('clamps anything above the ceiling', () => {
+    expect(params(1_000_000).config?.maxOutputTokens).toBe(MAX_OUTPUT_TOKENS);
+  });
+
+  it('charges the day windows by units, refunds them all, and keeps the minute window at 1', () => {
+    const charge = createGeminiQuota({ perUserPerMinute: 10, perUserPerDay: 3, unverifiedPerDay: 3, globalPerDay: 100 }, () => 0);
+    const user = { uid: 'deep', emailVerified: true };
+    const refund = charge(user, 2);
+    expect(() => charge(user, 2)).toThrow(/Daily AI limit/); // 2 + 2 > 3
+    refund();
+    charge(user, 2);
+    charge(user, 1); // 2 + 1 = 3 still fits
+    expect(() => charge(user, 1)).toThrow(/Daily AI limit/);
+  });
+});
+
 describe('every real call-site shape passes the allowlist', () => {
   const chat = [
     { role: 'user', parts: [{ text: 'Earlier question' }] },
@@ -100,6 +133,7 @@ describe('every real call-site shape passes the allowlist', () => {
   const cases: Record<string, unknown> = {
     'App.tsx transit interpretation': { model: MODEL, contents: [chat[0]], config: { systemInstruction: 'sys', temperature: 0.7 } },
     'AIAssistant / AIChatPage chat': { model: MODEL, contents: chat, config: { systemInstruction: 'sys', temperature: 0.7, topP: 0.95, topK: 40 } },
+    'AIChatPage in-depth chat': { model: MODEL, contents: chat, config: { systemInstruction: 'sys', temperature: 0.7, topP: 0.95, topK: 40, maxOutputTokens: 16384 } },
     'DataDashboard insights': { model: MODEL, contents: [chat[0]], config: { temperature: 0.75, topP: 0.9, topK: 40 } },
     'DataDashboard JSON array schema': { model: MODEL, contents: [chat[0]], config: { responseMimeType: 'application/json', responseSchema: { type: 'ARRAY', items: { type: 'OBJECT' } } } },
     'geminiService JSON reports': { model: MODEL, contents: 'prompt', config: { responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', properties: {} } } },
@@ -155,10 +189,13 @@ describe('POST /api/gemini', () => {
   it('forwards an allowlisted request for a signed-in user', async () => {
     const res = await post({ model: MODEL, contents: 'hi', config: { temperature: 0.7 } }, 'token-ana');
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ text: 'An answer.' });
+    expect(await res.json()).toEqual({
+      text: 'An answer.',
+      usage: { promptTokens: 0, cachedTokens: 0, outputTokens: 0, units: 1 },
+    });
     expect(generateContent).toHaveBeenCalledWith(expect.objectContaining({
       model: MODEL,
-      config: { temperature: 0.7, maxOutputTokens: MAX_OUTPUT_TOKENS },
+      config: { temperature: 0.7, maxOutputTokens: DEFAULT_OUTPUT_TOKENS },
     }));
   });
 

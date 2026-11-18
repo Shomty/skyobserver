@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { limitsFromEnv, UsageLimiter } from '../limits.ts';
+import { FixedWindowCounter, limitsFromEnv, UsageLimiter } from '../limits.ts';
 import { QuotaExceededError } from '../toolResult.ts';
 
 const DAY = 86_400_000;
@@ -57,5 +57,18 @@ describe('limitsFromEnv', () => {
       .toEqual({ calcPerMinute: 120, reportsPerDay: 50 });
     expect(limitsFromEnv({ MCP_CALC_PER_MINUTE: '30', MCP_REPORTS_PER_DAY: '5' }))
       .toEqual({ calcPerMinute: 30, reportsPerDay: 5 });
+  });
+});
+
+describe('FixedWindowCounter units', () => {
+  it('consumes and refunds several units at once, all-or-nothing', () => {
+    const counter = new FixedWindowCounter(() => 0);
+    const msg = () => 'full';
+    const w = counter.consume('k', DAY, 3, msg, 2);
+    expect(() => counter.consume('k', DAY, 3, msg, 2)).toThrow('full');
+    counter.consume('k', DAY, 3, msg, 1);
+    expect(() => counter.consume('k', DAY, 3, msg, 1)).toThrow('full');
+    counter.refund('k', w, 2);
+    expect(() => counter.consume('k', DAY, 3, msg, 2)).not.toThrow();
   });
 });

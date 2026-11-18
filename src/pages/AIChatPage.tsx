@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, MessageSquare, Plus, Trash2, Sparkles, Menu, ChevronDown, Check, Users, Loader2, Printer, Share2 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -19,20 +19,23 @@ import {
 import { migrateEmbeddedMessagesToSubcollection } from '../services/chatMessagesMigrationService';
 import ChatPrintView from '../components/chat/ChatPrintView';
 import ShareChatModal from '../components/chat/ShareChatModal';
-import { callGeminiProxy, getErrorMessage } from '../lib/api-utils';
+import { getErrorMessage } from '../lib/api-utils';
 import { PlanetPosition, Yoga, TransitEvent, PanchangData, calculatePositions, detectYogas, calculatePanchang, calculateSpecialPointsV2, getBirthInfo, RASHIS } from '../vedic-utils';
 import { fetchPlanetPositions } from '../services/positionsService';
 import type { User } from 'firebase/auth';
 import { format } from 'date-fns';
 import MessageBubble, { ChatMessageData } from '../components/chat/MessageBubble';
 import TypingIndicator from '../components/chat/TypingIndicator';
-import EmptyState from '../components/chat/EmptyState';
+import StarterPrompts from '../components/chat/StarterPrompts';
+import { WELCOME_MESSAGE } from '../components/chat/welcomeMessage';
 import ChatInput from '../components/chat/ChatInput';
-import { buildSystemInstruction, ChatContextProps } from '../lib/chatUtils';
+import type { ChatContextProps } from '../lib/chatUtils';
+import { type ChatLength, goDeeperLabel } from '../lib/chatLength';
+import { findGoDeeperTarget, requestChatReply } from '../services/chatReplyService';
+import { ChatLengthToggle, useChatLength } from '../components/chat/ChatLengthToggle';
 import { migrateLegacyFlatChats } from '../services/chatMigrationService';
 import { debugError, debugLog, debugWarn } from '../lib/debug';
 import type { ChildProfile } from './ProfilesPage';
-import { recentChatHistory } from '../lib/chatHistory';
 
 /** Both flat→session and embedded→subcollection migrations complete. */
 const CHAT_MIGRATION_VERSION = 3;
@@ -92,6 +95,8 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
   const [input, setInput] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [chatLength, setChatLength] = useChatLength(user.uid);
+  const [pendingLength, setPendingLength] = useState<ChatLength>('standard');
   const [chatError, setChatError] = useState<string | null>(null);
   const [indexWarning, setIndexWarning] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
@@ -393,11 +398,6 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
     birthSpecialPoints: activeChildProfile ? chatBirthSpecialPoints : birthSpecialPoints,
   };
 
-  const getSystemInstruction = useCallback(
-    () => buildSystemInstruction(chatCtx),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [userProfile, resolvedSubjectName, referenceDate.getTime(), locationLabel, chatBirthPositions, chatBirthYogas, chatBirthPanchang, chatBirthSpecialPoints, birthPositions, birthYogas, birthPanchang, transitPositions, yogas, transits, panchang, birthSpecialPoints, chatSubjectProfileId]
-  );
 
   const createNewSession = async () => {
     const sessionId = await createChatSession(db, user.uid, {
@@ -414,13 +414,21 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
     if (activeSessionId === sessionId) setActiveSessionId(null);
   };
 
-  const sendMessage = async (text?: string) => {
-    const userMessage = (text ?? input).trim();
-    if (!userMessage || isLoading) return;
+  interface ReplyJob {
+    /** What the transcript shows as the user's turn. */
+    displayText: string;
+    /** What the model is asked. */
+    question: string;
+    priorMessages: ReadonlyArray<ChatMessageData>;
+    length: ChatLength;
+    /** Restored into the input if the session could not even be created. */
+    restoreInput?: string;
+  }
 
+  const generateReply = async ({ displayText, question, priorMessages, length, restoreInput }: ReplyJob) => {
     setChatError(null);
-    setInput('');
     setIsLoading(true);
+    setPendingLength(length);
 
     let sessionId = activeSessionId;
 
@@ -428,50 +436,33 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
       // Create or retrieve the session document
       if (!sessionId) {
         sessionId = await createChatSession(db, user.uid, {
-          title: userMessage.slice(0, 60),
+          title: question.slice(0, 60),
           subjectName: resolvedSubjectName ?? null,
         });
         setActiveSessionId(sessionId);
       } else if (messages.length === 0) {
         await touchChatSession(db, user.uid, sessionId, {
-          title: userMessage.slice(0, 60),
+          title: question.slice(0, 60),
         });
       }
 
-      const historySnapshot = recentChatHistory(messages);
-      const now = new Date().toISOString();
-
       await appendChatMessage(db, user.uid, sessionId, {
         role: 'user',
-        content: userMessage,
-        createdAt: now,
+        content: displayText,
+        createdAt: new Date().toISOString(),
       });
 
-      const aiResponse = await callGeminiProxy({
-        model: 'gemini-3-flash-preview',
-        contents: [
-          ...historySnapshot.map(m => ({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: m.content }],
-          })),
-          { role: 'user', parts: [{ text: userMessage }] },
-        ],
-        config: {
-          systemInstruction: getSystemInstruction(),
-          temperature: 0.7,
-          topP: 0.95,
-          topK: 40,
-        },
-      });
+      const aiResponse = await requestChatReply({ priorMessages, question, ctx: chatCtx, length });
 
       await appendChatMessage(db, user.uid, sessionId, {
         role: 'assistant',
         content: aiResponse,
         createdAt: new Date().toISOString(),
+        length,
       });
-      debugLog('ai-chat', 'Persisted assistant reply', { sessionId, chars: aiResponse.length });
+      debugLog('ai-chat', 'Persisted assistant reply', { sessionId, length, chars: aiResponse.length });
     } catch (error) {
-      debugError('ai-chat', 'sendMessage failed', { sessionId, error });
+      debugError('ai-chat', 'generateReply failed', { sessionId, length, error });
       const friendlyMsg = getErrorMessage(error);
       if (sessionId) {
         try {
@@ -486,11 +477,36 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
         }
       } else {
         setChatError(friendlyMsg);
-        setInput(userMessage);
+        if (restoreInput) setInput(restoreInput);
       }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const sendMessage = async (text?: string) => {
+    const userMessage = (text ?? input).trim();
+    if (!userMessage || isLoading) return;
+    setInput('');
+    await generateReply({
+      displayText: userMessage,
+      question: userMessage,
+      priorMessages: messages,
+      length: chatLength,
+      restoreInput: userMessage,
+    });
+  };
+
+  const goDeeper = async (assistantId: string) => {
+    if (isLoading) return;
+    const target = findGoDeeperTarget(messages, assistantId);
+    if (!target) return;
+    await generateReply({
+      displayText: goDeeperLabel(target.question),
+      question: target.question,
+      priorMessages: target.priorMessages as ChatMessageData[],
+      length: 'in_depth',
+    });
   };
 
   const saveInterpretation = async (content: string, messageId: string) => {
@@ -791,23 +807,25 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
             "flex-1 overflow-y-auto custom-scrollbar",
             !isDark && "bg-surface-base"
           )}>
-            {!activeSessionId && messages.length === 0 ? (
-              <EmptyState theme={theme} onSelectPrompt={(p) => sendMessage(p)} />
-            ) : (
-              <div className="p-4 lg:p-6 space-y-4 max-w-4xl mx-auto w-full">
-                {messages.map(msg => (
-                  <MessageBubble
-                    key={msg.id}
-                    message={msg}
-                    theme={theme}
-                    onSave={saveInterpretation}
-                    isSaving={savingId === msg.id}
-                  />
-                ))}
-                {isLoading && <TypingIndicator theme={theme} />}
-                <div ref={messagesEndRef} />
-              </div>
-            )}
+            <div className="p-4 lg:p-6 space-y-5 max-w-4xl mx-auto w-full">
+              <MessageBubble message={WELCOME_MESSAGE} theme={theme} />
+              {messages.length === 0 && !isLoading && (
+                <StarterPrompts theme={theme} onSelectPrompt={(p) => sendMessage(p)} />
+              )}
+              {messages.map((msg) => (
+                <MessageBubble
+                  key={msg.id}
+                  message={msg}
+                  theme={theme}
+                  onSave={saveInterpretation}
+                  isSaving={savingId === msg.id}
+                  onGoDeeper={goDeeper}
+                  isBusy={isLoading}
+                />
+              ))}
+              {isLoading && <TypingIndicator theme={theme} length={pendingLength} />}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
 
           {/* Input Bar */}
@@ -815,7 +833,8 @@ const AIChatPage: React.FC<AIChatPageProps> = ({
             "flex-shrink-0 p-4 border-t",
             isDark ? "bg-black/20 border-white/5" : "bg-surface-card border-border-gold"
           )}>
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-4xl mx-auto space-y-2">
+              <ChatLengthToggle value={chatLength} onChange={setChatLength} theme={theme} disabled={isLoading} />
               <ChatInput
                 value={input}
                 onChange={setInput}

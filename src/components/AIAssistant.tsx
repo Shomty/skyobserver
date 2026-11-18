@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PlanetPosition, Yoga, TransitEvent, PanchangData } from '../vedic-utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Sparkles, Bot } from 'lucide-react';
@@ -9,8 +9,11 @@ import {
   collection, addDoc, serverTimestamp, doc, onSnapshot,
   query, orderBy, limit,
 } from 'firebase/firestore';
-import { callGeminiProxy, getErrorMessage } from '../lib/api-utils';
-import { buildSystemInstruction, ChatContextProps } from '../lib/chatUtils';
+import { getErrorMessage } from '../lib/api-utils';
+import type { ChatContextProps } from '../lib/chatUtils';
+import { type ChatLength, goDeeperLabel } from '../lib/chatLength';
+import { findGoDeeperTarget, requestChatReply } from '../services/chatReplyService';
+import { ChatLengthToggle, useChatLength } from './chat/ChatLengthToggle';
 import {
   appendChatMessage,
   createChatSession,
@@ -23,10 +26,10 @@ import {
 import { debugError } from '../lib/debug';
 import MessageBubble, { ChatMessageData } from './chat/MessageBubble';
 import TypingIndicator from './chat/TypingIndicator';
-import EmptyState from './chat/EmptyState';
+import StarterPrompts from './chat/StarterPrompts';
+import { WELCOME_MESSAGE } from './chat/welcomeMessage';
 import ChatInput from './chat/ChatInput';
 import type { User } from 'firebase/auth';
-import { recentChatHistory } from '../lib/chatHistory';
 
 export interface AIAssistantProps {
   user: User | null;
@@ -65,6 +68,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [chatLength, setChatLength] = useChatLength(user?.uid);
+  const [pendingLength, setPendingLength] = useState<ChatLength>('standard');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -144,11 +149,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     birthSpecialPoints,
   };
 
-  const systemInstruction = useCallback(
-    () => buildSystemInstruction(chatCtx),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [userProfile, referenceDate.getTime(), locationLabel, positions, birthPositions, birthYogas, yogas, transits, birthPanchang, panchang, birthSpecialPoints]
-  );
 
   const saveInterpretation = async (content: string, messageId: string) => {
     if (!user) return;
@@ -171,61 +171,51 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     }
   };
 
-  const sendMessage = async (text?: string) => {
-    const userMessage = (text ?? input).trim();
-    if (!userMessage || isLoading || !user) return;
+  interface ReplyJob {
+    displayText: string;
+    question: string;
+    priorMessages: ReadonlyArray<ChatMessageData>;
+    length: ChatLength;
+    restoreInput?: string;
+  }
 
+  const generateReply = async ({ displayText, question, priorMessages, length, restoreInput }: ReplyJob) => {
+    if (!user) return;
     setChatError(null);
-    setInput('');
     setIsLoading(true);
+    setPendingLength(length);
 
     let sessionId = activeSessionId;
 
     try {
       if (!sessionId) {
         sessionId = await createChatSession(db, user.uid, {
-          title: userMessage.slice(0, 60),
+          title: question.slice(0, 60),
           subjectName: null,
         });
         setActiveSessionId(sessionId);
       } else if (messages.length === 0) {
         await touchChatSession(db, user.uid, sessionId, {
-          title: userMessage.slice(0, 60),
+          title: question.slice(0, 60),
         });
       }
 
-      const historySnapshot = recentChatHistory(messages);
-      const now = new Date().toISOString();
-
       await appendChatMessage(db, user.uid, sessionId, {
         role: 'user',
-        content: userMessage,
-        createdAt: now,
+        content: displayText,
+        createdAt: new Date().toISOString(),
       });
 
-      const aiResponse = await callGeminiProxy({
-        model: 'gemini-3-flash-preview',
-        contents: [
-          ...historySnapshot.map(m => ({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: m.content }],
-          })),
-          { role: 'user', parts: [{ text: userMessage }] },
-        ],
-        config: {
-          systemInstruction: systemInstruction(),
-          temperature: 0.7,
-          topP: 0.95,
-          topK: 40,
-        },
-      });
+      const aiResponse = await requestChatReply({ priorMessages, question, ctx: chatCtx, length });
 
       await appendChatMessage(db, user.uid, sessionId, {
         role: 'assistant',
         content: aiResponse,
         createdAt: new Date().toISOString(),
+        length,
       });
     } catch (error) {
+      debugError('ai-assistant', 'generateReply failed', { sessionId, length, error });
       const friendlyMsg = getErrorMessage(error);
       if (sessionId) {
         try {
@@ -234,16 +224,42 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
             content: `I encountered an error: ${friendlyMsg}. Please try again.`,
             createdAt: new Date().toISOString(),
           });
-        } catch {
+        } catch (persistErr) {
+          debugError('ai-assistant', 'Failed to persist error message', persistErr);
           setChatError(friendlyMsg);
         }
       } else {
         setChatError(friendlyMsg);
-        setInput(userMessage);
+        if (restoreInput) setInput(restoreInput);
       }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const sendMessage = async (text?: string) => {
+    const userMessage = (text ?? input).trim();
+    if (!userMessage || isLoading || !user) return;
+    setInput('');
+    await generateReply({
+      displayText: userMessage,
+      question: userMessage,
+      priorMessages: messages,
+      length: chatLength,
+      restoreInput: userMessage,
+    });
+  };
+
+  const goDeeper = async (assistantId: string) => {
+    if (isLoading) return;
+    const target = findGoDeeperTarget(messages, assistantId);
+    if (!target) return;
+    await generateReply({
+      displayText: goDeeperLabel(target.question),
+      question: target.question,
+      priorMessages: target.priorMessages as ChatMessageData[],
+      length: 'in_depth',
+    });
   };
 
   return (
@@ -339,29 +355,33 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
             )}
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              {messages.length === 0 && !isLoading ? (
-                <EmptyState theme={theme} onSelectPrompt={(p) => sendMessage(p)} />
-              ) : (
-                <div className="p-4 space-y-4">
-                  {messages.map((msg) => (
-                    <MessageBubble
-                      key={msg.id}
-                      message={msg}
-                      theme={theme}
-                      onSave={saveInterpretation}
-                      isSaving={savingId === msg.id}
-                    />
-                  ))}
-                  {isLoading && <TypingIndicator theme={theme} />}
-                  <div ref={messagesEndRef} />
-                </div>
-              )}
+              <div className="p-4 space-y-5">
+                <MessageBubble message={WELCOME_MESSAGE} theme={theme} />
+                {messages.length === 0 && !isLoading && (
+                  <StarterPrompts theme={theme} onSelectPrompt={(p) => sendMessage(p)} />
+                )}
+                {messages.map((msg) => (
+                  <MessageBubble
+                    key={msg.id}
+                    message={msg}
+                    theme={theme}
+                    onSave={saveInterpretation}
+                    isSaving={savingId === msg.id}
+                    onGoDeeper={goDeeper}
+                    isBusy={isLoading}
+                  />
+                ))}
+                {isLoading && <TypingIndicator theme={theme} length={pendingLength} />}
+                <div ref={messagesEndRef} />
+              </div>
             </div>
 
             <div className={cn(
               'flex-shrink-0 p-4 border-t transition-colors duration-500 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:pb-4',
               isDark ? 'border-white/5 bg-black/20' : 'border-slate-100 bg-slate-50'
             )}>
+              <ChatLengthToggle value={chatLength} onChange={setChatLength} theme={theme} disabled={isLoading} />
+              <div className="h-2" />
               <ChatInput
                 value={input}
                 onChange={setInput}
